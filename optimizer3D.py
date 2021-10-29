@@ -1,35 +1,31 @@
-# A 375 LINE CODE FOR TOPOLOGY OPTIMIZATION OF A FORCE INVERTER BY LUC PREVOST, 2021
+# A 257 LINE CODE FOR TOPOLOGY OPTIMIZATION OF A FORCE INVERTER BY LUC PREVOST, 2021
 from __future__ import division      # To support py2 & py3
 import numpy as np
 from scipy.sparse import coo_matrix  # Provides good N-dimensional array manipulation
 from scipy.sparse.linalg import spsolve
 import matplotlib.pyplot as plt      # Plot
-# import cvxopt                        # Convex Optimization
-# import cvxopt.cholmod
 from mpl_toolkits.mplot3d import Axes3D
-import time
 
-def optimize(nelx, nely, nelz, volfrac, fix, fiy, fiz, a1, fox, foy, foz, a2, s1x, s1y, s1z, d1, s2x, s2y, s2z, d2, E, nu):
+def optimize(nelxyz, volfrac, c, r, v, fx, fy, fz, a, fv, sx, sy, sz, dim, E, nu, n_it):
     # Initialization
-    rmin = 1.3
-    penal = 3.0
-    ft = 0
-    nel = nelx*nely
+    rmin = 1.3 # Filter radius
+    penal = 3.0 # Penalizer coefficient
+    ft = 0 # Filter method
+    (nelx, nely, nelz) = (nelxyz[0], nelxyz[1], nelxyz[2])
+    nel = nelx*nely*nelz # Total number of element
+    # Print text
     print("Minimum compliance problem with OC")
-    print("ndes: " + str(nelx) + " x " + str(nely) + " x " + str(nelz))
-    print("volfrac: " + str(volfrac) + ", rmin: " + str(rmin) + ", penal: " + str(penal))
     print("Filter method: " + ["Sensitivity based","Density based"][ft])
     penal = 3
-    Emin = 1e-9 # min stifness
-    Emax = 1.0 # max stifness
-    ndof = 3*(nelx+1)*(nely+1)*(nelz+1) # dofs
-    nel = nelx*nely*nelz #number of element<230000
+    (Emin, Emax) = (1e-9, E) #Min/Max stifness
+    ndof = 3*(nelx+1)*(nely+1)*(nelz+1) # Total number of degree of freedom
+    nel = nelx*nely*nelz # Total number of element (<230000)
     # Allocate design variables (as array), initialize and allocate sens.
     x = volfrac*np.ones(nel,dtype=float)
-    xold = x.copy()
-    xPhys = x.copy()
+    (xold, xPhys) = (x.copy(), x.copy())
     g = 0 # must be initialized to use the NGuyen/Paulino OC approach
     dc=np.zeros((nelz,nely,nelx), dtype=float)
+    # Contruct the element stifness matrix
     KE=lk(E, nu)
     edofMat=np.zeros((nel,24),dtype=int)
     for el in range (nel):
@@ -47,9 +43,7 @@ def optimize(nelx, nely, nelz, volfrac, fix, fiy, fiz, a1, fox, foy, foz, a2, s1
     jK = np.kron(edofMat,np.ones((1, 24))).flatten()
     # Filter: Build (and assemble) the index+data vectors for the coo matrix format
     nfilter = int(nel*(2*(np.ceil(rmin)-1)+1)**3)
-    iH = np.zeros(nfilter)
-    jH = np.zeros(nfilter)
-    sH = np.zeros(nfilter)
+    (iH, jH, sH) = (np.zeros(nfilter), np.zeros(nfilter), np.zeros(nfilter))
     cc = 0
     for elx in range(nelx):
         for ely in range(nely):
@@ -66,82 +60,75 @@ def optimize(nelx, nely, nelz, volfrac, fix, fiy, fiz, a1, fox, foy, foz, a2, s1
                         for j in range(jj1,jj2):
                             el2 = k * nelx*nely + i*nely + j
                             fac = rmin-np.sqrt(((elx-i)*(elx-i)+(ely-j)*(ely-j)+(elz-k)*(elz-k)))
-                            iH[cc] = el1
-                            jH[cc] = el2
-                            sH[cc] = np.maximum(0.0,fac)
+                            (iH[cc], jH[cc], sH[cc]) = (el1, el2, np.maximum(0.0,fac))
                             cc += 1
     # Finalize assembly and convert to csc format
     H=coo_matrix((sH,(iH,jH)),shape=(nel,nel)).tocsc()
     Hs=H.sum(1)
-    # BC's and support
+    # Support
     dofs = np.arange(ndof)
-    s = [0, 3*nely, 3*(nelx+1)*(nely+1)-3, 3*nelx*(nely+1)]
-    #s = [0, 3*nely]
-    ns = len(s)
-    for i in range (ns):
-        fixed = np.arange(s[0], s[0]+3) if i == 0 else np.union1d(fixed, np.arange(s[i], s[i]+3))
-    free = np.setdiff1d(dofs,fixed)
-    # Set load for a FORCE INVERTER (or a keybord key for din=dout)
-    shift = nelx//20
-    # din = 2*(self.fiy + self.fix*(self.nely+1) + self.fiz*(self.nelx+1)*(self.nely+1)) + (self.a1 == '↑' or self.a1 == '↓')
-    # dout = 2*(self.foy + self.fox*(self.nely+1) + self.foz*(self.nelx+1)*(self.nely+1)) + (self.a2 == '↑' or self.a2 == '↓')
-    d = [3*(((nely+1)*(nelx+1))//2+shift*(nely+1)*(nelx+1))+2,\
-          ndof-3*(((nely+1)*(nelx+1))//2+shift*(nely+1)*(nelx+1)+1)+2] # [din, dout]
-    dVal = [4/100, -4/100] # [dinVal, doutVal]
-    # Set load for a SWICH
-    # d = [3*((nely+1)//2+nelz*(nely+1)*(nelx+1))+2,\
-    #      din+3*((nely+1)*(nelx)) # [din, dout]
-    # dVal = [-4/10, 4/10] # [dinVal, doutVal]
-    # Set load for a GRIPPER
-    # d = [3*((nely+1)//2+nelz*(nely+1)*(nelx+1))+2,\
-    #       3*((nely+1)//2+(nely+1)*(nelx))+2,\
-    #       3*((nelz//2)*(nely+1)*(nelx+1)-(nely+1)//2)-1]
-    # dVal = [-4/10, 4/10, -4/10]
-    # Set load for a GRIPPER 2D
-    # d = [3*(nelz*(nely+1)*(nelx+1))+2,\
-    #      3*(nelz//2+1)*(nely+1)-1]
-    # dVal = [-4/10, +4/10]
-    nf = len(d) # number of force: 1 in & 1 out
+    fixed = []
+    for i in range(len(sx)):
+        if dim[i] != '-':
+            if dim[i] == 'X' or dim[i] == 'XYZ':
+                fixed.append(2*(sy[i] + sx[i]*(nely+1) + sz[i]*(nelx+1)*(nely+1)))
+            if dim[i] == 'Y' or dim[i] == 'XYZ':
+                fixed.append(2*(sy[i] + sx[i]*(nely+1) + sz[i]*(nelx+1)*(nely+1))+1)
+            if dim[i] == 'Z' or dim[i] == 'XYZ':
+                fixed.append(2*(sy[i] + sx[i]*(nely+1) + sz[i]*(nelx+1)*(nely+1))+2)
+    free = np.setdiff1d(dofs, fixed)
+    # Forces
+    d = [2*(fy[0] + fx[0]*(nely+1) + fz[0]*(nelx+1)*(nely+1)) + (a[0] == '↑' or a[0] == '↓'), # In
+          2*(fy[1] + fx[1]*(nely+1) + fz[1]*(nelx+1)*(nely+1)) + (a[1] == '↑' or a[1] == '↓'), # Out 1
+          2*(fy[2] + fx[2]*(nely+1) + fz[2]*(nelx+1)*(nely+1)) + (a[2] == '↑' or a[2] == '↓')] # Out 2
+    dVal = [0, 0, 0]
+    nf = len(dVal)
+    for i in range(nf):
+        if a[i] == 'X:→': dVal[i] = +4/100
+        if a[i] == 'X:←': dVal[i] = -4/100
+        if a[i] == 'Y:↑': dVal[i] = +4/100
+        if a[i] == 'Y:↓': dVal[i] = -4/100
+        if a[i] == 'Z:<': dVal[i] = +4/100
+        if a[i] == 'Z:>': dVal[i] = -4/100
     for i in range(nf):
         Fi = coo_matrix((np.array([dVal[i]]), (np.array([d[i]]), np.array([0]))), shape=(ndof, 1)).toarray()
         f = Fi if i == 0 else np.concatenate((f, Fi), axis=1)
-    # Solution and RHS vectors
+    # Solution displacement
     u = np.zeros((ndof,nf))
-    # Conditions
-    passive = np.zeros(nel)
-    # (xc, yc, zc) = [nelx/2, nely/2, 2*nelz/3]
-    # for el in range(nel):
-    #     (xe, ye, ze) = getCoordinates(el, 1, nelx, nely, nelz)
-    #     if np.sqrt((xe-xc)**2+(ye-yc)**2+(ze-zc)**2) < 5: # circle
-    #         passive[el] = 2 # 0:free 1:void 2:material
     # Set loop counter and gradient vectors
     loop = 0
     loop_max = 40
     change = 1
     obj = np.ones(loop_max)
-    dv = np.ones(nel)
-    dc = np.ones(nel)
-    ce = np.ones(nel)
-    while change > 0.01 and loop < loop_max:
-        t0 = time.time()
+    (dv, dc, ce) = (np.ones(nel), np.ones(nel), np.ones(nel))
+    # Optimization loop
+    while change > 0.04 and loop < n_it:
+        # Set void
+        if v != '-':
+            for k in range(c[2]-int(r), c[2]+int(r)+1):
+                for j in range(c[1]-int(r), c[1]+int(r)+1):
+                    for i in range(c[0]-int(r), c[0]+int(r)+1):
+                        if 0 <= i < nelx and 0 <= j < nely and 0 <= k < nelz:
+                            if v == '○' and (c[0]-i)**2+(c[1]-j)**2+(c[2]-k)**2<=r**2:
+                                xPhys[j+i*nely+k*(nelx*nely)] = 0
+                            elif v == '□':
+                                xPhys[j+i*nely] = 0
         loop += 1
         # Setup and solve FE problem
         sK = ((KE.flatten()[np.newaxis]).T*(Emin+(xPhys)**penal*(Emax-Emin))).flatten(order='F')
         K = coo_matrix((sK,(iK,jK)),shape=(ndof,ndof)).tocsc()
         # Add artificial spring resistance to force the mechanism to make a stiff structure
-        for i in range(nf):
-            K[d[i], d[i]] += 0.01
-        # Solve without cvxopt
+        K[d[0], d[0]] += fv[0]
+        if a[1] != '-':
+            K[d[1], d[1]] += fv[1]
+        if a[2] != '-':
+            K[d[2], d[2]] += fv[2]
+        # Remove constrained dofs from matrix
         K = K[free,:][:,free]
-        u[free,0]=spsolve(K,f[free,0])
-        # Remove constrained dofs from matrix and convert to coo
-        # K = deleterowcol(K,fixed,fixed).tocoo()
-        # # Solve system
-        # K = cvxopt.spmatrix(K.data,K.row.astype(np.int),K.col.astype(np.int))
-        # for i in range(nf):
-        #     B = cvxopt.matrix(f[free,i])
-        #     cvxopt.cholmod.linsolve(K,B) # KX=B, on exit B contains the solution
-        #     u[free,i]=np.array(B)[:,0]
+        # Solve system
+        u[free, 0]=spsolve(K, f[free, 0])
+        if a[1] != '-': u[free, 1] = spsolve(K, f[free, 1])
+        if a[2] != '-': u[free, 2] = spsolve(K, f[free, 2])
         # Objective and sensitivity
         obj[loop-1] = u[d[nf-1]][0]
         dc = np.zeros((nel))
@@ -156,15 +143,17 @@ def optimize(nelx, nely, nelz, volfrac, fix, fiy, fiz, a1, fox, foy, foz, a2, s1
                     [3*n2],   [3*n2+1], [3*n2+2], [3*n1],   [3*n1+1], [3*n1+2],
                     [3*n3+3], [3*n3+4], [3*n3+5], [3*n4+3], [3*n4+4], [3*n4+5],
                     [3*n4],   [3*n4+1], [3*n4+2], [3*n3],   [3*n3+1], [3*n3+2]]
-            # Ue1 = u[coef, [0]]
-            # Ue2 = u[coef, [1]]
-            # ce = np.squeeze(np.dot(np.dot(Ue1.transpose(), KE).reshape(24), Ue2))
-            # dc[el] = penal*xPhys[el]**(penal-1)*ce
-            for i in range(nf-1):
-                ce = np.squeeze(np.dot(np.dot(u[coef, [0]].transpose(), KE).reshape(24), u[coef, [i+1]]))
-                if loop == loop_max:
-                    Ct[el] = ce
-                dc[el] += penal*xPhys[el]**(penal-1)*ce
+            Ue1 = u[coef, [0]]
+            if a[1] != '-':
+                Ue2 = u[coef, [1]]
+                ce = np.squeeze(np.dot(np.dot(Ue1.transpose(), KE).reshape(24), Ue2))
+            if a[2] != '-':
+                Ue3 = u[coef, [2]]
+                ce = np.squeeze(np.dot(np.dot(Ue1.transpose(), KE).reshape(24), Ue3))
+            if a[1] != '-' and a[2] != '-':
+                ce = np.squeeze(np.dot(np.dot(Ue1.transpose(), KE).reshape(24), Ue2))\
+                    + np.squeeze(np.dot(np.dot(Ue1.transpose(), KE).reshape(24), Ue3))
+            dc[el] = penal*xPhys[el]**(penal-1)*ce
         # Sensitivity filtering:
         if ft==0:
             dc[:] = np.asarray((H*(x*dc))[np.newaxis].T/Hs)[:,0] / np.maximum(0.001,x)
@@ -173,51 +162,14 @@ def optimize(nelx, nely, nelz, volfrac, fix, fiy, fiz, a1, fox, foy, foz, a2, s1
             dv[:] = np.asarray(H*(dv[np.newaxis].T/Hs))[:,0]
         # Optimality criteria
         xold[:]=x
-        (x[:],g)=oc(nel,x,volfrac,dc,dv,g, passive)
+        (x[:],g)=oc(nel,x,volfrac,dc,dv,g)
         # Filter design variables
-        if ft==0:
-            xPhys[:]=x
-        elif ft==1:
-            xPhys[:]=np.asarray(H*x[np.newaxis].T/Hs)[:,0]
+        if ft==0: xPhys[:]=x
+        elif ft==1: xPhys[:]=np.asarray(H*x[np.newaxis].T/Hs)[:,0]
+        # Compute the change by the inf. norm
         change=np.linalg.norm(x.reshape(nel,1)-xold.reshape(nel,1),np.inf)
-        # Write iteration history to screen (req. Python 2.6 or newer)
-        t1 = time.time()
-        print("it.: {0} , obj.: {1:.3f}, Vol.: {2:.3f}, ch.: {3:.3f}, time_it.: {4:.3f}".format(\
-            loop,obj[loop-1],(g+volfrac*nel)/nel,change, t1-t0))
-    # Plot the mechanism
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    x = []
-    y = []
-    z = []
-    for el in range(nel):
-        if xPhys[el] > 0.6:
-            (xe, ye, ze) = getCoordinates(el, 1, nelx, nely, nelz)
-            x.append(xe)
-            y.append(ye)
-            z.append(ze)
-    ax.scatter(x, y, z, s=6000/min(nelx, nely, nelz), marker='s', c='black')
-    # Plot forces
-    # for i in range(nf):
-    #     (xf, yf, zf) = getCoordinates(d[i], 0, nelx, nely, nelz)
-    #     if d[i]%3==0:
-    #         ax.quiver(xf, yf, zf, np.sign(dVal[i])*nelx//2, 0, 0, linewidths=10, color = ['m'])
-    #     elif d[i]%3==1:
-    #         ax.quiver(xf, yf, zf, 0, np.sign(dVal[i])*nely//2, 0, linewidths=10, color = ['m'])
-    #     elif d[i]%3==2:
-    #         ax.quiver(xf, yf, zf, 0, 0, np.sign(dVal[i])*nelz//2, linewidths=10, color = ['m'])
-    # Plot supports
-    # for i in range(ns):
-    #     (xs, ys, zs) = getCoordinates(s[i], 0, nelx, nely, nelz)
-    #     ax.scatter([xs], [ys], [zs], s=1000/max(nelx, nely, nelz)+10, marker='s', c='blue')
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
-    ax.set_title('3D compliant force inverter\
-        \n it.: {0} , Vol.: {1:.3f}, penal.:{2}, rmin:{3}'.format(loop, (g+volfrac*nel)/nel, penal, rmin), pad = 10)
-    plt.show()
-    # Save figure
-    fig.savefig('force_inverter_3D.png', bbox_inches='tight', dpi=200)
+        print("it.: {0} , obj.: {1:.3f}, Vol.: {2:.3f}, ch.: {3:.3f}".format( loop,obj[loop-1],(g+volfrac*nel)/nel,change))
+    return xPhys
 # Element stiffness matrix
 def lk(E, nu):
     E=1
@@ -268,9 +220,8 @@ def lk(E, nu):
                                        [K4,   K3,  K2,   K1.T]])
     return (KE)
 # Optimality criterion
-def oc(nel,x,volfrac,dc,dv,g, passive):
-    l1 = 0
-    l2 = 1e9
+def oc(nel,x,volfrac,dc,dv,g):
+    (l1, l2) = (0, 1e9)
     move = 0.05
     Rhomin = 1e-6
     # reshape to perform vector operations
@@ -278,14 +229,9 @@ def oc(nel,x,volfrac,dc,dv,g, passive):
     while (l2-l1)/(l1+l2) > 1e-4 and l2 > 1e-40:
         lmid = (l2+l1)/2
         xnew[:] = np.maximum(Rhomin, np.maximum(x-move, np.minimum(1.0, np.minimum(x+move, x*np.maximum(1e-10, -dc/dv/lmid)**0.3))))
-        # for el in range(nel):
-        #     if passive[el] == 1: x[el] = 0
-        #     elif passive[el] == 2: x[el] = 1
         gt = g+np.sum((dv*(xnew-x)))
-        if gt > 0 :
-            l1 = lmid
-        else:
-            l2 = lmid
+        if gt > 0 : l1 = lmid
+        else: l2 = lmid
     return (xnew,gt)
 
 def deleterowcol(A, delrow, delcol):
