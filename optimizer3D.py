@@ -1,10 +1,10 @@
-# A 240 LINE CODE FOR A 3D TOPOLOGY OPTIMIZATION BY LUC PREVOST, 2021
+# A 238 LINES CODE FOR A 3D TOPOLOGY OPTIMIZATION BY LUC PREVOST, 2021
 import numpy as np                      # Math
 from scipy.sparse import coo_matrix     # Sparse N-dimensional array manipulation
 from scipy.sparse.linalg import spsolve # Linear solver
 
 def optimize(nelxyz, volfrac, c, r, v, fx, fy, fz, a, fv, sx, sy, sz, dim, E, nu, ft, rmin, penal, n_it):
-    # Initialization
+    # Initializations
     (nelx, nely, nelz) = (nelxyz[0], nelxyz[1], nelxyz[2]) # Dimensions
     nel = nelx*nely*nelz                  # Total number of element (<230000)
     ndof = 3*(nelx+1)*(nely+1)*(nelz+1)   # Total number of degree of freedom
@@ -76,10 +76,10 @@ def optimize(nelxyz, volfrac, c, r, v, fx, fy, fz, a, fv, sx, sy, sz, dim, E, nu
             if a[i] == 'X:←' or a[i] == 'Y:↓' or a[i] == 'Z:>': dVal = -4/100
             Fi = coo_matrix((np.array([dVal]), (np.array([d[i]]), np.array([0]))), shape=(ndof, 1)).toarray()
             f = Fi if i == 0 else np.concatenate((f, Fi), axis=1)
-    # Set loop counter, gradient and solution vectors
-    loop = 0
-    change = 1
-    obj = np.zeros(n_it) # Loss
+    # Initializations before loop
+    loop = 0                     # Loop counter
+    change = 1                   # Change from an iteration to another
+    obj = np.zeros(n_it)         # Loss
     u = np.zeros((ndof,len(fx))) # Solution displacement
     (dv, dc, ce) = (np.ones(nel), np.ones(nel), np.ones(nel))
     # Print text
@@ -87,6 +87,7 @@ def optimize(nelxyz, volfrac, c, r, v, fx, fy, fz, a, fv, sx, sy, sz, dim, E, nu
     print("Filter method: " + ["Sensitivity based","Density based"][ft])
     # Optimization loop
     while change > 0.04 and loop < n_it:
+        loop += 1
         # Set void
         if v != '-':
             for k in range(c[2]-int(r), c[2]+int(r)+1):
@@ -97,16 +98,13 @@ def optimize(nelxyz, volfrac, c, r, v, fx, fy, fz, a, fv, sx, sy, sz, dim, E, nu
                                 xPhys[j+i*nely+k*(nelx*nely)] = 0
                             elif v == '□':
                                 xPhys[j+i*nely] = 0
-        loop += 1
         # Setup and solve FE problem
         sK = ((KE.flatten()[np.newaxis]).T*(Emin+(xPhys)**penal*(Emax-Emin))).flatten(order='F')
         K = coo_matrix((sK,(iK,jK)),shape=(ndof,ndof)).tocsc()
         # Add artificial spring resistance to force the mechanism to make a stiff structure
         K[d[0], d[0]] += fv[0]
-        if a[1] != '-':
-            K[d[1], d[1]] += fv[1]
-        if a[2] != '-':
-            K[d[2], d[2]] += fv[2]
+        if a[1] != '-': K[d[1], d[1]] += fv[1]
+        if a[2] != '-': K[d[2], d[2]] += fv[2]
         # Remove constrained dofs from matrix
         K = K[free,:][:,free]
         # Solve system
@@ -212,7 +210,7 @@ def oc(nel,x,volfrac,dc,dv,g):
         lmid = (l2+l1)/2
         xnew[:] = np.maximum(Rhomin, np.maximum(x-move, np.minimum(1.0, np.minimum(x+move, x*np.maximum(1e-10, -dc/dv/lmid)**0.3))))
         gt = g+np.sum((dv*(xnew-x)))
-        if gt > 0 : l1 = lmid
+        if gt > 0: l1 = lmid
         else: l2 = lmid
     return (xnew,gt)
 

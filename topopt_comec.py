@@ -1,12 +1,12 @@
-# A 400 LINE GUI CODE FOR TOPOLOGY OPTIMIZATION BY LUC PREVOST, 2021
-import tkinter as tk                     # For the GUI
+# A 398 LINES GUI CODE FOR TOPOLOGY OPTIMIZATION BY LUC PREVOST, 2021
+import tkinter as tk            # For the GUI
 from tkinter import *
-from tkinter import ttk                  # Tk themed for combobox
-from matplotlib import colors            # To set colors
-import matplotlib.pyplot as plt          # To plot in 2D and 3D
+from tkinter import ttk         # Tk themed for combobox
+from matplotlib import colors   # To set colors
+import matplotlib.pyplot as plt # To plot in 2D and 3D
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg # To insert figure in the GUI
-import os                                # To save results
-import optimizer2D, optimizer3D          # Files in the same directory to optimize
+import os                       # To save results
+import optimizer2D, optimizer3D # Files in the same directory to optimize
 
 def main():
     root = Tk()
@@ -199,7 +199,7 @@ class Window:
         Label(self.root, text = "Filter").grid(row=20, column=self.fig_x)
         type_filter = ['Density', 'Sensitivity']
         self.ft_entry = ttk.Combobox(self.root, values=type_filter, width = 9, state = 'readonly')
-        self.ft_entry.current(self.ft==0)
+        self.ft_entry.current(1-self.ft)
         self.ft_entry.grid(row = 20, column = self.fig_x+1, columnspan = 2)
         Label(self.root, text = "Radius").grid(row=20, column=self.fig_x+4)
         self.fr_entry = Entry(self.root, width = 4)
@@ -223,14 +223,11 @@ class Window:
         B.grid(row=22, column=self.fig_x+2, columnspan = 5, rowspan = 2, ipadx=60, ipady=5,)
         self.root.bind("<Return>", self.update_values)
         # Plot mechanism
-        # self.plot_values_2D(optimizer2D.optimize(self.nelxyz, self.volfrac, self.c, self.r, self.v,
-        #     self.fx, self.fy, self.a, self.fv, self.sx, self.sy, self.dim,
-        #     self.E, self.nu, self.ft, self.fr, self.p, self.n_it))
-        self.plot_values_3D(optimizer3D.optimize(self.nelxyz, self.volfrac, self.c, self.r, self.v,
-            self.fx, self.fy, self.fz, self.a, self.fv, self.sx, self.sy, self.sz, self.dim,
+        self.plot_values_2D(optimizer2D.optimize(self.nelxyz, self.volfrac, self.c, self.r, self.v,
+            self.fx, self.fy, self.a, self.fv, self.sx, self.sy, self.dim,
             self.E, self.nu, self.ft, self.fr, self.p, self.n_it))
         pass
-    
+
     def update_values(self, event=None):
         self.nelxyz = [int(self.nelx_entry.get()), int(self.nely_entry.get()), int(self.nelz_entry.get())]
         (self.volfrac, self.v, self.r) = (float(self.volfrac_entry.get()), str(self.v_entry.get()), float(self.r_entry.get()))
@@ -293,7 +290,7 @@ class Window:
         if self.E<0 or self.E>10: text_error = "The Young's modulus is not between 0 and 10."
         if self.nu<0 or self.nu>0.5: text_error = "The Poisson's ratio is not between 0 and 0.5."
         # Optimization
-        if self.fr<0: text_error = "The filter radius is lower than 0."
+        if self.fr<=0: text_error = "The filter radius is lower or equal than 0."
         if self.p<=0: text_error = "The penalization factor is lower or equal than 0."
         if self.n_it<0: text_error = "The number of iteration is lower than 0."
         # Return
