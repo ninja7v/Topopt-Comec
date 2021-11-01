@@ -1,4 +1,4 @@
-# A 241 LINE CODE FOR A 3D TOPOLOGY OPTIMIZATION BY LUC PREVOST, 2021
+# A 240 LINE CODE FOR A 3D TOPOLOGY OPTIMIZATION BY LUC PREVOST, 2021
 import numpy as np                      # Math
 from scipy.sparse import coo_matrix     # Sparse N-dimensional array manipulation
 from scipy.sparse.linalg import spsolve # Linear solver
@@ -217,7 +217,6 @@ def oc(nel,x,volfrac,dc,dv,g):
     return (xnew,gt)
 
 def deleterowcol(A, delrow, delcol):
-    # Assumes that matrix is in symmetric csc form
     m = A.shape[0]
     keep = np.delete(np.arange(0, m), delrow)
     A = A[keep, :]
