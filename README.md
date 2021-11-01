@@ -5,7 +5,9 @@ GUI for topology optomization coded in Python by Luc PREVOST.
 COMMENTS ABOUT OPTIMIZATION
 ===========================
 We use a linear optimization with SIMP method. The penalty coeficient is equal to 3.
+
 The filter used is a sensitivity filter. The filter radius is equal to 1.3.
+
 The optimisation part is a modified version of the "165 line topology optimization code" from DTU (topopt.py).
 
 USER INSTRUCTION
