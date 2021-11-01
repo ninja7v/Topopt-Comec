@@ -1,33 +1,20 @@
-# A 257 LINE CODE FOR TOPOLOGY OPTIMIZATION OF A FORCE INVERTER BY LUC PREVOST, 2021
-from __future__ import division      # To support py2 & py3
-import numpy as np
-from scipy.sparse import coo_matrix  # Provides good N-dimensional array manipulation
-from scipy.sparse.linalg import spsolve
-import matplotlib.pyplot as plt      # Plot
-from mpl_toolkits.mplot3d import Axes3D
+# A 241 LINE CODE FOR A 3D TOPOLOGY OPTIMIZATION BY LUC PREVOST, 2021
+import numpy as np                      # Math
+from scipy.sparse import coo_matrix     # Sparse N-dimensional array manipulation
+from scipy.sparse.linalg import spsolve # Linear solver
 
-def optimize(nelxyz, volfrac, c, r, v, fx, fy, fz, a, fv, sx, sy, sz, dim, E, nu, n_it):
+def optimize(nelxyz, volfrac, c, r, v, fx, fy, fz, a, fv, sx, sy, sz, dim, E, nu, ft, rmin, penal, n_it):
     # Initialization
-    rmin = 1.3 # Filter radius
-    penal = 3.0 # Penalizer coefficient
-    ft = 0 # Filter method
-    (nelx, nely, nelz) = (nelxyz[0], nelxyz[1], nelxyz[2])
-    nel = nelx*nely*nelz # Total number of element
-    # Print text
-    print("Minimum compliance problem with OC")
-    print("Filter method: " + ["Sensitivity based","Density based"][ft])
-    penal = 3
-    (Emin, Emax) = (1e-9, E) #Min/Max stifness
-    ndof = 3*(nelx+1)*(nely+1)*(nelz+1) # Total number of degree of freedom
-    nel = nelx*nely*nelz # Total number of element (<230000)
-    # Allocate design variables (as array), initialize and allocate sens.
-    x = volfrac*np.ones(nel,dtype=float)
-    (xold, xPhys) = (x.copy(), x.copy())
-    g = 0 # must be initialized to use the NGuyen/Paulino OC approach
-    dc=np.zeros((nelz,nely,nelx), dtype=float)
-    # Contruct the element stifness matrix
-    KE=lk(E, nu)
-    edofMat=np.zeros((nel,24),dtype=int)
+    (nelx, nely, nelz) = (nelxyz[0], nelxyz[1], nelxyz[2]) # Dimensions
+    nel = nelx*nely*nelz                  # Total number of element (<230000)
+    ndof = 3*(nelx+1)*(nely+1)*(nelz+1)   # Total number of degree of freedom
+    (Emin, Emax) = (1e-9, E)              # Min/Max stifness
+    x = volfrac*np.ones(nel, dtype=float) # Density field
+    (xold, xPhys) = (x.copy(), x.copy())  # Some other density field
+    g = 0                                 # To use the NGuyen/Paulino OC approach
+    # Element stifness matrix
+    KE = lk(E, nu)
+    edofMat = np.zeros((nel,24),dtype=int)
     for el in range (nel):
         (elx, ely, elz) = getCoordinates(el, 2, nelx, nely, nelz)
         n1 = elz*(nelx+1)*(nely+1) + elx*(nely+1) + ely
@@ -65,42 +52,39 @@ def optimize(nelxyz, volfrac, c, r, v, fx, fy, fz, a, fv, sx, sy, sz, dim, E, nu
     # Finalize assembly and convert to csc format
     H=coo_matrix((sH,(iH,jH)),shape=(nel,nel)).tocsc()
     Hs=H.sum(1)
-    # Support
+    # Supports
     dofs = np.arange(ndof)
     fixed = []
     for i in range(len(sx)):
         if dim[i] != '-':
             if dim[i] == 'X' or dim[i] == 'XYZ':
-                fixed.append(2*(sy[i] + sx[i]*(nely+1) + sz[i]*(nelx+1)*(nely+1)))
+                fixed.append(3*(sy[i] + sx[i]*(nely+1) + sz[i]*(nelx+1)*(nely+1)))
             if dim[i] == 'Y' or dim[i] == 'XYZ':
-                fixed.append(2*(sy[i] + sx[i]*(nely+1) + sz[i]*(nelx+1)*(nely+1))+1)
+                fixed.append(3*(sy[i] + sx[i]*(nely+1) + sz[i]*(nelx+1)*(nely+1))+1)
             if dim[i] == 'Z' or dim[i] == 'XYZ':
-                fixed.append(2*(sy[i] + sx[i]*(nely+1) + sz[i]*(nelx+1)*(nely+1))+2)
+                fixed.append(3*(sy[i] + sx[i]*(nely+1) + sz[i]*(nelx+1)*(nely+1))+2)
     free = np.setdiff1d(dofs, fixed)
     # Forces
-    d = [2*(fy[0] + fx[0]*(nely+1) + fz[0]*(nelx+1)*(nely+1)) + (a[0] == '↑' or a[0] == '↓'), # In
-          2*(fy[1] + fx[1]*(nely+1) + fz[1]*(nelx+1)*(nely+1)) + (a[1] == '↑' or a[1] == '↓'), # Out 1
-          2*(fy[2] + fx[2]*(nely+1) + fz[2]*(nelx+1)*(nely+1)) + (a[2] == '↑' or a[2] == '↓')] # Out 2
-    dVal = [0, 0, 0]
-    nf = len(dVal)
-    for i in range(nf):
-        if a[i] == 'X:→': dVal[i] = +4/100
-        if a[i] == 'X:←': dVal[i] = -4/100
-        if a[i] == 'Y:↑': dVal[i] = +4/100
-        if a[i] == 'Y:↓': dVal[i] = -4/100
-        if a[i] == 'Z:<': dVal[i] = +4/100
-        if a[i] == 'Z:>': dVal[i] = -4/100
-    for i in range(nf):
-        Fi = coo_matrix((np.array([dVal[i]]), (np.array([d[i]]), np.array([0]))), shape=(ndof, 1)).toarray()
-        f = Fi if i == 0 else np.concatenate((f, Fi), axis=1)
-    # Solution displacement
-    u = np.zeros((ndof,nf))
-    # Set loop counter and gradient vectors
+    (xyz, dVal, d) = (0, 0, [])
+    for i in range(len(fx)):
+        if  a[i] != '-':
+            if a[i] == 'X:←' or a[i] == 'X:→': xyz = 1
+            elif a[i] == 'Y:↑' or a[i] == 'Y:↓': xyz = 0
+            elif a[i] == 'Z:<' or a[i] == 'Z:>': xyz = 2
+            d.append(3*(fy[i] + fx[i]*(nely+1) + fz[i]*(nelx+1)*(nely+1)) + xyz)
+            if a[i] == 'X:→' or a[i] == 'Y:↑' or a[i] == 'Z:<': dVal = +4/100
+            if a[i] == 'X:←' or a[i] == 'Y:↓' or a[i] == 'Z:>': dVal = -4/100
+            Fi = coo_matrix((np.array([dVal]), (np.array([d[i]]), np.array([0]))), shape=(ndof, 1)).toarray()
+            f = Fi if i == 0 else np.concatenate((f, Fi), axis=1)
+    # Set loop counter, gradient and solution vectors
     loop = 0
-    loop_max = 40
     change = 1
-    obj = np.ones(loop_max)
+    obj = np.zeros(n_it) # Loss
+    u = np.zeros((ndof,len(fx))) # Solution displacement
     (dv, dc, ce) = (np.ones(nel), np.ones(nel), np.ones(nel))
+    # Print text
+    print("Minimum compliance problem with OC")
+    print("Filter method: " + ["Sensitivity based","Density based"][ft])
     # Optimization loop
     while change > 0.04 and loop < n_it:
         # Set void
@@ -130,12 +114,11 @@ def optimize(nelxyz, volfrac, c, r, v, fx, fy, fz, a, fv, sx, sy, sz, dim, E, nu
         if a[1] != '-': u[free, 1] = spsolve(K, f[free, 1])
         if a[2] != '-': u[free, 2] = spsolve(K, f[free, 2])
         # Objective and sensitivity
-        obj[loop-1] = u[d[nf-1]][0]
-        dc = np.zeros((nel))
-        Ct = np.zeros((nel))
+        obj[loop-1] = u[1][0]
+        (dc, Ct) = (np.zeros(nel), np.zeros(nel))
         for el in range (nel):
             (elx, ely, elz) = getCoordinates(el, 2, nelx, nely, nelz)
-            n1 = elz*(nelx+1)*(nely+1) + elx*(nely+1) + ely #(nely - ely)-1
+            n1 = elz*(nelx+1)*(nely+1) + elx*(nely+1) + ely
             n2 = n1 + nely+1
             n3 = n1 + (nelx+1)*(nely+1)
             n4 = n3 + nely+1
@@ -155,9 +138,9 @@ def optimize(nelxyz, volfrac, c, r, v, fx, fy, fz, a, fv, sx, sy, sz, dim, E, nu
                     + np.squeeze(np.dot(np.dot(Ue1.transpose(), KE).reshape(24), Ue3))
             dc[el] = penal*xPhys[el]**(penal-1)*ce
         # Sensitivity filtering:
-        if ft==0:
+        if ft==0: # Sensitivity
             dc[:] = np.asarray((H*(x*dc))[np.newaxis].T/Hs)[:,0] / np.maximum(0.001,x)
-        elif ft==1:
+        elif ft==1: # Density
             dc[:] = np.asarray(H*(dc[np.newaxis].T/Hs))[:,0]
             dv[:] = np.asarray(H*(dv[np.newaxis].T/Hs))[:,0]
         # Optimality criteria
@@ -224,7 +207,6 @@ def oc(nel,x,volfrac,dc,dv,g):
     (l1, l2) = (0, 1e9)
     move = 0.05
     Rhomin = 1e-6
-    # reshape to perform vector operations
     xnew=np.zeros(nel)
     while (l2-l1)/(l1+l2) > 1e-4 and l2 > 1e-40:
         lmid = (l2+l1)/2
@@ -235,7 +217,7 @@ def oc(nel,x,volfrac,dc,dv,g):
     return (xnew,gt)
 
 def deleterowcol(A, delrow, delcol):
-    # Assumes that matrix is in symmetric csc form !
+    # Assumes that matrix is in symmetric csc form
     m = A.shape[0]
     keep = np.delete(np.arange(0, m), delrow)
     A = A[keep, :]
