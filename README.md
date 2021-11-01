@@ -1,13 +1,13 @@
 # Topopt Comec
 
-GUI for topology optomization of compliant mechanisms coded in Python by Luc PREVOST.
+GUI for topology optimization of compliant mechanisms coded in Python by Luc PREVOST.
 
 ![default](https://user-images.githubusercontent.com/52052772/139711327-5e9393f3-7dc1-4785-b9c7-20748fd9e566.png)
 
 📃 INSTRUCTIONS
 ============
 ## 🚀Execution
-Topopt Comec requires the folowing pakages on a 3.xx Python environement:
+Topopt Comec requires the folowing packages on a 3.xx Python environement:
 - Tkinter
 - Numpy
 - Scipy
