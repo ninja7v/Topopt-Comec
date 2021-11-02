@@ -8,10 +8,13 @@ GUI for topology optimization of compliant mechanisms coded in Python by Luc PRE
 ============
 ## 🚀Execution
 Topopt Comec requires the folowing packages on a 3.xx Python environement:
-- Tkinter
-- Numpy
-- Scipy
-- Matplotlib
+
+
+
+- [Matplotlib](https://pypi.org/project/matplotlib/)
+- [Numpy](https://pypi.org/project/numpy/)
+- [Scipy](https://pypi.org/project/scipy/)
+- [Tkinter](https://docs.python.org/3/library/tkinter.html)
 
 To execute it, set the optimizer2D.py, optimizer3D.py, topopt_comec.py in the same folder and run the topopt_comec.py file.
 
