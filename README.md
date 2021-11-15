@@ -1,6 +1,6 @@
 # Topopt Comec
 
-GUI for topology optimization of compliant mechanisms coded in Python by Luc PREVOST.
+**GUI for topology optimization of compliant mechanisms coded in Python by Luc PREVOST.**
 
 ![default](https://user-images.githubusercontent.com/52052772/139711327-5e9393f3-7dc1-4785-b9c7-20748fd9e566.png)
 
@@ -9,14 +9,12 @@ GUI for topology optimization of compliant mechanisms coded in Python by Luc PRE
 ## 🚀Execution
 Topopt Comec requires the folowing packages on a 3.xx Python environement:
 
-
-
 - [Matplotlib](https://pypi.org/project/matplotlib/)
 - [Numpy](https://pypi.org/project/numpy/)
 - [Scipy](https://pypi.org/project/scipy/)
 - [Tkinter](https://docs.python.org/3/library/tkinter.html)
 
-To execute it, set the optimizer2D.py, optimizer3D.py, topopt_comec.py in the same folder and run the topopt_comec.py file.
+To execute it, set the _optimizer2D.py_, _optimizer3D.py_, _topopt_comec.py_ in the same folder and run the _topopt_comec.py_ file.
 
 After launching the program, a defaut case is created. This last is a force inverter, a clasic test case among compliant mechanisms.
 
@@ -32,7 +30,7 @@ There must be at least one "support". They must be inside the domain. To disable
 ### 🧱 Material
 The material is defined by the "Young's modulus" for the elasticity, and the "Poisson's ratio" for the deformation in directions perpendicular to the specific direction of loading. The "Young's modulus" must be between 0 and 10,  and the "Poisson's ratio" must be between 0 and 0.5.
 ### 💻 Optimizer
-The optimisation part is a modified version of the [165 lines topology optimization code](https://www.topopt.mek.dtu.dk/Apps-and-software/Topology-optimization-codes-written-in-Python) from DTU. It constits of a linear optimization with SIMP method. There is one optimizer file for the 2D case and one for the 3D case, but they operates in the exact same way. The first parameter allows the user to chose the "filter" method between density and sensitivity. The second is about the filter's "radius", which must be stricly positive. The "penalization" factor is used in the SIMP method, and 3 is generally a good choice. The time per "iteration" is roughly proportional to the total number of elements. The number of "iteration" must be positive. Before creating a mechanism with many iterations, it is recomended to visualy check the inputs by running 0 "iteration". The iteration process is updated in the terminal. It is possible to save the result by checking the box "save". This will create a folder named "Results", and place inside the image output as a png file. The box "save" must be checked before clicking "create".
+The optimisation part is a modified version of the [165 lines topology optimization code](https://www.topopt.mek.dtu.dk/Apps-and-software/Topology-optimization-codes-written-in-Python) from DTU. It constits of a linear optimization with SIMP method. There is one optimizer file for the 2D case and one for the 3D case, but they operates in the exact same way. The first parameter allows the user to chose the "filter" method between density and sensitivity. The second is about the filter's "radius", which must be stricly positive. The "penalization" factor is used in the SIMP method, and 3 is generally a good choice. The time per "iteration" is roughly proportional to the total number of elements. The number of "iteration" must be positive. Before creating a mechanism with many iterations, it is recomended to visualy check the inputs by running 0 "iteration". The iteration process is updated in the terminal. It is possible to save the result by checking the box "save". This will create a folder named _Results_, and place inside the image output as a png file. The box "save" must be checked before clicking "create".
 
 ✔️ TEST CASES
 ==========
@@ -47,4 +45,4 @@ Now it is your turn to create cool mechanisms !
 
 Thank you for using Topopt Comec 🙂
 
-Just optimize !
+> Just optimize !
