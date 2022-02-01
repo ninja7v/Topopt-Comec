@@ -16,7 +16,7 @@ Topopt Comec requires the folowing packages on a 3.xx Python environement:
 
 To execute it, set the _optimizer2D.py_, _optimizer3D.py_, _topopt_comec.py_ in the same folder and run the _topopt_comec.py_ file.
 
-After launching the program, a defaut case is created. This last is a force inverter, a clasic test case among compliant mechanisms.
+After launching the program, a defaut case is created. This last is a force inverter, a classic test case among compliant mechanisms.
 
 ## ⚙️Parameters
 ### Dimensions
