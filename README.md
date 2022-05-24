@@ -20,7 +20,7 @@ After launching the program, a defaut case is created. This last is a force inve
 
 ## ⚙️Parameters
 ### Dimensions
-The convention used for "dimensions" is classic: (X, Y, Z), but negative values are not accepted. The "volume fraction" coresponds to the filling of the domain and is between 0 and 1.
+The convention used for "dimensions" is classic: (X, Y, Z), but negative values are not accepted. The "volume fraction" corresponds to the filling of the domain and is between 0 and 1.
 ### ○ Void 
 It is possible to impose a "void" area in the domain. This last is defined by a "shape" (square or circle), a "radius" which must be positive and a "center". To disable this functionality, set the "shape" at -.
 ### → Forces
