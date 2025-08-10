@@ -1,0 +1,10 @@
+pyside6
+numpy
+scipy
+matplotlib
+vtk
+PyMCubes
+cvxopt
+numpy-stl
+darkdetect
+pytest
