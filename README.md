@@ -3,7 +3,7 @@ Topopt Comec
 
 **Interactive topology optimization for compliant mechanisms — design smarter, faster.**
 
-![default](https://user-images.githubusercontent.com/52052772/139711327-5e9393f3-7dc1-4785-b9c7-20748fd9e566.png)
+![topopt-comec_optimizer](https://github.com/user-attachments/assets/a48d8223-ac27-42ef-a934-e778dfeae172)
 
 ## What is Topopt Comec?
 
@@ -12,19 +12,28 @@ Just shape your domain, set your forces, supports, choose your material and opti
 
 ## 🚀Quick Start
 ### Clone/Download the repo
-'git clone https://github.com/yourusername/topopt-comec.git'
-'cd topopt-comec'
+```cmd
+git clone https://github.com/ninja7V/topopt-comec.git
+cd topopt-comec
+```
 ### Install dependencies
-'pip install -r requirements.txt'
+```cmd
+pip install -r requirements.txt
+```
 ### Run
-'python main.py'
+```cmd
+python main.py
+```
 ### Create
 Tweak the parameters or choose a preset and hit "Create"!
 
-## Wiki
+### Export
+Now that you are happy with your mechanism, you can export it in Paraview or a CAD software
+
+## 📖Wiki
 The usage should be intuitive, but full docs are in the Wiki — check it out!
 
-## Contribute
+## ✍️Contribute
 Ideas, bug reports, or pull requests? All welcome. Let’s build something awesome together!
 
 Now it is your turn to create cool mechanisms !
