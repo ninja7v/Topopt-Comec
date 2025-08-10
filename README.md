@@ -31,7 +31,7 @@ Tweak the parameters or choose a preset and hit "Create"!
 Now that you are happy with your mechanism, you can export it in Paraview or a CAD software
 
 ## 📖Wiki
-The usage should be intuitive, but full docs are in the Wiki — check it out!
+The usage should be intuitive, but full docs are in the [Wiki](https://github.com/ninja7v/Topopt-Comec/wiki) — check it out!
 
 ## ✍️Contribute
 Ideas, bug reports, or pull requests? All welcome. Let’s build something awesome together!
