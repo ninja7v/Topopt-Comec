@@ -259,7 +259,7 @@
         "disp_factor": 1.0,
         "disp_iterations": 1
     },
-    "Small_FI_3D": {
+    "ForceInverter_3D_Small": {
         "nelxyz": [
             10,
             10,

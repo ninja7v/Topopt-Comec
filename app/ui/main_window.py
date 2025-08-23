@@ -1016,6 +1016,7 @@ class MainWindow(QMainWindow):
         if self.sections['dimensions'].visibility_button.isChecked():
             ax.set_xlabel("X", color='black')
             ax.set_ylabel("Y", color='black')
+            ax.yaxis.label.set_rotation(0) # Display Y label vertically
             if is_3d_mode: ax.set_zlabel("Z", color='black')
             ax.tick_params(axis='x', colors='black')
             ax.tick_params(axis='y', colors='black')
