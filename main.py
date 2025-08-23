@@ -11,8 +11,6 @@ import darkdetect
 
 def main():
     """Initializes and runs the Qt application."""
-    # Enables automatic scaling for High-DPI displays
-    QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling)
     app = QApplication(sys.argv)
     
     theme = "dark" if darkdetect.isDark() else "light"
