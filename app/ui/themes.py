@@ -19,23 +19,23 @@ LIGHT_THEME_STYLESHEET = """
         background-color: #FFFFFF;
         border: 1px solid #C0C0C0;
         border-radius: 4px;
-        padding: 4px;
+        padding: 1px;
     }
     QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QLineEdit:focus {
         border: 1px solid #0078D7;
     }
 
     /* Buttons */
-    QPushButton {
+    QPushButton, QToolButton {
         background-color: #E1E1E1;
         border: 1px solid #C0C0C0;
         border-radius: 4px;
-        padding: 5px;
+        padding: 3px;
     }
-    QPushButton:hover {
+    QPushButton:hover, QToolButton:hover {
         background-color: #E8E8E8;
     }
-    QPushButton:pressed {
+    QPushButton:pressed, QToolButton:pressed {
         background-color: #D0D0D0;
     }
     
@@ -50,7 +50,7 @@ LIGHT_THEME_STYLESHEET = """
         border: 1px solid #E0E0E0;
         border-top: none;
         border-radius: 0 0 4px 4px;
-        padding: 5px;
+        padding: 1px;
     }
 
     /* Other Widgets */
@@ -89,7 +89,7 @@ DARK_THEME_STYLESHEET = """
         background-color: #3C3C3C;
         border: 1px solid #5A5A5A;
         border-radius: 4px;
-        padding: 4px;
+        padding: 1px;
         color: #E0E0E0;
     }
     QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QLineEdit:focus {
@@ -97,16 +97,16 @@ DARK_THEME_STYLESHEET = """
     }
 
     /* Buttons */
-    QPushButton {
+    QPushButton, QToolButton {
         background-color: #4A4A4A;
         border: 1px solid #5A5A5A;
         border-radius: 4px;
-        padding: 5px;
+        padding: 3px;
     }
-    QPushButton:hover {
+    QPushButton:hover, QToolButton:hover {
         background-color: #555555;
     }
-    QPushButton:pressed {
+    QPushButton:pressed, QToolButton:pressed {
         background-color: #3A3A3A;
     }
 
@@ -121,7 +121,7 @@ DARK_THEME_STYLESHEET = """
         border: 1px solid #5A5A5A;
         border-top: none;
         border-radius: 0 0 4px 4px;
-        padding: 5px;
+        padding: 1px;
         background-color: #333333;
     }
 

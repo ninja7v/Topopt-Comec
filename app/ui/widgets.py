@@ -107,19 +107,6 @@ class CollapsibleSection(QWidget):
             else:
                 self.visibility_button.setIcon(icons.get('eye_closed'))
 
-class InputRow(QWidget):
-    """A helper widget for a labeled input field."""
-    def __init__(self, label_text, widget, tooltip=""):
-        super().__init__()
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        label = QLabel(label_text)
-        layout.addWidget(label)
-        layout.addWidget(widget)
-        if tooltip:
-            label.setToolTip(tooltip)
-            widget.setToolTip(tooltip)
-
 class ColorPickerButton(QPushButton):
     """A button that opens a color dialog and shows the selected color."""
     def __init__(self, initial_color=QColor("black")):
@@ -308,27 +295,25 @@ class ForcesWidget(QWidget):
         super().__init__()
         # The main layout for this widget stacks the 3 force sections vertically
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(10)
 
         self.inputs = [] # This list will hold the input widgets for access from the MainWindow
 
         arrows = ['-', 'X:→', 'X:←', 'Y:↑', 'Y:↓', 'Z:<', 'Z:>']
-        force_labels = ["Input (Red)", "Output 1 (Blue)", "Output 2 (Blue)"]
+        force_labels = ["Input", "Output 1", "Output 2"]
         default_pos = [[30, 0, 0], [30, 40, 0], [0, 0, 0]]
         default_arrows = [3, 4, 0]
         default_fv = [0.01, 0.01, 0.0]
 
         for i, label in enumerate(force_labels):
-            # Add the bold header for the force section
-            main_layout.addWidget(QLabel(f"<b>{label}</b>"))
-            
             # Use a grid to neatly align the rows for this force
             grid = QGridLayout()
             grid.setColumnStretch(1, 1) # Allow input column to expand
 
             # Position Row
-            grid.addWidget(QLabel("Pos (x,y,z):"), 0, 0)
+            force_label = QLabel(label)
+            force_label.setStyleSheet("color: red;" if label == "Input" else "color: blue;")
+            grid.addWidget(force_label, 0, 0)
             pos_layout = QHBoxLayout()
             fx = QSpinBox(); fx.setRange(0, 200); fx.setValue(default_pos[i][0]); fx.setMaximumWidth(70)
             fx.setToolTip("X")
@@ -498,7 +483,7 @@ class FooterWidget(QWidget):
         self.binarize_button = QPushButton()
         self.binarize_button.setIcon(icons.get('binarize'))
         self.binarize_button.setToolTip("Apply threshold to make all colors solid (0 or 1)")
-        self.binarize_button.setFixedSize(31, 31)
+        self.binarize_button.setFixedSize(29, 29)
         self.binarize_button.setEnabled(False)
         action_layout.addWidget(self.binarize_button)
 
@@ -506,9 +491,11 @@ class FooterWidget(QWidget):
         self.save_button = QToolButton()
         self.save_button.setIcon(icons.get('save'))
         self.save_button.setToolTip("Save the current result")
-        self.save_button.setFixedSize(40, 40) # A bit wider to accommodate the arrow
+        self.save_button.setFixedSize(30, 30) # A bit wider to accommodate the arrow
         self.save_button.setEnabled(False)
         self.save_button.setPopupMode(QToolButton.InstantPopup)
+        #self.save_button.setArrowType(Qt.NoArrow)
+        #self.save_button.setIcon(icons.get("arrow_down"))
 
         save_menu = QMenu(self.save_button)
         
