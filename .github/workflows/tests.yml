@@ -18,7 +18,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libegl-mesa0 libxkbcommon-x11-0
+          sudo apt-get install -y libegl1 libegl-mesa0 libxkbcommon-x11-0 xvfb
 
       - name: Install Python dependencies
         run: |
@@ -27,4 +27,5 @@ jobs:
           pip install pytest
 
       - name: Run tests
-        run: pytest -v
+        run: |
+          xvfb-run -a pytest -v
