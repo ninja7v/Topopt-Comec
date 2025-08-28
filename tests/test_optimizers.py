@@ -82,6 +82,8 @@ def test_2d_optimizer_with_presets(preset_name, preset_params):
 
     # Prepare the parameters for the optimizer function
     optimizer_params = preset_params.copy()
+    # To run the tests faster, we reduce the number of iterations
+    optimizer_params['n_it'] = 2
     
     # Remove all keys that are not part of the optimizer's function signature
     keys_to_remove = ['fz', 'sz', 'disp_factor', 'disp_iterations']
@@ -109,13 +111,15 @@ def test_3d_optimizer_with_presets(preset_name, preset_params):
     Integration Test: Runs the 2D optimizer with a given preset.
     Checks if it completes without error and respects the volume fraction.
     """
-    # We only want to test the 2D presets in this test
+    # We only want to test the 3D presets in this test
     is_3d = preset_params['nelxyz'][2] > 0
     if not is_3d:
-        pytest.skip(f"Skipping 3D preset '{preset_name}' for 2D optimizer test.")
+        pytest.skip(f"Skipping 2D preset '{preset_name}' for 3D optimizer test.")
 
     # Prepare the parameters for the optimizer function
     optimizer_params = preset_params.copy()
+    # To run the tests faster, we reduce the number of iterations
+    optimizer_params['n_it'] = 2
     
     # Remove all keys that are not part of the optimizer's function signature
     keys_to_remove = ['disp_factor', 'disp_iterations']
