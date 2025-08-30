@@ -57,6 +57,7 @@ class IconProvider:
             'binarize': QStyle.StandardPixmap.SP_DialogApplyButton,
             'stop': QStyle.StandardPixmap.SP_MediaStop,
             'move': QStyle.StandardPixmap.SP_ArrowRight,
+            'reset': QStyle.StandardPixmap.SP_BrowserReload,
         }
         pixmap = icon_map.get(icon_name)
         if pixmap:

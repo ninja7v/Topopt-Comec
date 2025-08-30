@@ -1546,17 +1546,21 @@ class MainWindow(QMainWindow):
             self.header.theme_button.setIcon(icons.get('moon'))
             self.header.theme_button.setToolTip("Switch to Dark Theme")
 
-        # Update other static icons
+        # Update presets icons
+        self.header.info_button.setIcon(icons.get('info'))
         self.preset.save_preset_button.setIcon(icons.get('save'))
         self.preset.delete_preset_button.setIcon(icons.get('delete'))
-        self.header.info_button.setIcon(icons.get('info'))
-        self.footer.create_button.setIcon(icons.get('create'))
-        self.footer.save_button.setIcon(icons.get('save'))
+        # Update displacement icons
         self.displacement_widget.run_disp_button.setIcon(icons.get('move'))
+        self.displacement_widget.stop_disp_button.setIcon(icons.get('stop'))
+        self.displacement_widget.reset_disp_button.setIcon(icons.get('reset'))
+        # Update footer icons
+        self.footer.create_button.setIcon(icons.get('create'))
+        self.footer.stop_button.setIcon(icons.get('Stop'))
+        self.footer.save_button.setIcon(icons.get('save'))
 
         # Update dynamic icons (like the visibility and collapsible arrows)
         for section in self.sections.values():
-            # This requires a new method on the CollapsibleSection widget
             section.update_all_icons()
 
     def open_github_link(self):
