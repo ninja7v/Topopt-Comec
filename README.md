@@ -41,3 +41,9 @@ Now it is your turn to create cool mechanisms !
 Thank you for using Topopt Comec 🙂
 
 > Just optimize !
+
+## Licensing
+
+This project is licensed under the MIT License - see the LICENSE.txt file for details.
+
+This project also uses the PySide6 library, which is licensed under the GNU Lesser General Public License v3.0 (LGPLv3). The source code for PySide6 can be obtained from its official repository: [https://github.com/pyside/pyside-setup](https://github.com/pyside/pyside-setup).
