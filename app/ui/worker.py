@@ -81,10 +81,17 @@ class DisplacementWorker(QThread):
     # Signal arguments: (error_message)
     error = Signal(str)
 
-    def __init__(self, params: dict, xPhys_initial: np.ndarray):
+    def __init__(self, params: dict, xPhys_initial: np.ndarray, u_vector: np.ndarray):
         super().__init__()
         self.params = params
         self.xPhys = xPhys_initial
+        self.u = u_vector
+        self._stop_requested = False
+
+    def request_stop(self):
+        """Public method for the main thread to request a stop."""
+        print("Stop request received by worker.")
+        self._stop_requested = True
 
     def run(self):
         """Executes the analysis based on provided parameters."""
@@ -93,6 +100,7 @@ class DisplacementWorker(QThread):
             
             def progress_callback(iteration):
                 self.progress.emit(iteration)
+                return self._stop_requested 
 
             if is_3d:
                 # The function is a generator, yielding each frame
@@ -100,14 +108,20 @@ class DisplacementWorker(QThread):
                     self.params, self.xPhys, progress_callback
                 ):
                     self.frameReady.emit(frame_data)
+                    if self._stop_requested:
+                        print("Displacement stopped by user.")
+                        break
             else:
                 # The function is a generator, yielding each frame
                 for frame_data in displacement_2d.run_iterative_displacement_2d(
                     self.params, self.xPhys, progress_callback
                 ):
                     self.frameReady.emit(frame_data)
+                    if self._stop_requested:
+                        print("Displacement stopped by user.")
+                        break
                 
-            self.finished.emit("Displacement animation complete.", True)
+            self.finished.emit("Displacement finished or stopped.", True)
 
         except Exception as e:
             import traceback

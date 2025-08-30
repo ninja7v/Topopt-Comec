@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QFrame, QSizePolicy,
                                QLabel, QHBoxLayout, QGridLayout, QSpinBox,
                                QDoubleSpinBox, QComboBox, QColorDialog,
-                               QGraphicsDropShadowEffect, QToolButton, QMenu)
+                               QGraphicsDropShadowEffect, QToolButton, QMenu, QStackedLayout)
 from PySide6.QtGui import QFont, QColor, QAction
 from .icons import icons
 
@@ -449,10 +449,23 @@ class DisplacementWidget(QWidget):
         self.mov_iter.setToolTip("Number of frames in the displacement animation.\n"
                                  "If more than 1 iteration is set, a more complex function is used since it requires an domain enlargement and interpolations.")
         layout.addWidget(self.mov_iter, 1, 1)
+        self.button_stack = QStackedLayout()
         self.run_disp_button = QPushButton("Move")
         self.run_disp_button.setIcon(icons.get('move'))
         self.run_disp_button.setToolTip("Start the displacement process")
-        layout.addWidget(self.run_disp_button, 2, 0, 1, 2)
+        self.button_stack.addWidget(self.run_disp_button)
+        self.stop_disp_button = QPushButton(" Stop")
+        self.stop_disp_button.setIcon(icons.get('stop'))
+        self.stop_disp_button.setToolTip("Stop the displacement process")
+        self.stop_disp_button.setStyleSheet("background-color: #C0392B; color: white;")
+        self.button_stack.addWidget(self.stop_disp_button)
+        self.reset_disp_button = QPushButton("Reset View")
+        self.reset_disp_button.setIcon(icons.get('reset'))
+        self.reset_disp_button.setToolTip("Reset the mechasim to its original position")
+        self.button_stack.addWidget(self.reset_disp_button)
+        self.button_stack_widget = QWidget()
+        self.button_stack_widget.setLayout(self.button_stack)
+        layout.addWidget(self.button_stack_widget, 2, 0, 1, 2)
 
 class FooterWidget(QWidget):
     """Custom widget for the footer."""

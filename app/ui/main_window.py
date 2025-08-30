@@ -72,6 +72,8 @@ class MainWindow(QMainWindow):
         
         self.load_presets()
         
+        self.is_displaying_deformation = False 
+        
         default_preset_name = "ForceInverter_2Sup_2D"
         if default_preset_name in self.presets:
             self.preset.presets_combo.setCurrentText(default_preset_name)
@@ -237,11 +239,14 @@ class MainWindow(QMainWindow):
         section.set_visibility_toggle(True)
         section.visibility_button.toggled.connect(self.on_visibility_toggled)
         section.visibility_button.setEnabled(False) # Disabled until a result is ready
+        self.displacement_widget.run_disp_button.setEnabled(False) # Disabled until a result is ready
         section.visibility_button.setToolTip("Preview displacement vectors on the main plot")
         section.visibility_button.setChecked(False)
         
         section.visibility_button.toggled.connect(self.replot)
         self.displacement_widget.run_disp_button.clicked.connect(self.run_displacement)
+        self.displacement_widget.stop_disp_button.clicked.connect(self.stop_displacement)
+        self.displacement_widget.reset_disp_button.clicked.connect(self.reset_displacement_view)
         self.displacement_widget.mov_disp.valueChanged.connect(self.on_displacement_preview_changed)
         
         return section
@@ -601,16 +606,18 @@ class MainWindow(QMainWindow):
     
     def run_displacement(self):
         """Starts the displacement animation based on the last optimization result, and gives live updates."""
-        if self.xPhys is None:
+        if self.xPhys is None or self.u is None:
             QMessageBox.warning(self, "Displacement Error", "You must run a successful optimization before analyzing movement.")
             return
+        
+        self.is_displaying_deformation = True 
+        self.displacement_widget.button_stack.setCurrentWidget(self.displacement_widget.stop_disp_button)
         
         self.replot()
         QApplication.processEvents()
 
         params = self.gather_parameters()
         is_3d_mode = params['nelxyz'][2] > 0
-        
         if params['disp_iterations'] == 1:
             # Run single-frame logic directly
             self.status_bar.showMessage("Calculating single displacement frame...")
@@ -627,7 +634,7 @@ class MainWindow(QMainWindow):
                     self.u, params['nelxyz'][0], params['nelxyz'][1], params['disp_factor']
                 )
             self.plot_single_displacement(plot_data, is_3d_mode)
-            
+            self.handle_displacement_finished("Single frame shown.")
             self.status_bar.showMessage("Single displacement plot shown.", 3000)
         else:
             self.footer.create_button.setEnabled(False)
@@ -638,13 +645,28 @@ class MainWindow(QMainWindow):
             self.progress_bar.setValue(0)
             self.progress_bar.setVisible(True)
 
-            self.displacement_worker = DisplacementWorker(params, self.xPhys)
+            self.displacement_worker = DisplacementWorker(params, self.xPhys, self.u)
             self.displacement_worker.progress.connect(self.update_displacement_progress)
             self.displacement_worker.frameReady.connect(self.update_animation_frame)
             self.displacement_worker.finished.connect(self.handle_displacement_finished)
             self.displacement_worker.error.connect(self.handle_displacement_error)
             self.displacement_worker.start()
-        
+
+    def stop_displacement(self):
+        """Requests the running displacement worker to stop."""
+        if self.displacement_worker:
+            self.displacement_widget.stop_disp_button.setText("Stopping...")
+            self.displacement_widget.stop_disp_button.setEnabled(False)
+            self.displacement_worker.request_stop()
+
+    def reset_displacement_view(self):
+        """Resets the plot to the original, undeformed optimizer result."""
+        self.is_displaying_deformation = False # Clear the state flag
+        self.xPhys_display = self.xPhys.copy()
+        self.replot() # Redraw the original view
+        self.displacement_widget.run_disp_button.setEnabled(True)
+        self.displacement_widget.button_stack.setCurrentWidget(self.displacement_widget.run_disp_button)
+
     def update_displacement_progress(self, iteration):
         """ Updates the progress bar and status message during displacement computation."""
         self.progress_bar.setValue(iteration)
@@ -710,9 +732,10 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(message, 5000)
         self.progress_bar.setVisible(False)
         self.footer.create_button.setEnabled(True)
-        self.displacement_widget.run_disp_button.setEnabled(True)
-        # After animation, replot the original result
-        self.replot()
+        self.displacement_widget.run_disp_button.setEnabled(False)
+        self.displacement_widget.button_stack.setCurrentWidget(self.displacement_widget.reset_disp_button)
+        self.displacement_widget.stop_disp_button.setText(" Stop") # Reset text for next run
+        self.displacement_widget.stop_disp_button.setEnabled(True)
 
     def handle_displacement_error(self, error_msg):
         """Handles any errors that occur during displacement computation."""
@@ -812,6 +835,8 @@ class MainWindow(QMainWindow):
         """Redraws the plot canvas, intelligently showing or hiding each layer based on the state of the visibility buttons."""
         if not self.last_params:
             return # Do nothing if triggerd in sections initialization
+        if self.is_displaying_deformation:
+            return 
         
         self.figure.clear()
         self.figure.patch.set_facecolor('white')
@@ -1192,8 +1217,67 @@ class MainWindow(QMainWindow):
             ax.pcolormesh(X, Y, -self.xPhys.reshape((nelx, nely)), cmap='gray') # , shading='auto'
             ax.set_aspect('equal', 'box'); ax.autoscale(tight=True)
             ax.set_xlabel("X"); ax.set_ylabel("Y")
+            self.plot_deformed_overlays(ax, self.last_params['disp_factor'])
         
         self.canvas.draw()
+
+    def plot_deformed_overlays(self, ax, disp_factor):
+        """Plots forces and supports at their NEW deformed positions."""
+        p = self.last_params
+        # This function is currently 2D only, as the 3D displacement plot is handled differently.
+        if p['nelxyz'][2] > 0: return
+
+        nely = p['nelxyz'][1]
+        
+        # --- Plot Supports at new positions ---
+        if self.sections['supports'].visibility_button.isChecked():
+            # Get the original positions of all active supports
+            active_supports = [g for g in self.supports_widget.inputs if g['d'].currentText() != '-']
+            if active_supports:
+                orig_sx = np.array([g['sx'].value() for g in active_supports])
+                orig_sy = np.array([g['sy'].value() for g in active_supports])
+                
+                # Vectorized calculation of nodal indices
+                indices = orig_sx * (nely + 1) + orig_sy
+                
+                # Get displacements and calculate new positions
+                ux = self.u[2 * indices, 0] * disp_factor
+                uy = self.u[2 * indices + 1, 0] * disp_factor
+                ax.scatter(orig_sx + ux, orig_sy + uy, s=80, marker='^', c='black')
+
+        # --- Plot Forces at new positions ---
+        if self.sections['forces'].visibility_button.isChecked():
+            active_forces = [g for g in self.forces_widget.inputs if g['a'].currentText() != '-']
+            if not active_forces: return
+
+            # 1. Get original positions and directions
+            orig_fx = np.array([g['fx'].value() for g in active_forces])
+            orig_fy = np.array([g['fy'].value() for g in active_forces])
+            directions = [g['a'].currentText() for g in active_forces]
+            colors = ['r' if i == 0 else 'b' for i, g in enumerate(self.forces_widget.inputs) if g['a'].currentText() != '-']
+
+            # 2. Vectorized calculation of nodal indices
+            indices = orig_fx * (nely + 1) + orig_fy
+            
+            # 3. Get displacements and calculate new base positions for the arrows
+            ux = self.u[2 * indices, 0] * disp_factor
+            uy = self.u[2 * indices + 1, 0] * disp_factor
+            new_fx = orig_fx + ux
+            new_fy = orig_fy - uy
+            
+            # 4. Calculate the arrow vectors (dx, dy)
+            length = np.mean(p['nelxyz'][:2]) / 6
+            dx = np.zeros_like(new_fx, dtype=float)
+            dy = np.zeros_like(new_fy, dtype=float)
+            
+            for i, direction in enumerate(directions):
+                if 'X:→' in direction: dx[i] = length
+                if 'X:←' in direction: dx[i] = -length
+                if 'Y:↑' in direction: dy[i] = length
+                if 'Y:↓' in direction: dy[i] = -length
+                
+            # 5. Plot all quivers at once
+            ax.quiver(new_fx, new_fy, dx, dy, color=colors, scale_units='xy', angles='xy', scale=1)
 
     def plot_displacement_preview(self, ax, is_3d):
         """Overlays displacement vectors (quivers) on the plot if the preview is active."""
