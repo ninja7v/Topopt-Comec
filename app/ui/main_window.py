@@ -20,7 +20,7 @@ from matplotlib.patches import Rectangle
 #import mcubes
 
 from app.ui import exporters
-from .worker import OptimizerWorker, DisplacementWorker
+from .workers import OptimizerWorker, DisplacementWorker
 from .widgets import (HeaderWidget, PresetWidget,
                       CollapsibleSection, DimensionsWidget, VoidWidget,
                       ForcesWidget, SupportWidget, MaterialWidget,
