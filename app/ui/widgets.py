@@ -36,6 +36,7 @@ class CollapsibleSection(QWidget):
         # Title
         self.title_label = QLabel(title)
         self.title_label.setObjectName("collapsibleTitleLabel")
+        self.title_label.setStyleSheet("background: transparent;")
         self.title_bar.layout().addWidget(self.title_label)
         self.title_bar.layout().addStretch()
         # Visibility Toggle Button
@@ -58,21 +59,6 @@ class CollapsibleSection(QWidget):
         
         self.toggle_button.toggled.connect(self.toggle_collapse)
         self.title_bar.mousePressEvent = lambda event: self.toggle_button.toggle()
-
-        self.setStyleSheet("""
-            #collapsibleTitleBar {
-                background-color: #E0E0E0;
-                border: 1px solid #C0C0C0;
-                border-radius: 4px;
-            }
-            #collapsibleTitleLabel { font-weight: bold; }
-            #collapsibleContent { 
-                border: 1px solid #E0E0E0;
-                border-top: none;
-                border-radius: 0 0 4px 4px;
-                padding: 5px;
-            }
-        """)
 
     def set_visibility_toggle(self, visible: bool):
         self.visibility_button.setVisible(visible)
