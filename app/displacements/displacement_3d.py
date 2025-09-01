@@ -103,7 +103,7 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
     """
     xPhyst = xPhys_initial
     # Initialization
-    nelx, nely, nely = params['nelxyz'][:3]
+    nelx, nely, nelz = params['nelxyz'][:3]
     margin_X = nelx//5
     margin_Y = nely//5
     margin_Z = 1
@@ -170,7 +170,7 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
         for i in range(nf):
             K[d[i], d[i]] += 0.1
         K = deleterowcol(K,fixed,fixed).tocoo()
-        K = cvxopt.spmatrix(K.data,K.row.astype(np.int),K.col.astype(np.int))
+        K = cvxopt.spmatrix(K.data,K.row.astype(int),K.col.astype(int))
         for i in range(nf):
             B = cvxopt.matrix(f[free,i])
             cvxopt.cholmod.linsolve(K,B)

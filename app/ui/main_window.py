@@ -698,14 +698,14 @@ class MainWindow(QMainWindow):
             y = visible_indices % ny
             
             # Create the RGBA color array where alpha = density
-            base_color_rgb = to_rgb(self.material_widget.mat_color.get_color())
             colors = np.zeros((len(densities), 4))
+            base_color_rgb = to_rgb(self.material_widget.mat_color.get_color())
             colors[:, :3] = base_color_rgb
             colors[:, 3] = densities
 
-            ax.scatter(x + 0.5, y + 0.5, z + 0.5, 
+            ax.scatter(x + 0.5, y + 0.5, z + 0.5,
                        s=6000/max(nx, ny, nz),
-                       marker='s', 
+                       marker='s',
                        c=colors)
             
             self.redraw_non_material_layers(ax, is_3d_mode=True)
@@ -1010,9 +1010,8 @@ class MainWindow(QMainWindow):
             x = (visible_indices % (nx * ny)) // ny
             y = visible_indices % ny
             
-            base_color_rgb = to_rgb(self.material_widget.mat_color.get_color())
-            
             colors = np.zeros((len(densities), 4))
+            base_color_rgb = to_rgb(self.material_widget.mat_color.get_color())
             colors[:, :3] = base_color_rgb  # Set the RGB color for all points
             colors[:, 3] = densities # Set the Alpha channel to the density
 
