@@ -61,6 +61,9 @@ class MainWindow(QMainWindow):
         plot_layout.addWidget(self.canvas)
         self.splitter.addWidget(self.plot_frame)
         
+        self.is_displaying_deformation = False
+        self.last_displayed_frame_data = None
+        
         self.create_control_panel()
         self.splitter.addWidget(self.control_panel_frame)
         self.splitter.setSizes([800, 480])
@@ -71,8 +74,6 @@ class MainWindow(QMainWindow):
         self.status_bar.addPermanentWidget(self.progress_bar)
         
         self.load_presets()
-        
-        self.is_displaying_deformation = False 
         
         default_preset_name = "ForceInverter_2Sup_2D"
         if default_preset_name in self.presets:
@@ -610,8 +611,10 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Displacement Error", "You must run a successful optimization before analyzing movement.")
             return
         
-        self.is_displaying_deformation = True 
+        self.is_displaying_deformation = True
+        self.last_displayed_frame_data = None
         self.displacement_widget.button_stack.setCurrentWidget(self.displacement_widget.stop_disp_button)
+        self.footer.create_button.setEnabled(False)
         
         self.replot()
         QApplication.processEvents()
@@ -625,15 +628,11 @@ class MainWindow(QMainWindow):
             
             if is_3d_mode:
                 from app.displacements.displacement_3d import single_linear_displacement_3d
-                plot_data = single_linear_displacement_3d(
-                    self.xPhys, self.u, *params['nelxyz'], params['disp_factor']
-                )
+                self.last_displayed_frame_data = single_linear_displacement_3d(self.xPhys, self.u, *params['nelxyz'], params['disp_factor'])
             else:
                 from app.displacements.displacement_2d import single_linear_displacement_2d
-                plot_data = single_linear_displacement_2d(
-                    self.u, params['nelxyz'][0], params['nelxyz'][1], params['disp_factor']
-                )
-            self.plot_single_displacement(plot_data, is_3d_mode)
+                self.last_displayed_frame_data = single_linear_displacement_2d(self.u, params['nelxyz'][0], params['nelxyz'][1], params['disp_factor'])
+            self.replot()
             self.handle_displacement_finished("Single frame shown.")
             self.status_bar.showMessage("Single displacement plot shown.", 3000)
         else:
@@ -661,7 +660,8 @@ class MainWindow(QMainWindow):
 
     def reset_displacement_view(self):
         """Resets the plot to the original, undeformed optimizer result."""
-        self.is_displaying_deformation = False # Clear the state flag
+        self.is_displaying_deformation = False
+        self.last_displayed_frame_data = None
         self.xPhys_display = self.xPhys.copy()
         self.replot() # Redraw the original view
         self.displacement_widget.run_disp_button.setEnabled(True)
@@ -708,8 +708,7 @@ class MainWindow(QMainWindow):
                        marker='s', 
                        c=colors)
             
-            # After clearing, we must redraw the overlays (forces, supports, frame, etc.)
-            self._redraw_non_material_layers(ax, is_3d_mode=True)
+            self.redraw_non_material_layers(ax, is_3d_mode=True)
 
         else:
             # --- 2D Case: Efficiently update the existing image data ---
@@ -736,6 +735,7 @@ class MainWindow(QMainWindow):
         self.displacement_widget.button_stack.setCurrentWidget(self.displacement_widget.reset_disp_button)
         self.displacement_widget.stop_disp_button.setText(" Stop") # Reset text for next run
         self.displacement_widget.stop_disp_button.setEnabled(True)
+        self.is_displaying_deformation = True
 
     def handle_displacement_error(self, error_msg):
         """Handles any errors that occur during displacement computation."""
@@ -835,95 +835,100 @@ class MainWindow(QMainWindow):
         """Redraws the plot canvas, intelligently showing or hiding each layer based on the state of the visibility buttons."""
         if not self.last_params:
             return # Do nothing if triggerd in sections initialization
-        if self.is_displaying_deformation:
-            return 
-        
         self.figure.clear()
         self.figure.patch.set_facecolor('white')
-        
-        is_3d_mode = self.last_params['nelxyz'][2] > 0 if self.last_params else False
-        
+        is_3d_mode = self.last_params['nelxyz'][2] > 0
         if is_3d_mode:
             ax = self.figure.add_subplot(111, projection='3d', facecolor='white')
         else:
             ax = self.figure.add_subplot(111, facecolor='white')
 
         # Layer 1: The Main Result (Material)
-        if self.xPhys is not None and self.sections['material'].visibility_button.isChecked():
-            self.plot_material(ax, is_3d=is_3d_mode)
-        elif self.xPhys is None:
-            if is_3d_mode:
-                p = self.last_params
-                self.xPhys = np.full(p['nelxyz'][0] * p['nelxyz'][1] * p['nelxyz'][2], p['volfrac'])
-                if p['v'] != '-':
-                    nelx, nely, nelz = p['nelxyz'][0], p['nelxyz'][1], p['nelxyz'][2]
-                    cx, cy, cz = p['c'][0], p['c'][1], p['c'][2]
-                    if p['v'] == '□':  # Cube
-                        x_min, x_max = max(0, int(cx - p['r'])), min(nelx, int(cx + p['r']))
-                        y_min, y_max = max(0, int(cy - p['r'])), min(nely, int(cy + p['r']))
-                        z_min, z_max = max(0, int(cz - p['r'])), min(nelz, int(cz + p['r']))
-
-                        idx_x = np.arange(x_min, x_max)
-                        idx_y = np.arange(y_min, y_max)
-                        idx_z = np.arange(z_min, z_max)
-
-                        if len(idx_x) > 0 and len(idx_y) > 0 and len(idx_z) > 0:
-                            xx, yy, zz = np.meshgrid(idx_x, idx_y, idx_z, indexing='ij')
-                            indices = zz + yy * nelz + xx * nely * nelz
-                            self.xPhys[indices.flatten()] = 1e-6
-
-                    elif p['v'] == '○':  # Sphere
+        if self.is_displaying_deformation and self.last_displayed_frame_data is not None:
+            if self.last_params['disp_iterations'] == 1: # Single-frame grid plot
+                if is_3d_mode:
+                    nelx, nely, nelz = self.last_params['nelxyz']
+                    self.figure.patch.set_facecolor('white')
+                    x_phys_3d = self.xPhys.reshape((nelz, nelx, nely)).transpose(1, 2, 0)
+                    # Use alpha = density to visualize deformation
+                    base_color = np.array(to_rgb(self.material_widget.mat_color.get_color()))
+                    colors = np.zeros(x_phys_3d.shape + (4,))
+                    colors[..., :3] = base_color
+                    colors[..., 3] = np.clip(x_phys_3d, 0.0, 1.0)
+                    mask = x_phys_3d > 1e-3 # Only show elements with non-negligible density
+                    ax.voxels(mask, facecolors=colors, edgecolor=None)
+                    ax.set_box_aspect([nelx, nely, nelz])
+                    ax.set_xlabel("X")
+                    ax.set_ylabel("Y")
+                    ax.set_zlabel("Z")
+                else:
+                    X, Y = self.last_displayed_frame_data
+                    nelx, nely = self.last_params['nelxyz'][:2]
+                    ax.pcolormesh(X, Y, -self.xPhys.reshape((nelx, nely)), cmap='gray', shading='auto')
+            else: # Animation frame density plot
+                if is_3d_mode:
+                    # TODO
+                    i = 1
+                else:
+                    nx, ny = self.last_params['nelxyz'][:2]
+                    mat_color = self.material_widget.mat_color.get_color()
+                    cmap = LinearSegmentedColormap.from_list("custom_cmap", ["white", mat_color])
+                    ax.imshow(self.last_displayed_frame_data.reshape((nx, ny)).T, cmap=cmap,
+                            interpolation='nearest', origin='lower', norm=plt.Normalize(0, 1))
+        else:
+            if self.sections['material'].visibility_button.isChecked():
+                if self.xPhys is None:
+                    p = self.last_params
+                    # Initialize xPhys with uniform density
+                    nelx = p['nelxyz'][0]
+                    nely = p['nelxyz'][1]
+                    if is_3d_mode: nelz = p['nelxyz'][2]
+                    self.xPhys = np.full(nelx * nely * nelz if is_3d_mode else nelx * nely, p['volfrac'])
+                    # Add voids if specified
+                    if p['v'] != '-':
+                        cx, cy, cz = p['c'][0], p['c'][1], p['c'][2]
                         x_min, x_max = max(0, int(cx - p['r'])), min(nelx, int(cx + p['r']) + 1)
                         y_min, y_max = max(0, int(cy - p['r'])), min(nely, int(cy + p['r']) + 1)
-                        z_min, z_max = max(0, int(cz - p['r'])), min(nelz, int(cz + p['r']) + 1)
+                        if is_3d_mode: z_min, z_max = max(0, int(cz - p['r'])), min(nelz, int(cz + p['r']) + 1)
 
                         idx_x = np.arange(x_min, x_max)
                         idx_y = np.arange(y_min, y_max)
-                        idx_z = np.arange(z_min, z_max)
-
-                        if len(idx_x) > 0 and len(idx_y) > 0 and len(idx_z) > 0:
-                            i_grid, j_grid, k_grid = np.meshgrid(idx_x, idx_y, idx_z, indexing='ij')
-                            mask = (i_grid - cx)**2 + (j_grid - cy)**2 + (k_grid - cz)**2 <= p['r']**2
-                            ii, jj, kk = i_grid[mask], j_grid[mask], k_grid[mask]
-                            indices = kk + jj * nelz + ii * nely * nelz
-                            self.xPhys[indices] = 1e-6
-                ax.text(0.5, 0.5, 0.5, s='Configure parameters and press "Create"', transform=ax.transAxes,
-                    ha='center', va='center', fontsize=16, alpha=0.5, color='black')
-            else:
-                p = self.last_params
-                self.xPhys = np.full(p['nelxyz'][0] * p['nelxyz'][1], p['volfrac'])
-                if p['v'] != '-':
-                    nelx, nely = p['nelxyz'][0], p['nelxyz'][1]
-                    cx, cy = p['c'][0], p['c'][1]
-            
-                    if p['v'] == '□':  # Square
-                        x_min, x_max = max(0, int(cx - p['r'])), min(nelx, int(cx + p['r']))
-                        y_min, y_max = max(0, int(cy - p['r'])), min(nely, int(cy + p['r']))
+                        if is_3d_mode: idx_z = np.arange(z_min, z_max)
                         
-                        idx_x = np.arange(x_min, x_max)
-                        idx_y = np.arange(y_min, y_max)
-                        if len(idx_x) > 0 and len(idx_y) > 0:
-                            xx, yy = np.meshgrid(idx_x, idx_y, indexing='ij')
-                            indices = (yy + xx * nely).flatten()
-                            self.xPhys[indices] = 1e-6
+                        if p['v'] == '□':  # Square/Cube
+                            if len(idx_x) > 0 and len(idx_y) > 0:
+                                if (is_3d_mode and len(idx_z) > 0):
+                                    xx, yy, zz = np.meshgrid(idx_x, idx_y, idx_z, indexing='ij')
+                                    indices = zz + yy * nelz + xx * nely * nelz
+                                elif not is_3d_mode:
+                                    xx, yy = np.meshgrid(idx_x, idx_y, indexing='ij')
+                                    indices = yy + xx * nely
 
-                    elif p['v'] == '○':  # Circle
-                        x_min, x_max = max(0, int(cx - p['r'])), min(nelx, int(cx + p['r']) + 1)
-                        y_min, y_max = max(0, int(cy - p['r'])), min(nely, int(cy + p['r']) + 1)
-                        
-                        idx_x = np.arange(x_min, x_max)
-                        idx_y = np.arange(y_min, y_max)
-                        if len(idx_x) > 0 and len(idx_y) > 0:
-                            i_grid, j_grid = np.meshgrid(idx_x, idx_y, indexing='ij')
-                            mask = (i_grid - cx)**2 + (j_grid - cy)**2 <= p['r']**2
-                            ii, jj = i_grid[mask], j_grid[mask]
-                            indices = jj + ii * nely
-                            self.xPhys[indices] = 1e-6
-                ax.text(0.5, 0.5, s='Configure parameters and press "Create"', transform=ax.transAxes,
-                    ha='center', va='center', fontsize=16, alpha=0.5, color='black')
-            self.plot_material(ax, is_3d=is_3d_mode)
+                        elif p['v'] == '○':  # Circle/Sphere
+                            if len(idx_x) > 0 and len(idx_y) > 0:
+                                if (is_3d_mode and len(idx_z) > 0):
+                                    i_grid, j_grid, k_grid = np.meshgrid(idx_x, idx_y, idx_z, indexing='ij')
+                                    mask = (i_grid - cx)**2 + (j_grid - cy)**2 + (k_grid - cz)**2 <= p['r']**2
+                                    ii, jj, kk = i_grid[mask], j_grid[mask], k_grid[mask]
+                                    indices = kk + jj * nelz + ii * nely * nelz
+                                elif not is_3d_mode:
+                                    i_grid, j_grid = np.meshgrid(idx_x, idx_y, indexing='ij')
+                                    mask = (i_grid - cx)**2 + (j_grid - cy)**2 <= p['r']**2
+                                    ii, jj = i_grid[mask], j_grid[mask]
+                                    indices = jj + ii * nely
+                        self.xPhys[indices.flatten()] = 1e-6
+                    if is_3d_mode:
+                        ax.text(0.5, 0.5, 0.5, s='Configure parameters and press "Create"', transform=ax.transAxes,
+                            ha='center', va='center', fontsize=16, alpha=0.5, color='black')
+                    else:
+                        ax.text(0.5, 0.5, s='Configure parameters and press "Create"', transform=ax.transAxes,
+                            ha='center', va='center', fontsize=16, alpha=0.5, color='black')
+                self.plot_material(ax, is_3d=is_3d_mode)
         
         self.redraw_non_material_layers(ax, is_3d_mode)
+        if not is_3d_mode:
+            ax.set_aspect('equal', 'box')
+        ax.autoscale(tight=True)
         self.canvas.draw()
     
     #def plot_3d_layers_fast(self, ax): # call below for fast 3D plotting (bad quality when result isn't sharp)
@@ -978,11 +983,10 @@ class MainWindow(QMainWindow):
         p = self.last_params
         nx, ny, nz = p['nelxyz'][0], p['nelxyz'][1], p['nelxyz'][2]
         data_to_plot = xPhys_data if xPhys_data is not None else self.xPhys
-        if data_to_plot is None:
-            return
+        if data_to_plot is None: return
         
+        ax.clear()
         if is_3d:
-            ax.clear()
             # Plot using voxels -> only the exterior box is visible
             #x_phys_3d = data_to_plot.reshape((nz, nx, ny)).transpose(1, 2, 0) if xPhys_data is None else xPhys_data.reshape((nz, nx, ny)).transpose(1, 2, 0)
             #base_color = np.array(to_rgb(self.material_widget.mat_color.get_color()))
@@ -996,8 +1000,7 @@ class MainWindow(QMainWindow):
             p = self.last_params
             nx, ny, nz = p['nelxyz']
             
-            # Find all elements with a small amount of material (e.g., > 1%)
-            # This avoids plotting millions of fully transparent points.
+            # Avoids plotting fully transparent points.
             visible_elements_mask = data_to_plot > 0.01
             visible_indices = np.where(visible_elements_mask)[0]
             
@@ -1011,16 +1014,15 @@ class MainWindow(QMainWindow):
             
             colors = np.zeros((len(densities), 4))
             colors[:, :3] = base_color_rgb  # Set the RGB color for all points
-            colors[:, 3] = densities      # Set the Alpha channel to the density
+            colors[:, 3] = densities # Set the Alpha channel to the density
 
-            ax.scatter(x + 0.5, y + 0.5, z + 0.5, 
+            ax.scatter(x + 0.5, y + 0.5, z + 0.5,
                        s=6000/max(nx, ny, nz),
-                       marker='s', 
+                       marker='s', # Square markers to mimic voxels
                        c=colors, # Pass the array of colors with variable alpha
                        alpha=None) # Alpha is now controlled by the 'c' array
             
             ax.set_box_aspect([nx, ny, nz])
-            self.redraw_non_material_layers(ax, is_3d_mode=True)
         else:
             mat_color = self.material_widget.mat_color.get_color()
             cmap = LinearSegmentedColormap.from_list("custom_cmap", ["white", mat_color])
@@ -1037,32 +1039,17 @@ class MainWindow(QMainWindow):
         self.plot_dimensions_frame(ax, is_3d=is_3d_mode)
         self.plot_displacement_preview(ax, is_3d=is_3d_mode)
 
-        # Layer 3: Dimension Labels and Ticks
-        if self.sections['dimensions'].visibility_button.isChecked():
-            ax.set_xlabel("X", color='black')
-            ax.set_ylabel("Y", color='black')
-            ax.yaxis.label.set_rotation(0) # Display Y label vertically
-            if is_3d_mode: ax.set_zlabel("Z", color='black')
-            ax.tick_params(axis='x', colors='black')
-            ax.tick_params(axis='y', colors='black')
-            if is_3d_mode: ax.tick_params(axis='z', colors='black')
-            for spine in ax.spines.values():
-                spine.set_visible(True); spine.set_edgecolor('black')
-        else:
-            ax.set_xlabel(""); ax.set_ylabel("")
-            ax.set_xticks([]); ax.set_yticks([])
-            if is_3d_mode: ax.set_zticks([])
-            for spine in ax.spines.values():
-                spine.set_visible(False)
-        
-        # Final adjustments
-        if not is_3d_mode:
-            ax.set_aspect('equal', 'box')
-        ax.autoscale(tight=True)
+
 
     def plot_dimensions_frame(self, ax, is_3d):
         """Draws a dotted frame around the design space, controlled by the Dimensions section's visibility button."""
         if not self.sections['dimensions'].visibility_button.isChecked():
+            ax.set_xlabel(""); ax.set_ylabel("")
+            if is_3d: ax.set_zlabel("")
+            ax.set_xticks([]); ax.set_yticks([])
+            if is_3d: ax.set_zticks([])
+            for spine in ax.spines.values():
+                spine.set_visible(False)
             return
 
         p = self.last_params
@@ -1087,32 +1074,81 @@ class MainWindow(QMainWindow):
             rect = Rectangle((0, 0), nx, ny, fill=False, edgecolor='gray', linestyle=':', linewidth=1.5)
             ax.add_patch(rect)
 
+        ax.set_xlabel("X", color='black')
+        ax.set_ylabel("Y", color='black')
+        ax.yaxis.label.set_rotation(0) # Display Y label vertically
+        if is_3d: ax.set_zlabel("Z", color='black')
+        ax.tick_params(axis='x', colors='black')
+        ax.tick_params(axis='y', colors='black')
+        if is_3d: ax.tick_params(axis='z', colors='black')
+        for spine in ax.spines.values():
+            spine.set_visible(True); spine.set_edgecolor('black')
+
     def plot_forces(self, ax, is_3d):
         """Plots the forces as arrows."""
         if not self.sections['forces'].visibility_button.isChecked(): return
+        if not self.last_params: return
         p = self.last_params
-        colors = ['r', 'b', 'b']
-        for i in range(3):
-            if p['a'][i] != '-':
-                direction = p['a'][i]
-                length = np.mean(p['nelxyz'][:2])/6
+        if self.is_displaying_deformation and self.u is not None:
+            if self.displacement_widget.mov_iter.value() == 1: # Only show forces in single-frame displacement mode, not supported yet in animation mode
+                active_forces = [g for g in self.forces_widget.inputs if g['a'].currentText() != '-']
+                if not active_forces: return
+                orig_fx = np.array([g['fx'].value() for g in active_forces])
+                orig_fy = np.array([g['fy'].value() for g in active_forces])
+                if is_3d: orig_fz = np.array([g['fz'].value() for g in active_forces])
+                colors = ['r' if i == 0 else 'b' for i, g in enumerate(self.forces_widget.inputs) if g['a'].currentText() != '-']
+                disp_factor = self.displacement_widget.mov_disp.value()
+                nely = p['nelxyz'][1]
+                indices = (orig_fz * (orig_fx + 1) * (nely + 1)) + (orig_fx * (nely + 1)) + orig_fy if is_3d else (orig_fx * (nely + 1)) + orig_fy
+                ux = self.u[2 * indices    , 0] * disp_factor
+                uy = self.u[2 * indices + 1, 0] * disp_factor
+                if is_3d: uz = self.u[2 * indices + 2, 0] * disp_factor
+                new_fx = orig_fx + ux
+                new_fy = orig_fy + uy if is_3d else orig_fy - uy
+                if is_3d: new_fz = orig_fz + uz
                 
-                dx, dy, dz = 0, 0, 0
-                if 'X:→' in direction: dx=length
-                if 'X:←' in direction: dx=-length
-                if 'Y:↑' in direction: dy=length
-                if 'Y:↓' in direction: dy=-length
-                if 'Z:<' in direction: dz=length
-                if 'Z:>' in direction: dz=-length
+                length = np.mean(p['nelxyz'][:2]) / 6
+                dx, dy = np.zeros_like(new_fx), np.zeros_like(new_fy)
+                if is_3d: dz = np.zeros_like(new_fz)
+                directions = [g['a'].currentText() for g in active_forces]
+                for i, d in enumerate(directions):
+                    if d == '-': continue
+                    elif 'X:→' in d: dx[i] = length
+                    elif 'X:←' in d: dx[i] = -length
+                    elif 'Y:↑' in d: dy[i] = length
+                    elif 'Y:↓' in d: dy[i] = -length
+                    elif is_3d:
+                        if 'Z:<' in d: dz[i] = length
+                        elif 'Z:>' in d: dz[i] = -length
                 
                 if is_3d:
-                    ax.quiver(p['fx'][i], p['fy'][i], p['fz'][i], dx, dy, dz, color=colors[i], length=length, normalize=True)
+                    ax.quiver(new_fx, new_fy, new_fz, dx, dy, dz, color=colors, length=length, normalize=True)
                 else:
-                    ax.quiver(p['fx'][i], p['fy'][i], dx, dy, color=colors[i], scale_units='xy', angles='xy', scale=1)
+                    ax.quiver(new_fx, new_fy, dx, dy, color=colors, scale_units='xy', angles='xy', scale=1)
+        else:
+            colors = ['r' if i == 0 else 'b' for i, g in enumerate(self.forces_widget.inputs) if g['a'].currentText() != '-']
+            dx, dy = np.zeros_like(p['fx']), np.zeros_like(p['fy'])
+            if is_3d: dz = np.zeros_like(p['fz'])
+            length = np.mean(p['nelxyz'][:2])/6
+            directions = p['a']
+            for i, d in enumerate(directions):
+                if d == '-': continue
+                elif 'X:→' in d: dx[i] = length
+                elif 'X:←' in d: dx[i] = -length
+                elif 'Y:↑' in d: dy[i] = length
+                elif 'Y:↓' in d: dy[i] = -length
+                elif is_3d:
+                    if 'Z:<' in d: dz[i] = length
+                    elif 'Z:>' in d: dz[i] = -length
+            if is_3d:
+                ax.quiver(p['fx'], p['fy'], p['fz'], dx, dy, dz, color=colors, length=length, normalize=True)
+            else:
+                ax.quiver(p['fx'], p['fy'], dx, dy, color=colors, scale_units='xy', angles='xy', scale=1)
 
     def plot_supports(self, ax, is_3d):
         """Plots the supports as triangles."""
         if not self.sections['supports'].visibility_button.isChecked(): return
+        # No need to consider the case is_displaying_deformation since the supports don't move
         p = self.last_params
         for i in range(len(p['dim'])):
             if p['dim'][i] != '-':
@@ -1124,12 +1160,11 @@ class MainWindow(QMainWindow):
 
     def plot_void_region(self, ax, is_3d):
         """Plots the void region outline (square/cube or circle/sphere) in 2D or 3D."""
-        if not self.sections['void'].visibility_button.isChecked():
-            return
+        if not self.sections['void'].visibility_button.isChecked(): return
+        if self.is_displaying_deformation: return # Void region are not relevant in deformation view
         
         p = self.last_params
-        if not p or p['v'] == '-':
-            return # Do nothing if params don't exist or no shape is selected
+        if not p or p['v'] == '-': return # Do nothing if params don't exist or no shape is selected
 
         r, c = p['r'], p['c']
 
@@ -1183,108 +1218,11 @@ class MainWindow(QMainWindow):
             spine.set_visible(False) # Hide the black border frame
         
         self.canvas.draw()
-        
-    def plot_single_displacement(self, plot_data, is_3d):
-        """Draws the deformed voxel grid from a single-frame analysis."""
-        if is_3d:
-            nelx, nely, nelz = self.last_params['nelxyz']
-
-            self.figure.clear()
-            ax = self.figure.add_subplot(111, projection='3d', facecolor='white')
-            self.figure.patch.set_facecolor('white')
-
-            x_phys_3d = self.xPhys.reshape((nelz, nelx, nely))
-
-            # Use alpha = density to visualize deformation
-            base_color = np.array(to_rgb(self.material_widget.mat_color.get_color()))
-            colors = np.zeros(x_phys_3d.shape + (4,))
-            colors[..., :3] = base_color
-            colors[..., 3] = np.clip(x_phys_3d, 0.0, 1.0)
-
-            # Optional: downsample or use only surface for performance
-            mask = x_phys_3d > 1e-3  # Optional surface mask logic here
-
-            ax.voxels(mask, facecolors=colors, edgecolor=None)
-            ax.set_box_aspect([nelz, nelx, nely])
-            ax.set_xlabel("X")
-            ax.set_ylabel("Y")
-            ax.set_zlabel("Z")
-        else:
-            X, Y = plot_data
-            nelx, nely = self.last_params['nelxyz'][:2]
-            self.figure.clear(); ax = self.figure.add_subplot(111, facecolor='white')
-            self.figure.patch.set_facecolor('white')
-            ax.pcolormesh(X, Y, -self.xPhys.reshape((nelx, nely)), cmap='gray') # , shading='auto'
-            ax.set_aspect('equal', 'box'); ax.autoscale(tight=True)
-            ax.set_xlabel("X"); ax.set_ylabel("Y")
-            self.plot_deformed_overlays(ax, self.last_params['disp_factor'])
-        
-        self.canvas.draw()
-
-    def plot_deformed_overlays(self, ax, disp_factor):
-        """Plots forces and supports at their NEW deformed positions."""
-        p = self.last_params
-        # This function is currently 2D only, as the 3D displacement plot is handled differently.
-        if p['nelxyz'][2] > 0: return
-
-        nely = p['nelxyz'][1]
-        
-        # --- Plot Supports at new positions ---
-        if self.sections['supports'].visibility_button.isChecked():
-            # Get the original positions of all active supports
-            active_supports = [g for g in self.supports_widget.inputs if g['d'].currentText() != '-']
-            if active_supports:
-                orig_sx = np.array([g['sx'].value() for g in active_supports])
-                orig_sy = np.array([g['sy'].value() for g in active_supports])
-                
-                # Vectorized calculation of nodal indices
-                indices = orig_sx * (nely + 1) + orig_sy
-                
-                # Get displacements and calculate new positions
-                ux = self.u[2 * indices, 0] * disp_factor
-                uy = self.u[2 * indices + 1, 0] * disp_factor
-                ax.scatter(orig_sx + ux, orig_sy + uy, s=80, marker='^', c='black')
-
-        # --- Plot Forces at new positions ---
-        if self.sections['forces'].visibility_button.isChecked():
-            active_forces = [g for g in self.forces_widget.inputs if g['a'].currentText() != '-']
-            if not active_forces: return
-
-            # 1. Get original positions and directions
-            orig_fx = np.array([g['fx'].value() for g in active_forces])
-            orig_fy = np.array([g['fy'].value() for g in active_forces])
-            directions = [g['a'].currentText() for g in active_forces]
-            colors = ['r' if i == 0 else 'b' for i, g in enumerate(self.forces_widget.inputs) if g['a'].currentText() != '-']
-
-            # 2. Vectorized calculation of nodal indices
-            indices = orig_fx * (nely + 1) + orig_fy
-            
-            # 3. Get displacements and calculate new base positions for the arrows
-            ux = self.u[2 * indices, 0] * disp_factor
-            uy = self.u[2 * indices + 1, 0] * disp_factor
-            new_fx = orig_fx + ux
-            new_fy = orig_fy - uy
-            
-            # 4. Calculate the arrow vectors (dx, dy)
-            length = np.mean(p['nelxyz'][:2]) / 6
-            dx = np.zeros_like(new_fx, dtype=float)
-            dy = np.zeros_like(new_fy, dtype=float)
-            
-            for i, direction in enumerate(directions):
-                if 'X:→' in direction: dx[i] = length
-                if 'X:←' in direction: dx[i] = -length
-                if 'Y:↑' in direction: dy[i] = length
-                if 'Y:↓' in direction: dy[i] = -length
-                
-            # 5. Plot all quivers at once
-            ax.quiver(new_fx, new_fy, dx, dy, color=colors, scale_units='xy', angles='xy', scale=1)
 
     def plot_displacement_preview(self, ax, is_3d):
         """Overlays displacement vectors (quivers) on the plot if the preview is active."""
-        if not self.sections['displacement'].visibility_button.isChecked():
-            return
-        if self.u is None or self.xPhys is None:
-            return
+        if not self.sections['displacement'].visibility_button.isChecked(): return
+        if self.u is None or self.xPhys is None: return
 
         p = self.last_params
         nelx, nely = p['nelxyz'][:2]
