@@ -2,7 +2,6 @@
 # MIT License - Copyright (c) 2025 Luc Prevost
 # Main window for the Topopt Comec application using PySide6.
 
-import sys
 import os
 import json
 import copy

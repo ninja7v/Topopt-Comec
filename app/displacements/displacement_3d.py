@@ -3,11 +3,10 @@
 # Refactored 3D linear and non-linear displacement analysis.
 
 import numpy as np
-from scipy.sparse import coo_matrix  # Provides good N-dimensional array manipulation
+from scipy.sparse import coo_matrix # Provides good N-dimensional array manipulation
 from scipy.interpolate import griddata
-import cvxopt                        # Convex Optimization
-import cvxopt.cholmod
-import mcubes                        # Generate isosurface
+from cvxopt import matrix, spmatrix, cholmod # Convex optimization
+import mcubes # Generate isosurface
 
 def get_edofMat(nelx, nely, nelz):
     """
