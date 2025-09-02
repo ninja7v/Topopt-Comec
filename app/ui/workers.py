@@ -1,6 +1,6 @@
-# app/ui/worker.py
+# app/ui/workers.py
 # MIT License - Copyright (c) 2025 Luc Prevost
-# QThread worker for running optimizers in the background.
+# QThread worker for running optimizers and displacements in the background.
 
 from PySide6.QtCore import QThread, Signal
 from app.optimizers import optimizer_2d, optimizer_3d
@@ -47,12 +47,10 @@ class OptimizerWorker(QThread):
             
             if is_3d:
                 print("Dispatching to 3D optimizer...")
-                # The optimizer function doesn't know about 'u', so we can't get it directly here
-                # We need to call a function that returns it
                 result, u = optimizer_3d.optimize(**optimizer_params)
             else:
                 print("Dispatching to 2D optimizer...")
-                # For 2D, remove 3D-specific keys from the already cleaned dictionary
+                # Remove 3D-specific keys from the already cleaned dictionary
                 params_2d = optimizer_params.copy()
                 params_2d.pop('vz', None)
                 params_2d.pop('fz', None)
