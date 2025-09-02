@@ -207,70 +207,74 @@ class VoidWidget(QWidget):
     """Custom widget for void inputs."""
     def __init__(self):
         super().__init__()
+        self.inputs = [] # This list will hold the input widgets so the MainWindow can access them
         layout = QGridLayout(self)
         # Shape
-        self.v_shape = QComboBox()
-        self.v_shape.addItems(['-', '□ (Square)', '○ (Circle)'])
-        self.v_shape.setToolTip("Shape of the void")
+        vshape = QComboBox()
+        vshape.addItems(['-', '□ (Square)', '○ (Circle)'])
+        vshape.setToolTip("Shape of the void")
         shape_radius_layout = QHBoxLayout()
         shape_radius_layout.addWidget(QLabel("Shape:"))
-        shape_radius_layout.addWidget(self.v_shape)
+        shape_radius_layout.addWidget(vshape)
         shape_radius_layout.addSpacing(10)
         # Radius
-        self.v_radius = QSpinBox()
-        self.v_radius.setRange(1, 100); self.v_radius.setMaximumWidth(70)
-        self.v_radius.setToolTip("Radius of the shape")
+        vradius = QSpinBox()
+        vradius.setRange(1, 100); vradius.setMaximumWidth(70)
+        vradius.setToolTip("Radius of the shape")
         shape_radius_layout.addWidget(QLabel("Radius:"))
-        shape_radius_layout.addWidget(self.v_radius)
+        shape_radius_layout.addWidget(vradius)
         shape_radius_layout.addStretch()
         layout.addLayout(shape_radius_layout, 0, 0, 1, 2)
         # Center
         center_layout = QHBoxLayout()
         center_layout.addWidget(QLabel("Center:"))
-        self.v_cx = QSpinBox()
-        self.v_cx.setRange(0, 200); self.v_cx.setMaximumWidth(70)
-        self.v_cx.setToolTip("X")
-        center_layout.addWidget(self.v_cx)
-        self.v_cy = QSpinBox()
-        self.v_cy.setRange(0, 200); self.v_cy.setMaximumWidth(70)
-        self.v_cy.setToolTip("Y")
-        center_layout.addWidget(self.v_cy)
-        self.v_cz = QSpinBox()
-        self.v_cz.setRange(0, 200); self.v_cz.setMaximumWidth(70)
-        self.v_cz.setToolTip("Z")
-        center_layout.addWidget(self.v_cz)
+        vx = QSpinBox()
+        vx.setRange(0, 200); vx.setMaximumWidth(70)
+        vx.setToolTip("X")
+        center_layout.addWidget(vx)
+        vy = QSpinBox()
+        vy.setRange(0, 200); vy.setMaximumWidth(70)
+        vy.setToolTip("Y")
+        center_layout.addWidget(vy)
+        vz = QSpinBox()
+        vz.setRange(0, 200); vz.setMaximumWidth(70)
+        vz.setToolTip("Z")
+        center_layout.addWidget(vz)
         center_layout.addStretch()
         layout.addLayout(center_layout, 1, 0, 1, 2)
+        
+        self.inputs.append({'vshape': vshape, 'vradius': vradius, 'vx': vx, 'vy': vy, 'vz': vz})
     
     def update_for_mode(self, is_3d: bool):
         """Updates the text in the shape combo box to match the current mode."""
         # Store the current index to re-apply it after changing the items
-        current_index = self.v_shape.currentIndex()
-        
-        # Block signals to prevent this change from triggering a replot unnecessarily
-        self.v_shape.blockSignals(True)
-        
-        # Clear the old items
-        self.v_shape.clear()
-        
-        if is_3d:
-            self.v_shape.addItems(['-', '□ (Cube)', '○ (Sphere)'])
-        else:
-            self.v_shape.addItems(['-', '□ (Square)', '○ (Circle)'])
+        for input_group in self.inputs:
+            combo_box = input_group['vshape']
+            current_index = combo_box.currentIndex()
             
-        # Restore the previous selection and unblock signals
-        self.v_shape.setCurrentIndex(current_index)
-        self.v_shape.blockSignals(False)
+            # Block signals to prevent this change from triggering a replot unnecessarily
+            combo_box.blockSignals(True)
+            
+            # Clear the old items
+            combo_box.clear()
+            
+            if is_3d:
+                combo_box.addItems(['-', '□ (Cube)', '○ (Sphere)'])
+            else:
+                combo_box.addItems(['-', '□ (Square)', '○ (Circle)'])
+            
+            # Restore the previous selection and unblock signals
+            combo_box.setCurrentIndex(current_index)
+            combo_box.blockSignals(False)
 
 class ForcesWidget(QWidget):
     """Custom widget for defining the input and output forces."""
     def __init__(self):
         super().__init__()
+        self.inputs = [] # This list will hold the input widgets so the MainWindow can access them
         # The main layout for this widget stacks the 3 force sections vertically
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(10)
-
-        self.inputs = [] # This list will hold the input widgets so the MainWindow can access them
 
         arrows = ['-', 'X:→', 'X:←', 'Y:↑', 'Y:↓', 'Z:<', 'Z:>']
         force_labels = ["Input", "Output 1", "Output 2"]
@@ -300,15 +304,15 @@ class ForcesWidget(QWidget):
             # Direction
             dir_layout = QHBoxLayout()
             dir_layout.addWidget(QLabel("Dir:"))
-            a = QComboBox(); a.addItems(arrows); a.setCurrentIndex(default_arrows[i])
-            a.setToolTip("Force direction")
-            dir_layout.addWidget(a)
+            fdir = QComboBox(); fdir.addItems(arrows); fdir.setCurrentIndex(default_arrows[i])
+            fdir.setToolTip("Force direction")
+            dir_layout.addWidget(fdir)
             dir_layout.addSpacing(20)
             # Force spring
             dir_layout.addWidget(QLabel("Spring (N/m):"))
-            fv = QDoubleSpinBox(); fv.setRange(0, 10); fv.setSingleStep(0.01); fv.setValue(default_fv[i])
-            fv.setToolTip("Force magnitude for input, spring stiffness for output")
-            dir_layout.addWidget(fv)
+            fnorm = QDoubleSpinBox(); fnorm.setRange(0, 10); fnorm.setSingleStep(0.01); fnorm.setValue(default_fv[i])
+            fnorm.setToolTip("Force magnitude for input, spring stiffness for output")
+            dir_layout.addWidget(fnorm)
             dir_layout.addStretch()
             grid.addLayout(dir_layout, 1, 0, 1, 2) # Span across both columns
 
@@ -316,7 +320,7 @@ class ForcesWidget(QWidget):
             main_layout.addLayout(grid)
             
             # Store the widgets in the public 'inputs' list
-            self.inputs.append({'fx': fx, 'fy': fy, 'fz': fz, 'a': a, 'fv': fv})
+            self.inputs.append({'fx': fx, 'fy': fy, 'fz': fz, 'fdir': fdir, 'fnorm': fnorm})
 
             # Add a separator line between force sections
             if i < len(force_labels) - 1:
@@ -329,17 +333,16 @@ class SupportWidget(QWidget):
     """Custom widget for defining up to four supports."""
     def __init__(self):
         super().__init__()
+        self.inputs = [] # This list will hold the input widgets so the MainWindow can access them
         # The main layout for this widget
         layout = QGridLayout(self)
         layout.setColumnStretch(1, 1) # Allow the position inputs to stretch
-
-        self.inputs = [] # This list will hold the input widgets so the MainWindow can access them
         
         dims = ['-', 'X', 'Y', 'Z', 'XY', 'XZ', 'YZ', 'XYZ']
         default_pos = [[0, 0, 0], [60, 0, 0], [0, 0, 0], [0, 0, 0]]
         default_dims = [7, 7, 0, 0]
 
-        for i in range(4):
+        for i in range(len(default_dims)):
             pos_layout = QHBoxLayout()
             # Force position
             label = QLabel(f"<b>▲ {i+1}</b>")
@@ -353,14 +356,14 @@ class SupportWidget(QWidget):
             sz = QSpinBox(); sz.setRange(0, 200); sz.setValue(default_pos[i][2]); sz.setMaximumWidth(65)
             sz.setToolTip("Z")
             pos_layout.addWidget(sz)
-            d = QComboBox(); d.addItems(dims); d.setCurrentIndex(default_dims[i])
+            sdim = QComboBox(); sdim.addItems(dims); sdim.setCurrentIndex(default_dims[i])
             # Force direction
-            d.setToolTip("Fixed direction(s)")
+            sdim.setToolTip("Fixed direction(s)")
             layout.addLayout(pos_layout, i, 1)
-            layout.addWidget(d, i, 2)
+            layout.addWidget(sdim, i, 2)
 
             # Store the widgets in the public 'inputs' list
-            self.inputs.append({'sx': sx, 'sy': sy, 'sz': sz, 'd': d})
+            self.inputs.append({'sx': sx, 'sy': sy, 'sz': sz, 'sdim': sdim})
 
 class MaterialWidget(QWidget):
     """Custom widget for material inputs."""
@@ -390,7 +393,6 @@ class OptimizerWidget(QWidget):
     """Custom widget for optimizer inputs."""
     def __init__(self):
         super().__init__()
-        
         layout = QGridLayout(self)
         # Filter type
         self.opt_ft = QComboBox(); self.opt_ft.addItems(['Sensitivity', 'Density']); self.opt_ft.setCurrentIndex(0)
@@ -455,7 +457,6 @@ class FooterWidget(QWidget):
     """Custom widget for the footer."""
     def __init__(self):
         super().__init__()
-        
         # Create button
         action_layout = QHBoxLayout(self)
         self.create_button = QPushButton(" Create")

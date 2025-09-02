@@ -54,6 +54,7 @@ class OptimizerWorker(QThread):
                 print("Dispatching to 2D optimizer...")
                 # For 2D, remove 3D-specific keys from the already cleaned dictionary
                 params_2d = optimizer_params.copy()
+                params_2d.pop('vz', None)
                 params_2d.pop('fz', None)
                 params_2d.pop('sz', None)
                 params_2d['nelxyz'] = params_2d['nelxyz'][:2]

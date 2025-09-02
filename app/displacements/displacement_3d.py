@@ -169,10 +169,10 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
         for i in range(nf):
             K[d[i], d[i]] += 0.1
         K = deleterowcol(K,fixed,fixed).tocoo()
-        K = cvxopt.spmatrix(K.data,K.row.astype(int),K.col.astype(int))
+        K = spmatrix(K.data,K.row.astype(int),K.col.astype(int))
         for i in range(nf):
-            B = cvxopt.matrix(f[free,i])
-            cvxopt.cholmod.linsolve(K,B)
+            B = matrix(f[free,i])
+            cholmod.linsolve(K,B)
             u[free,i]=np.array(B)[:,0]
         # Move density
         ux = (u[edofMat][:,3*2+0,0] + u[edofMat][:,3*1+0,0]+ u[edofMat][:,3*6+0,0]+\

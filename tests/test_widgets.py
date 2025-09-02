@@ -2,7 +2,7 @@
 # MIT License - Copyright (c) 2025 Luc Prevost
 # Tests for the widgets.
 
-from PySide6.QtWidgets import QApplication, QWidget, QSpinBox, QDoubleSpinBox, QComboBox, QPushButton
+from PySide6.QtWidgets import QWidget, QSpinBox, QDoubleSpinBox, QComboBox, QPushButton
 from app.ui.widgets import (CollapsibleSection, DimensionsWidget, VoidWidget, ForcesWidget,
                             SupportWidget, MaterialWidget, OptimizerWidget,
                             DisplacementWidget, HeaderWidget, PresetWidget, FooterWidget)
@@ -49,16 +49,23 @@ def test_void_widget_initialization(qt_app):
     """Unit Test: Verifies the VoidWidget initializes correctly."""
     widget = VoidWidget()
     
-    assert isinstance(widget.v_shape, QComboBox)
-    assert isinstance(widget.v_radius, QSpinBox)
-    assert isinstance(widget.v_cx, QSpinBox)
+    # Check the structure and a default value for the first void region input
+    first_void = widget.inputs[0]
+    assert 'vshape' in first_void and isinstance(first_void['vshape'], QComboBox)
+    assert 'vradius' in first_void and isinstance(first_void['vradius'], QSpinBox)
+    assert 'vx' in first_void and isinstance(first_void['vx'], QSpinBox)
+    assert 'vy' in first_void and isinstance(first_void['vy'], QSpinBox)
+    assert first_void['vshape'].currentText() == '-'
+    assert first_void['vradius'].value() == 1
+    assert first_void['vx'].value() == 0
+    assert first_void['vy'].value() == 0
     
     # Check that the 2D labels are present by default
-    assert widget.v_shape.itemText(1) == "□ (Square)"
+    assert first_void['vshape'].itemText(1) == "□ (Square)"
     
     # Test the mode-switching logic
     widget.update_for_mode(is_3d=True)
-    assert widget.v_shape.itemText(1) == "□ (Cube)"
+    assert first_void['vshape'].itemText(1) == "□ (Cube)"
 
 def test_forces_widget_initialization(qt_app):
     """Unit Test: Verifies the ForcesWidget initializes with exactly 3 force rows."""
@@ -69,14 +76,17 @@ def test_forces_widget_initialization(qt_app):
     # Check the structure and a default value for the first force input (Input)
     first_force = widget.inputs[0]
     assert 'fx' in first_force and isinstance(first_force['fx'], QSpinBox)
-    assert 'a' in first_force and isinstance(first_force['a'], QComboBox)
+    assert 'fy' in first_force and isinstance(first_force['fy'], QSpinBox)
+    assert 'fdir' in first_force and isinstance(first_force['fdir'], QComboBox)
     assert first_force['fx'].value() == 30
-    assert first_force['a'].currentText() == 'Y:↑'
+    assert first_force['fy'].value() == 0
+    assert first_force['fdir'].currentText() == 'Y:↑'
 
     # Check a default value for the second force input (Output 1)
     second_force = widget.inputs[1]
+    assert second_force['fx'].value() == 30
     assert second_force['fy'].value() == 40
-    assert second_force['a'].currentText() == 'Y:↓'
+    assert second_force['fdir'].currentText() == 'Y:↓'
 
 def test_support_widget_initialization(qt_app):
     """Unit Test: Verifies that the static SupportWidget initializes with 4 rows."""
@@ -87,12 +97,12 @@ def test_support_widget_initialization(qt_app):
     # Check default values from your provided code
     assert widget.inputs[0]['sx'].value() == 0
     assert widget.inputs[0]['sy'].value() == 0
-    assert widget.inputs[0]['d'].currentText() == 'XYZ'
+    assert widget.inputs[0]['sdim'].currentText() == 'XYZ'
     
     assert widget.inputs[1]['sx'].value() == 60
-    assert widget.inputs[1]['d'].currentText() == 'XYZ'
+    assert widget.inputs[1]['sdim'].currentText() == 'XYZ'
     
-    assert widget.inputs[3]['d'].currentText() == '-'
+    assert widget.inputs[3]['sdim'].currentText() == '-'
 
 def test_material_widget_initialization(qt_app):
     """Unit Test: Verifies the MaterialWidget initializes correctly."""

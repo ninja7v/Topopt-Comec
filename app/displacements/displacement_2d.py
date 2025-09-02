@@ -77,12 +77,12 @@ def run_iterative_displacement_2d(params, xPhys_initial, progress_callback=None)
     # The point of force application
     din = (params['fx'][0] + margin_X) * (nely + 1) + (params['fy'][0] + margin_Y)
     dinVal = params['fv'][0]
-    if 'X' in params['a'][0]:
+    if 'X' in params['fdir'][0]:
         din = 2 * din
-        if '←' in params['a'][0]: dinVal = -dinVal
-    elif 'Y' in params['a'][0]:
+        if '←' in params['fdir'][0]: dinVal = -dinVal
+    elif 'Y' in params['fdir'][0]:
         din = 2 * din + 1
-        if '↑' in params['a'][0]: dinVal = -dinVal
+        if '↑' in params['fdir'][0]: dinVal = -dinVal
 
     # 5. Embed the optimized structure into the larger domain
     xPhys2d = np.zeros((nelx, nely))

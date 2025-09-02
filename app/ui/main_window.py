@@ -172,11 +172,12 @@ class MainWindow(QMainWindow):
         section = CollapsibleSection("⚫ Void Region", self.void_widget)
         section.set_visibility_toggle(True)
         section.visibility_button.toggled.connect(self.on_visibility_toggled)
-        self.void_widget.v_shape.currentIndexChanged.connect(self.on_parameter_changed)
-        self.void_widget.v_radius.valueChanged.connect(self.on_parameter_changed)
-        self.void_widget.v_cx.valueChanged.connect(self.on_parameter_changed)
-        self.void_widget.v_cy.valueChanged.connect(self.on_parameter_changed)
-        self.void_widget.v_cz.valueChanged.connect(self.on_parameter_changed)
+        for void_group in self.void_widget.inputs:
+            void_group['vshape'].currentIndexChanged.connect(self.on_parameter_changed)
+            void_group['vradius'].valueChanged.connect(self.on_parameter_changed)
+            void_group['vx'].valueChanged.connect(self.on_parameter_changed)
+            void_group['vy'].valueChanged.connect(self.on_parameter_changed)
+            void_group['vz'].valueChanged.connect(self.on_parameter_changed)
         return section
 
     def create_forces_section(self):
@@ -191,8 +192,8 @@ class MainWindow(QMainWindow):
             force_group['fx'].valueChanged.connect(self.on_parameter_changed)
             force_group['fy'].valueChanged.connect(self.on_parameter_changed)
             force_group['fz'].valueChanged.connect(self.on_parameter_changed)
-            force_group['a'].currentIndexChanged.connect(self.on_parameter_changed)
-            force_group['fv'].valueChanged.connect(self.on_parameter_changed)
+            force_group['fdir'].currentIndexChanged.connect(self.on_parameter_changed)
+            force_group['fnorm'].valueChanged.connect(self.on_parameter_changed)
             
         return section
 
@@ -207,7 +208,7 @@ class MainWindow(QMainWindow):
             support_input_group['sx'].valueChanged.connect(self.on_parameter_changed)
             support_input_group['sy'].valueChanged.connect(self.on_parameter_changed)
             support_input_group['sz'].valueChanged.connect(self.on_parameter_changed)
-            support_input_group['d'].currentIndexChanged.connect(self.on_parameter_changed)
+            support_input_group['sdim'].currentIndexChanged.connect(self.on_parameter_changed)
             
         return section
 
@@ -290,37 +291,42 @@ class MainWindow(QMainWindow):
         params['nelxyz'] = [nx, ny, nz]
         params['volfrac'] = self.dim_widget.volfrac.value()
 
-        # Void
-        params['v'] = self.void_widget.v_shape.currentText()[0]
-        params['r'] = self.void_widget.v_radius.value()
-        params['c'] = [self.void_widget.v_cx.value(), self.void_widget.v_cy.value(), self.void_widget.v_cz.value()]
+        # Void regions
+        params['vshape'], params['vradius'] = [], []
+        params['vx'], params['vy'], params['vz'] = [], [], []
+        for vw in self.void_widget.inputs:
+            params['vshape'].append(vw['vshape'].currentText()[0])
+            params['vradius'].append(vw['vradius'].value())
+            params['vx'].append(vw['vx'].value())
+            params['vy'].append(vw['vy'].value())
+            params['vz'].append(vw['vz'].value())
         
         # Forces
         params['fx'], params['fy'], params['fz'] = [], [], []
-        params['a'], params['fv'] = [], []
+        params['fdir'], params['fnorm'] = [], []
         for fw in self.forces_widget.inputs:
             params['fx'].append(fw['fx'].value())
             params['fy'].append(fw['fy'].value())
             params['fz'].append(fw['fz'].value())
-            params['a'].append(fw['a'].currentText())
-            params['fv'].append(fw['fv'].value())
+            params['fdir'].append(fw['fdir'].currentText())
+            params['fnorm'].append(fw['fnorm'].value())
             
         # Supports
         params['sx'], params['sy'], params['sz'] = [], [], []
-        params['dim'] = []
+        params['sdim'] = []
         for sw in self.supports_widget.inputs:
             params['sx'].append(sw['sx'].value())
             params['sy'].append(sw['sy'].value())
             params['sz'].append(sw['sz'].value())
-            params['dim'].append(sw['d'].currentText())
+            params['sdim'].append(sw['sdim'].currentText())
             
         # Material
         params['E'] = self.material_widget.mat_E.value()
         params['nu'] = self.material_widget.mat_nu.value()
         
         # Optimizer
-        params['ft'] = 'Sensitivity' if self.optimizer_widget.opt_ft.currentIndex() == 0 else 'Density'
-        params['rmin'] = self.optimizer_widget.opt_fr.value()
+        params['filter_type'] = 'Sensitivity' if self.optimizer_widget.opt_ft.currentIndex() == 0 else 'Density'
+        params['filter_radius_min'] = self.optimizer_widget.opt_fr.value()
         params['penal'] = self.optimizer_widget.opt_p.value()
         params['n_it'] = self.optimizer_widget.opt_n_it.value()
 
@@ -376,26 +382,19 @@ class MainWindow(QMainWindow):
                 is_2d = len(p['nelxyz']) < 3 or p['nelxyz'][2] == 0.0
                 if is_2d:
                     p['nelxyz'] = p['nelxyz'][:2]
-            # --- Normalize for 2D vs 3D ---
-            if is_2d:
-                # If it's a 2D problem, remove all Z-related keys for a clean comparison
-                p['nelxyz'] = p['nelxyz'][:2] # Keep only Nx, Ny
-                
-                keys_to_clean = ['fz', 'sz', 'c']
-                for key in keys_to_clean:
-                    if key in p:
-                        if isinstance(p[key], list) and len(p[key]) > 0 and isinstance(p[key][0], (int, float)):
-                            # This is for lists of coordinates like c=[cx, cy, cz]
-                            p[key] = p[key][:2]
-                        elif isinstance(p[key], list) and len(p[key]) > 0 and isinstance(p[key][0], list):
-                                # This is for lists of lists like sx=[[s1x], [s2x], ...] (not our current structure, but robust)
-                            for i in range(len(p[key])):
-                                p[key][i] = p[key][i][:2]
-                
-                # Specifically handle list of values like fz=[f1z, f2z, f3z]
-                if 'fz' in p: p.pop('fz', None)
-                if 'sz' in p: p.pop('sz', None)
-                if 'c' in p: p['c'] = p['c'][:2]
+            # --- Normalize Void ---
+            if 'vshape' in p:
+                zipped_voids = zip(p.get('vshape', []), p.get('vradius', []), p.get('vx', []), p.get('vy', []), p.get('vz', []) if not is_2d else [0]*len(p.get('vx', [])))
+                void_list = list(zipped_voids)
+                active_voids = [v for v in void_list if v[0] != '-']
+                if active_voids:
+                    vshape, vradius, vx, vy, vz = list(zip(*active_voids))
+                    p['vshape'], p['vradius'], p['vx'], p['vy'], p['vz'] = list(vshape), list(vradius), list(vx), list(vy), list(vz)
+                else:
+                    for key in ['vshape', 'vradius', 'vx', 'vy', 'vz']:
+                        p.pop(key, None)
+            if is_2d and 'vz' in p:
+                p.pop('vz')
             # --- Normalize Supports ---
             # Zip all support lists together, filter for active ones, then unzip.
             zipped_supports = zip(p.get('sx', []), p.get('sy', []), p.get('sz', []) if not is_2d else [0]*len(p.get('sx', [])), p.get('dim', []))
@@ -410,25 +409,18 @@ class MainWindow(QMainWindow):
             # --- Normalize Forces ---
             # The input force (index 0) is always kept.
             # We only filter the output forces (indices 1 and beyond).
-            if 'fx' in p and 'a' in p:
-                zipped_forces = zip(p.get('fx', []), p.get('fy', []), p.get('fz', []) if not is_2d else [0]*len(p.get('fx', [])), p.get('a', []), p.get('fv', []))
+            if 'fx' in p and 'fdir' in p:
+                zipped_forces = zip(p.get('fx', []), p.get('fy', []), p.get('fz', []) if not is_2d else [0]*len(p.get('fx', [])), p.get('fdir', []), p.get('fnorm', []))
                 force_list = list(zipped_forces)
                 # Keep the input force, and any output forces that are active.
                 active_forces = [force_list[0]] + [f for f in force_list[1:] if f[3] != '-']
                 if active_forces:
-                    fx, fy, fz, a, fv = list(zip(*active_forces))
-                    p['fx'], p['fy'], p['fz'], p['a'], p['fv'] = list(fx), list(fy), list(fz), list(a), list(fv)
+                    fx, fy, fz, fdir, fnorm = list(zip(*active_forces))
+                    p['fx'], p['fy'], p['fz'], p['fdir'], p['fnorm'] = list(fx), list(fy), list(fz), list(fdir), list(fnorm)
                 else: # Should not happen as input force is required, but safe to have
-                    p['fx'], p['fy'], p['fz'], p['a'], p['fv'] = [], [], [], [], []
+                    p['fx'], p['fy'], p['fz'], p['fdir'], p['fnorm'] = [], [], [], [], []
             if is_2d and 'fz' in p:
                 p.pop('fz')
-            # --- Normalize Void ---
-            # If the void shape is '-', the other parameters are meaningless.
-            if 'v' in p:
-                if p['v'] == '-':
-                    p.pop('v', None)
-                    p.pop('r', None)
-                    p.pop('c', None)
             
             return p
         
@@ -443,14 +435,14 @@ class MainWindow(QMainWindow):
         """Checks for common input errors."""
         nx, ny, nz = p['nelxyz']
         if nx <= 0 or ny <= 0 or nz < 0: return "Nx, Ny, Nz must be positive."
-        if p['a'][0] == '-': return "Input force (Force 1) direction must be set."
-        if len(p['a']) > 2 and p['a'][1] == '-' and p['a'][2] == '-': 
+        if p['fdir'][0] == '-': return "Input force (Force 1) direction must be set."
+        if len(p['fdir']) > 2 and p['fdir'][1] == '-' and p['fdir'][2] == '-': 
             return "At least one output force must be set."
-        elif len(p['a']) == 2 and p['a'][1] == '-':
+        elif len(p['fdir']) == 2 and p['fdir'][1] == '-':
             return "At least one output force must be set."
-        elif len(p['a']) == 1:
+        elif len(p['fdir']) == 1:
             return "At least one output force must be set."
-        has_support = any(d != '-' for d in p['dim'])
+        has_support = any(d != '-' for d in p['sdim'])
         if not has_support: return "At least one support must be defined."
         return None
     
@@ -469,18 +461,19 @@ class MainWindow(QMainWindow):
         ny = self.dim_widget.ny.value()
         nz = self.dim_widget.nz.value()
 
-        # Update ranges for Void Widget
-        self.void_widget.v_cx.setMaximum(nx)
-        self.void_widget.v_cy.setMaximum(ny)
-        self.void_widget.v_cz.setMaximum(nz)
+        # Update ranges for all voids
+        for void_group in self.void_widget.inputs:
+            void_group['vx'].setMaximum(nx)
+            void_group['vy'].setMaximum(ny)
+            void_group['vz'].setMaximum(nz)
 
-        # Update ranges for all Forces
+        # Update ranges for all forces
         for force_group in self.forces_widget.inputs:
             force_group['fx'].setMaximum(nx)
             force_group['fy'].setMaximum(ny)
             force_group['fz'].setMaximum(nz)
 
-        # Update ranges for all Supports
+        # Update ranges for all supports
         for support_group in self.supports_widget.inputs:
             support_group['sx'].setMaximum(nx)
             support_group['sy'].setMaximum(ny)
@@ -503,7 +496,7 @@ class MainWindow(QMainWindow):
 
     def run_optimization(self):
         """Starts the optimization process based on current parameters, and gives live updates."""
-        self.last_params = self.gather_parameters()
+        #self.last_params = self.gather_parameters()
         error = self.validate_parameters(self.last_params)
         if error:
             QMessageBox.critical(self, "Input Error", error)
@@ -884,17 +877,17 @@ class MainWindow(QMainWindow):
                     if is_3d_mode: nelz = p['nelxyz'][2]
                     self.xPhys = np.full(nelx * nely * nelz if is_3d_mode else nelx * nely, p['volfrac'])
                     # Add voids if specified
-                    if p['v'] != '-':
-                        cx, cy, cz = p['c'][0], p['c'][1], p['c'][2]
-                        x_min, x_max = max(0, int(cx - p['r'])), min(nelx, int(cx + p['r']) + 1)
-                        y_min, y_max = max(0, int(cy - p['r'])), min(nely, int(cy + p['r']) + 1)
-                        if is_3d_mode: z_min, z_max = max(0, int(cz - p['r'])), min(nelz, int(cz + p['r']) + 1)
+                    for i, shape in enumerate(p['vshape']):
+                        if shape == '-': continue
+                        x_min, x_max = max(0, int(p['vx'][i] - p['vradius'][i])), min(nelx, int(p['vx'][i] + p['vradius'][i]) + 1)
+                        y_min, y_max = max(0, int(p['vy'][i] - p['vradius'][i])), min(nely, int(p['vy'][i] + p['vradius'][i]) + 1)
+                        if is_3d_mode: z_min, z_max = max(0, int(p['vz'][i] - p['r'])), min(nelz, int(p['vz'][i] + p['vradius'][i]) + 1)
 
                         idx_x = np.arange(x_min, x_max)
                         idx_y = np.arange(y_min, y_max)
                         if is_3d_mode: idx_z = np.arange(z_min, z_max)
                         
-                        if p['v'] == '□':  # Square/Cube
+                        if p['vshape'][i] == '□':  # Square/Cube
                             if len(idx_x) > 0 and len(idx_y) > 0:
                                 if (is_3d_mode and len(idx_z) > 0):
                                     xx, yy, zz = np.meshgrid(idx_x, idx_y, idx_z, indexing='ij')
@@ -903,16 +896,16 @@ class MainWindow(QMainWindow):
                                     xx, yy = np.meshgrid(idx_x, idx_y, indexing='ij')
                                     indices = yy + xx * nely
 
-                        elif p['v'] == '○':  # Circle/Sphere
+                        elif p['vshape'][i] == '○':  # Circle/Sphere
                             if len(idx_x) > 0 and len(idx_y) > 0:
                                 if (is_3d_mode and len(idx_z) > 0):
                                     i_grid, j_grid, k_grid = np.meshgrid(idx_x, idx_y, idx_z, indexing='ij')
-                                    mask = (i_grid - cx)**2 + (j_grid - cy)**2 + (k_grid - cz)**2 <= p['r']**2
+                                    mask = (i_grid - p['vx'][i])**2 + (j_grid - p['vy'][i])**2 + (k_grid - p['vz'][i])**2 <= p['vradius']**2
                                     ii, jj, kk = i_grid[mask], j_grid[mask], k_grid[mask]
                                     indices = kk + jj * nelz + ii * nely * nelz
                                 elif not is_3d_mode:
                                     i_grid, j_grid = np.meshgrid(idx_x, idx_y, indexing='ij')
-                                    mask = (i_grid - cx)**2 + (j_grid - cy)**2 <= p['r']**2
+                                    mask = (i_grid - p['vx'][i])**2 + (j_grid - p['vy'][i])**2 <= p['vradius']**2
                                     ii, jj = i_grid[mask], j_grid[mask]
                                     indices = jj + ii * nely
                         self.xPhys[indices.flatten()] = 1e-6
@@ -1033,7 +1026,7 @@ class MainWindow(QMainWindow):
         # Layer 2: Overlays
         self.plot_forces(ax, is_3d=is_3d_mode)
         self.plot_supports(ax, is_3d=is_3d_mode)
-        self.plot_void_region(ax, is_3d=is_3d_mode)
+        self.plot_void_regions(ax, is_3d=is_3d_mode)
         self.plot_dimensions_frame(ax, is_3d=is_3d_mode)
         self.plot_displacement_preview(ax, is_3d=is_3d_mode)
 
@@ -1089,12 +1082,12 @@ class MainWindow(QMainWindow):
         p = self.last_params
         if self.is_displaying_deformation and self.u is not None:
             if self.displacement_widget.mov_iter.value() == 1: # Only show forces in single-frame displacement mode, not supported yet in animation mode
-                active_forces = [g for g in self.forces_widget.inputs if g['a'].currentText() != '-']
+                active_forces = [g for g in self.forces_widget.inputs if g['fdir'].currentText() != '-']
                 if not active_forces: return
                 orig_fx = np.array([g['fx'].value() for g in active_forces])
                 orig_fy = np.array([g['fy'].value() for g in active_forces])
                 if is_3d: orig_fz = np.array([g['fz'].value() for g in active_forces])
-                colors = ['r' if i == 0 else 'b' for i, g in enumerate(self.forces_widget.inputs) if g['a'].currentText() != '-']
+                colors = ['r' if i == 0 else 'b' for i, g in enumerate(self.forces_widget.inputs) if g['fdir'].currentText() != '-']
                 disp_factor = self.displacement_widget.mov_disp.value()
                 nely = p['nelxyz'][1]
                 indices = (orig_fz * (orig_fx + 1) * (nely + 1)) + (orig_fx * (nely + 1)) + orig_fy if is_3d else (orig_fx * (nely + 1)) + orig_fy
@@ -1108,7 +1101,7 @@ class MainWindow(QMainWindow):
                 length = np.mean(p['nelxyz'][:2]) / 6
                 dx, dy = np.zeros_like(new_fx), np.zeros_like(new_fy)
                 if is_3d: dz = np.zeros_like(new_fz)
-                directions = [g['a'].currentText() for g in active_forces]
+                directions = [g['fdir'].currentText() for g in active_forces]
                 for i, d in enumerate(directions):
                     if d == '-': continue
                     elif 'X:→' in d: dx[i] = length
@@ -1124,11 +1117,11 @@ class MainWindow(QMainWindow):
                 else:
                     ax.quiver(new_fx, new_fy, dx, dy, color=colors, scale_units='xy', angles='xy', scale=1)
         else:
-            colors = ['r' if i == 0 else 'b' for i, g in enumerate(self.forces_widget.inputs) if g['a'].currentText() != '-']
+            colors = ['r' if i == 0 else 'b' for i, g in enumerate(self.forces_widget.inputs) if g['fdir'].currentText() != '-']
             dx, dy = np.zeros_like(p['fx']), np.zeros_like(p['fy'])
             if is_3d: dz = np.zeros_like(p['fz'])
             length = np.mean(p['nelxyz'][:2])/6
-            directions = p['a']
+            directions = p['fdir']
             for i, d in enumerate(directions):
                 if d == '-': continue
                 elif 'X:→' in d: dx[i] = length
@@ -1148,60 +1141,63 @@ class MainWindow(QMainWindow):
         if not self.sections['supports'].visibility_button.isChecked(): return
         # No need to consider the case is_displaying_deformation since the supports don't move
         p = self.last_params
-        for i in range(len(p['dim'])):
-            if p['dim'][i] != '-':
-                pos = [p['sx'][i], p['sy'][i], p['sz'][i]]
-                if is_3d:
-                    ax.scatter(pos[0], pos[1], pos[2], s=80, marker='^', c='black', depthshade=False)
-                else:
-                    ax.scatter(pos[0], pos[1], s=80, marker='^', c='black')
+        for i, d in enumerate(p['sdim']):
+            if d == '-': continue
+            pos = [p['sx'][i], p['sy'][i], p['sz'][i]]
+            if is_3d:
+                ax.scatter(pos[0], pos[1], pos[2], s=80, marker='^', c='black', depthshade=False)
+            else:
+                ax.scatter(pos[0], pos[1], s=80, marker='^', c='black')
 
-    def plot_void_region(self, ax, is_3d):
+    def plot_void_regions(self, ax, is_3d):
         """Plots the void region outline (square/cube or circle/sphere) in 2D or 3D."""
         if not self.sections['void'].visibility_button.isChecked(): return
         if self.is_displaying_deformation: return # Void region are not relevant in deformation view
         
         p = self.last_params
-        if not p or p['v'] == '-': return # Do nothing if params don't exist or no shape is selected
+        if not p: return
+        for i, d in enumerate(p['vshape']):
+            shape = p['vshape'][i]
+            if shape == '-': continue
 
-        r, c = p['r'], p['c']
+            r = p['vradius'][i]
 
-        if is_3d:
-            if p['v'] == '□':
-                cx, cy, cz = c
-                # Define the 8 vertices of the cube
-                verts = np.array([
-                    [cx-r, cy-r, cz-r], [cx+r, cy-r, cz-r], [cx+r, cy+r, cz-r], [cx-r, cy+r, cz-r],
-                    [cx-r, cy-r, cz+r], [cx+r, cy-r, cz+r], [cx+r, cy+r, cz+r], [cx-r, cy+r, cz+r]
-                ])
-                # Define the 12 edges connecting the vertices
-                edges = [
-                    (0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6),
-                    (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)
-                ]
-                for edge in edges:
-                    points = verts[list(edge)]
-                    # Note: Matplotlib's 3D axes are ordered (X, Y, Z)
-                    ax.plot(points[:, 0], points[:, 1], points[:, 2], color='green', linestyle=':')
+            if is_3d:
+                vx, vy, vz = p['vx'][i], p['vy'][i], p['vz'][i]
+                if shape == '□':
+                    # Define the 8 vertices of the cube
+                    verts = np.array([
+                        [vx-r, vy-r, vz-r], [vx+r, vy-r, vz-r], [vx+r, vy+r, vz-r], [vx-r, vy+r, vz-r],
+                        [vx-r, vy-r, vz+r], [vx+r, vy-r, vz+r], [vx+r, vy+r, vz+r], [vx-r, vy+r, vz+r]
+                    ])
+                    # Define the 12 edges connecting the vertices
+                    edges = [
+                        (0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6),
+                        (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)
+                    ]
+                    for edge in edges:
+                        points = verts[list(edge)]
+                        # Note: Matplotlib's 3D axes are ordered (X, Y, Z)
+                        ax.plot(points[:, 0], points[:, 1], points[:, 2], color='green', linestyle=':')
 
-            elif p['v'] == '○':
-                cx, cy, cz = c
-                # Create the surface grid for the sphere
-                u = np.linspace(0, 2 * np.pi, 20)
-                v = np.linspace(0, np.pi, 20)
-                # Parametric equations for a sphere
-                x = cx + r * np.outer(np.cos(u), np.sin(v))
-                y = cy + r * np.outer(np.sin(u), np.sin(v))
-                z = cz + r * np.outer(np.ones(np.size(u)), np.cos(v))
-                ax.plot_wireframe(x, y, z, color='green', linestyle=':')
-        
-        else:
-            if p['v'] == '□':
-                rect = plt.Rectangle((c[0]-r, c[1]-r), 2*r, 2*r, fill=False, edgecolor='green', linestyle=':')
-                ax.add_patch(rect)
-            elif p['v'] == '○':
-                circ = plt.Circle((c[0], c[1]), r, fill=False, edgecolor='green', linestyle=':')
-                ax.add_patch(circ)
+                elif shape == '○':
+                    # Create the surface grid for the sphere
+                    u = np.linspace(0, 2 * np.pi, 20)
+                    v = np.linspace(0, np.pi, 20)
+                    # Parametric equations for a sphere
+                    x = vx + r * np.outer(np.cos(u), np.sin(v))
+                    y = vy + r * np.outer(np.sin(u), np.sin(v))
+                    z = vz + r * np.outer(np.ones(np.size(u)), np.cos(v))
+                    ax.plot_wireframe(x, y, z, color='green', linestyle=':')
+            
+            else:
+                vx, vy = p['vx'][i], p['vy'][i]
+                if shape == '□':
+                    rect = plt.Rectangle((vx-r, vy-r), 2*r, 2*r, fill=False, edgecolor='green', linestyle=':')
+                    ax.add_patch(rect)
+                elif shape == '○':
+                    circ = plt.Circle((vx, vy), r, fill=False, edgecolor='green', linestyle=':')
+                    ax.add_patch(circ)
 
     def show_blank_plot(self):
         """Clears the canvas and displays a blank white plot."""
@@ -1354,13 +1350,12 @@ class MainWindow(QMainWindow):
         """Sets all UI widgets to the values from a given parameter dictionary."""
         # --- Block signals to prevent a cascade of replots ---
         all_widgets = [self.dim_widget.nx, self.dim_widget.ny, self.dim_widget.nz,
-                       self.dim_widget.volfrac, self.void_widget.v_shape, self.void_widget.v_radius,
-                       self.void_widget.v_cx, self.void_widget.v_cy, self.void_widget.v_cz,
+                       self.dim_widget.volfrac,
                        self.material_widget.mat_E, self.material_widget.mat_nu,
                        self.optimizer_widget.opt_ft, self.optimizer_widget.opt_fr,
                        self.optimizer_widget.opt_p, self.optimizer_widget.opt_n_it]
         for w in all_widgets: w.blockSignals(True)
-        for group in self.forces_widget.inputs + self.supports_widget.inputs:
+        for group in self.void_widget.inputs + self.forces_widget.inputs + self.supports_widget.inputs:
             for w in group.values(): w.blockSignals(True)
 
         # Apply values
@@ -1373,17 +1368,21 @@ class MainWindow(QMainWindow):
         self.update_position_ranges()
         self.on_mode_changed()
         
-        # Void Region
-        self.void_widget.v_shape.setCurrentText(f"{params['v']} (Square)" if params['v'] == '□' else f"{params['v']} (Circle)" if params['v'] == '○' else '-')
-        self.void_widget.v_radius.setValue(params['r'])
-        self.void_widget.v_cx.setValue(params['c'][0])
-        self.void_widget.v_cy.setValue(params['c'][1])
-        self.void_widget.v_cz.setValue(params['c'][2])
+        # Void Regions
+        for i, void_group in enumerate(self.void_widget.inputs):
+            void_group['vshape'].setCurrentText(f"{params['vshape'][0]} (Square)" if params['vshape'][0] == '□' else f"{params['vshape'][0]} (Circle)" if params['vshape'][0] == '○' else '-')
+            void_group['vradius'].setValue(params['vradius'][0])
+            void_group['vx'].setValue(params['vx'][0])
+            void_group['vy'].setValue(params['vy'][0])
+            void_group['vz'].setValue(params['vz'][0])
         
         # Forces
-        for i, group in enumerate(self.forces_widget.inputs):
-            group['fx'].setValue(params['fx'][i]); group['fy'].setValue(params['fy'][i]); group['fz'].setValue(params['fz'][i])
-            group['a'].setCurrentText(params['a'][i]); group['fv'].setValue(params['fv'][i])
+        for i, force_group in enumerate(self.forces_widget.inputs):
+            force_group['fx'].setValue(params['fx'][i])
+            force_group['fy'].setValue(params['fy'][i])
+            force_group['fz'].setValue(params['fz'][i])
+            force_group['fdir'].setCurrentText(params['fdir'][i])
+            force_group['fnorm'].setValue(params['fnorm'][i])
         
         # Supports
         num_supports_in_preset = len(params.get('sx', []))
@@ -1393,21 +1392,21 @@ class MainWindow(QMainWindow):
                 support_group['sx'].setValue(params['sx'][i])
                 support_group['sy'].setValue(params['sy'][i])
                 support_group['sz'].setValue(params['sz'][i])
-                support_group['d'].setCurrentText(params['dim'][i])
+                support_group['sdim'].setCurrentText(params['sdim'][i])
             else:
                 # If no data exists, reset this row to default empty values
                 support_group['sx'].setValue(0)
                 support_group['sy'].setValue(0)
                 support_group['sz'].setValue(0)
-                support_group['d'].setCurrentIndex(0) # Set to '-'
+                support_group['sdim'].setCurrentIndex(0) # Set to '-'
 
         # Material
         self.material_widget.mat_E.setValue(params['E'])
         self.material_widget.mat_nu.setValue(params['nu'])
 
         # Optimizer
-        self.optimizer_widget.opt_ft.setCurrentIndex(0 if params['ft'] == "Sensitivity" else 1)
-        self.optimizer_widget.opt_fr.setValue(params['rmin'])
+        self.optimizer_widget.opt_ft.setCurrentIndex(0 if params['filter_type'] == "Sensitivity" else 1)
+        self.optimizer_widget.opt_fr.setValue(params['filter_radius_min'])
         self.optimizer_widget.opt_p.setValue(params['penal'])
         self.optimizer_widget.opt_n_it.setValue(params['n_it'])
         
