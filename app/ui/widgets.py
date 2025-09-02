@@ -28,7 +28,7 @@ class CollapsibleSection(QWidget):
         self.title_bar.layout().setContentsMargins(5, 2, 5, 2)
         # Expand/Collapse Button
         self.toggle_button = QPushButton()
-        self.toggle_button.setFixedSize(20, 20)
+        self.toggle_button.setFixedSize(15, 15)
         self.toggle_button.setIcon(icons.get('arrow_right'))
         self.toggle_button.setCheckable(True)
         self.toggle_button.setChecked(False)
@@ -389,7 +389,7 @@ class MaterialWidget(QWidget):
         # Color
         layout.addWidget(QLabel("Color:"), 2, 0)
         self.mat_color = ColorPickerButton()
-        self.mat_E.setToolTip("Color used in the plot for this material")
+        self.mat_color.setToolTip("Color used in the plot for this material")
         layout.addWidget(self.mat_color, 2, 1)
 
 class OptimizerWidget(QWidget):

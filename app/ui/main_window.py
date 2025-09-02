@@ -523,9 +523,6 @@ class MainWindow(QMainWindow):
         self.progress_bar.setRange(0, self.last_params['n_it'])
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(True)
-        
-        for section in self.sections.values():
-            section.collapse()
 
         self.worker = OptimizerWorker(self.last_params)
         self.worker.progress.connect(self.update_optimization_progress)
@@ -699,8 +696,9 @@ class MainWindow(QMainWindow):
 
             ax.scatter(x + 0.5, y + 0.5, z + 0.5,
                        s=6000/max(nx, ny, nz),
-                       marker='s',
-                       c=colors)
+                       marker='s', # Square markers to mimic voxels
+                       c=colors,
+                       alpha=None) # Alpha is now controlled by the 'c' array
             
             self.redraw_non_material_layers(ax, is_3d_mode=True)
 
@@ -1012,7 +1010,7 @@ class MainWindow(QMainWindow):
             ax.scatter(x + 0.5, y + 0.5, z + 0.5,
                        s=6000/max(nx, ny, nz),
                        marker='s', # Square markers to mimic voxels
-                       c=colors, # Pass the array of colors with variable alpha
+                       c=colors,
                        alpha=None) # Alpha is now controlled by the 'c' array
             
             ax.set_box_aspect([nx, ny, nz])
