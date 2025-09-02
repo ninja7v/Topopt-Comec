@@ -1,11 +1,11 @@
 # app/optimizers/base_optimizer.py
 # MIT License - Copyright (c) 2025 Luc Prevost
-# Contains shared functions for the topology optimizers.
+# Shared functions for the topology optimizers.
 
 import numpy as np
 from typing import Tuple
 
-def oc(nel: int, x: np.ndarray, volfrac: float, dc: np.ndarray, dv: np.ndarray, g: float) -> Tuple[np.ndarray, float]:
+def oc(nel: int, x: np.ndarray, max_change: float, dc: np.ndarray, dv: np.ndarray, g: float) -> Tuple[np.ndarray, float]:
     """
     Optimality Criterion (OC) update scheme.
     
@@ -21,7 +21,6 @@ def oc(nel: int, x: np.ndarray, volfrac: float, dc: np.ndarray, dv: np.ndarray, 
         A tuple containing the new design variables (xnew) and the updated gt value.
     """
     l1, l2 = 0., 1e9
-    move = 0.05
     rhomin = 1e-6
     xnew = np.zeros(nel)
     
@@ -30,7 +29,7 @@ def oc(nel: int, x: np.ndarray, volfrac: float, dc: np.ndarray, dv: np.ndarray, 
         # Bisection method to find the Lagrange multiplier
         # This is the OC update rule with move limits
         x_update = x * np.maximum(1e-10, -dc / dv / lmid) ** 0.3
-        xnew[:] = np.maximum(rhomin, np.maximum(x - move, np.minimum(1.0, np.minimum(x + move, x_update))))
+        xnew[:] = np.maximum(rhomin, np.maximum(x - max_change, np.minimum(1.0, np.minimum(x + max_change, x_update))))
         
         gt = g + np.sum(dv * (xnew - x))
         

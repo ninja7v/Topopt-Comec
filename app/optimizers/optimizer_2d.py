@@ -27,7 +27,7 @@ def optimize(
     nelxyz: List[int], volfrac: float, vx: List[int], vy: List[int], vradius: List[int], vshape: List[str],
     fx: List[int], fy: List[int], fdir: List[str], fnorm: List[float],
     sx: List[int], sy: List[int], sdim: List[str],
-    E: float, nu: float, filter_type: str, filter_radius_min: float, penal: float, n_it: int,
+    E: float, nu: float, filter_type: str, filter_radius_min: float, penal: float, max_change: float, n_it: int,
     progress_callback: Optional[Callable[[int, float, float], None]] = None
 ) -> np.ndarray:
     """
@@ -178,7 +178,7 @@ def optimize(
             dv[:] = np.asarray(H*(dv[np.newaxis].T/Hs))[:, 0]
         
         # OC update
-        x, g = oc(nel, x, volfrac, dc, dv, g)
+        x, g = oc(nel, x, max_change, dc, dv, g)
         
         # Filter design variables
         if filter_type == 'Sensitivity':

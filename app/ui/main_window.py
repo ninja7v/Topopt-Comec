@@ -230,6 +230,7 @@ class MainWindow(QMainWindow):
         self.optimizer_widget.opt_ft.currentIndexChanged.connect(self.on_parameter_changed)
         self.optimizer_widget.opt_fr.valueChanged.connect(self.on_parameter_changed)
         self.optimizer_widget.opt_p.valueChanged.connect(self.on_parameter_changed)
+        self.optimizer_widget.opt_max_change.valueChanged.connect(self.on_parameter_changed)
         self.optimizer_widget.opt_n_it.valueChanged.connect(self.on_parameter_changed)
         return section
     
@@ -328,6 +329,7 @@ class MainWindow(QMainWindow):
         params['filter_type'] = 'Sensitivity' if self.optimizer_widget.opt_ft.currentIndex() == 0 else 'Density'
         params['filter_radius_min'] = self.optimizer_widget.opt_fr.value()
         params['penal'] = self.optimizer_widget.opt_p.value()
+        params['max_change'] = self.optimizer_widget.opt_max_change.value()
         params['n_it'] = self.optimizer_widget.opt_n_it.value()
 
         # Movement
@@ -1353,7 +1355,8 @@ class MainWindow(QMainWindow):
                        self.dim_widget.volfrac,
                        self.material_widget.mat_E, self.material_widget.mat_nu,
                        self.optimizer_widget.opt_ft, self.optimizer_widget.opt_fr,
-                       self.optimizer_widget.opt_p, self.optimizer_widget.opt_n_it]
+                       self.optimizer_widget.opt_p,
+                       self.optimizer_widget.opt_max_change, self.optimizer_widget.opt_n_it]
         for w in all_widgets: w.blockSignals(True)
         for group in self.void_widget.inputs + self.forces_widget.inputs + self.supports_widget.inputs:
             for w in group.values(): w.blockSignals(True)
@@ -1408,6 +1411,7 @@ class MainWindow(QMainWindow):
         self.optimizer_widget.opt_ft.setCurrentIndex(0 if params['filter_type'] == "Sensitivity" else 1)
         self.optimizer_widget.opt_fr.setValue(params['filter_radius_min'])
         self.optimizer_widget.opt_p.setValue(params['penal'])
+        self.optimizer_widget.opt_max_change.setValue(params['max_change'])
         self.optimizer_widget.opt_n_it.setValue(params['n_it'])
         
         # Displacement

@@ -48,7 +48,7 @@ def optimize(
     nelxyz: List[int], volfrac: float, vx: List[int], vy: List[int], vz: List[int], vradius: float, vshape: str,
     fx: List[int], fy: List[int], fz: List[int], fdir: List[str], fnorm: List[float],
     sx: List[int], sy: List[int], sz: List[int], sdim: List[str],
-    E: float, nu: float, filter_type: int, filter_radius_min: float, penal: float, n_it: int,
+    E: float, nu: float, filter_type: int, filter_radius_min: float, penal: float, max_change: float, n_it: int,
     progress_callback: Optional[Callable[[int, float, float], None]] = None
 ) -> np.ndarray:
     """Performs 3D topology optimization."""
@@ -181,7 +181,6 @@ def optimize(
                 Ue_out = u[edofMat[el, :], [i]]
                 ce_total += (Ue_in.T @ KE @ Ue_out).item()
             dc[el] = penal * (xPhys[el]**(penal-1)) * ce_total
-        
         dv = np.ones(nel)
         if filter_type == 'Sensitivity':
             dc[:] = np.asarray((H*(x*dc))[np.newaxis].T/Hs)[:,0] / np.maximum(0.001,x)
@@ -189,7 +188,10 @@ def optimize(
             dc[:] = np.asarray(H*(dc[np.newaxis].T/Hs))[:,0]
             dv[:] = np.asarray(H*(dv[np.newaxis].T/Hs))[:,0]
 
-        x, g = oc(nel, x, volfrac, dc, dv, g)
+        # OC update
+        x, g = oc(nel, x, max_change, dc, dv, g)
+        
+        # Filter design variables
         if filter_type == 'Sensitivity':
             xPhys = x
         elif filter_type == 'Density':
