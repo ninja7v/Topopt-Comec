@@ -86,15 +86,9 @@ def test_optimizers_with_presets(preset_name, preset_params):
     assert u_vec is not None, "Displacement vector is None"
     
     # Check shape
-    if is_3d:
-        nel = optimizer_params['nelxyz'][0] * optimizer_params['nelxyz'][1] * optimizer_params['nelxyz'][2]
-    else:
-        nel = optimizer_params['nelxyz'][0] * optimizer_params['nelxyz'][1]
+    nel = optimizer_params['nelxyz'][0] * optimizer_params['nelxyz'][1] * (optimizer_params['nelxyz'][2] if is_3d else 1)
     assert result.shape == (nel,), f"Result shape is wrong, expected ({nel},)"
-    if is_3d:
-        ndof = 3 * (optimizer_params['nelxyz'][0] + 1) * (optimizer_params['nelxyz'][1] + 1) * (optimizer_params['nelxyz'][2] + 1)
-    else:
-        ndof = 2 * (optimizer_params['nelxyz'][0] + 1) * (optimizer_params['nelxyz'][1] + 1)
+    ndof = (3 if is_3d else 2) * (optimizer_params['nelxyz'][0] + 1) * (optimizer_params['nelxyz'][1] + 1) * ((optimizer_params['nelxyz'][2] + 1) if is_3d else 1)
     assert u_vec.size == ndof*sum(1 for x in optimizer_params['fdir'] if x != "-"), "Displacement vector should be (ndof x nf)"
 
     # Check volume fraction

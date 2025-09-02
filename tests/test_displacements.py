@@ -1,0 +1,72 @@
+# tests/test_displacements.py
+# MIT License - Copyright (c) 2025 Luc Prevost
+# Tests for the displacements.
+
+import numpy as np
+from app.displacements import displacement_2d, displacement_3d
+from app.optimizers.base_optimizer import oc
+import json
+from pathlib import Path
+import pytest
+
+# Helper function to load the presets file for the test
+def load_presets():
+    """Finds and loads the presets.json file."""
+    # Go up two directories from this test file to find the project root
+    presets_path = Path(__file__).parent.parent / "presets.json"
+    with open(presets_path, 'r') as f:
+        presets_data = json.load(f)
+    
+    # Return the presets as a list of tuples for pytest
+    return presets_data.items()
+
+@pytest.mark.parametrize("preset_name, preset_params", load_presets())
+def test_displacement_with_presets(preset_name, preset_params):
+    """Unit Test: Runs the 2D/3D optimizer with a given preset."""
+    is_3d = preset_params['nelxyz'][2] > 0
+
+    # Prepare the parameters for the optimizer function
+    disp_params = preset_params.copy()
+    # To run the tests faster, we reduce the number of iterations
+    disp_params['disp_iterations'] = 1
+    # Remove all keys that are not part of the optimizer's function signature
+    keys_to_remove = ['filter_type', 'filter_radius_min', 'max_change', 'n_it']
+    if not is_3d: keys_to_remove = keys_to_remove + ['vz', 'fz', 'sz']
+    for key in keys_to_remove:
+        disp_params.pop(key, None)
+    
+    # Generate a mock result and displacement vector
+    nel = disp_params['nelxyz'][0] * disp_params['nelxyz'][1] * (disp_params['nelxyz'][2] if is_3d else 1)
+    ndof = (3 if is_3d else 2) * (disp_params['nelxyz'][0] + 1) * (disp_params['nelxyz'][1] + 1) * ((disp_params['nelxyz'][2] + 1) if is_3d else 1)
+    densities = np.zeros(nel)
+    volfrac = preset_params['volfrac']
+    n_solid = int(volfrac * nel) # number of solid voxels
+    densities[:n_solid] = 1
+    np.random.shuffle(densities)
+    result = densities#.reshape((disp_params['nelxyz'][0], disp_params['nelxyz'][1], disp_params['nelxyz'][2]))
+    u_vec = np.random.rand(ndof, sum(1 for fdir in disp_params['fdir'] if fdir != "-"))
+    
+    # Check if not empty
+    assert result is not None, "Optimizer returned None"
+    assert u_vec is not None, "Displacement vector is None"
+    
+    # Test linear displacement function
+    if is_3d:
+        vertices_moved, triangles = displacement_3d.single_linear_displacement_3d(result, u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], disp_params['nelxyz'][2], 1.0)
+        assert not(vertices_moved is None or triangles is None), "Displacement function returned None arrays"
+    else:
+        X, Y = displacement_2d.single_linear_displacement_2d(u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], 1.0)
+        assert not(X is None or Y is None), "Displacement function returned None arrays"
+    
+    # Test iterative displacement function
+    if is_3d:
+        result_displaced = displacement_3d.run_iterative_displacement_3d(disp_params, result)
+    else:
+        result_displaced = displacement_2d.run_iterative_displacement_2d(disp_params, result)
+    assert result_displaced is not None, "Iterative displacement function returned None"
+    vals = np.array(list(result_displaced)).ravel()
+    assert np.max(vals) <= 1.0 and np.min(vals) >= 0.0, "Displaced densities should remain within [0, 1]"
+
+    # Check volume fraction
+    assert np.isclose(result.mean(), volfrac, atol=0.05), \
+        f"Final volume ({result.mean():.3f}) is far to target ({volfrac:.3f})"

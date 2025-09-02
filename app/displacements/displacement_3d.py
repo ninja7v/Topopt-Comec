@@ -58,8 +58,6 @@ def single_linear_displacement_3d(xPhys, u, nelx, nely, nelz, disp_factor):
     Computes the deformed 3D mesh using PyMCubes.
     Returns the vertices and triangles of the deformed mesh.
     """
-    nel = nelx * nely * nelz
-    
     # 1. Get the element-to-dof mapping
     edofMat = get_edofMat(nelx, nely, nelz)
     
@@ -97,7 +95,7 @@ def single_linear_displacement_3d(xPhys, u, nelx, nely, nelz, disp_factor):
 
 def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None):
     """
-    Generator function that performs iterative 3D FE analysis to simulate displacement.
+    Performs iterative 3D FE analysis to simulate displacement.
     Yields the cropped density field for each iteration.
     """
     xPhyst = xPhys_initial
@@ -116,8 +114,8 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
     Emax = 100.0
     k = 4 # steepness
     nf = 1 # 1 input force so far
-    ns = len(params['sx'])
-    KE = lk()
+    ns = sum(1 for sdim in params['fdir'] if sdim != "-")
+    KE = lk(E=params['E'], nu=params['nu'])
     edofMat=np.zeros((nel,24),dtype=int)
     for el in range (nel):
         (elx, ely, elz) = getCoordinates(el, 2, nelx, nely, nelz)
@@ -137,8 +135,14 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
     for i in range (ns):
         fixed = np.arange(s[0], s[0]+3) if i == 0 else np.union1d(fixed, np.arange(s[i], s[i]+3))
     free = np.setdiff1d(dofs,fixed)
-    d = [3*(margin_Z*(nely+1)*(nely+1)+((nely+1)*(nelx+1))//2)+2, ndof-3*(margin_Z*(nely+1)*(nely+1)+((nely+1)*(nelx+1))//2+1)+2]
-    dVal = [4/100, -4/100]
+    din = [3*(margin_Z*(nely+1)*(nely+1)+((nely+1)*(nelx+1))//2)+2, ndof-3*(margin_Z*(nely+1)*(nely+1)+((nely+1)*(nelx+1))//2+1)+2]
+    dinVal = params['fnorm'][0]
+    if 'X' in params['fdir'][0]:
+        if '←' in params['fdir'][0]: dinVal = -dinVal
+    elif 'Y' in params['fdir'][0]:
+        if '↑' in params['fdir'][0]: dinVal = -dinVal
+    elif 'Z' in params['fdir'][0]:
+        if '<' in params['fdir'][0]: dinVal = -dinVal
     xPhys3d = np.zeros((nelx, nely, nelz))
     xPhys3d[margin_X:nelx-margin_X, margin_Y:nely-margin_Y, margin_Z:nelz-margin_Z]=np.transpose(xPhyst.reshape(nelz-2*margin_Z,(nelx-2*margin_X)*(nely-2*margin_Y)).reshape(nelz-2*margin_Z,nelx-2*margin_X,nely-2*margin_Y),(1,2,0))#reshape((nelx-2*margin_X, nely-2*margin_Y, nelz-2*margin_Z))
     xPhys = np.zeros((nel))
@@ -160,21 +164,21 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
     for it in range(n_it):
         # Finite element analysis
         for i in range(nf):
-            d[i] += 3*(nelx+1)*(nely+1)*int(u[d[i]][0]*delta_disp)
+            din[i] += 3*(nelx+1)*(nely+1)*int(u[din[i]][0])
         for i in range(nf):
-            Fi = coo_matrix((np.array([dVal[i]]), (np.array([d[i]]), np.array([0]))), shape=(ndof, 1)).toarray()
+            Fi = coo_matrix((np.array([dinVal]), (np.array([din[i]]), np.array([0]))), shape=(ndof, 1)).toarray()
             f = Fi if i == 0 else np.concatenate((f, Fi), axis=1)
         sK = ((KE.flatten()[np.newaxis]).T*(Emin+(xPhys)**penal*(Emax-Emin))).flatten(order='F')
         K = coo_matrix((sK,(iK,jK)),shape=(ndof,ndof)).tocsc()
         for i in range(nf):
-            K[d[i], d[i]] += 0.1
+            K[din[i], din[i]] += 0.1
         K = deleterowcol(K,fixed,fixed).tocoo()
         K = spmatrix(K.data,K.row.astype(int),K.col.astype(int))
         for i in range(nf):
             B = matrix(f[free,i])
             cholmod.linsolve(K,B)
             u[free,i]=np.array(B)[:,0]
-        # Move density
+        # Move the density via interpolation (the core of the method)
         ux = (u[edofMat][:,3*2+0,0] + u[edofMat][:,3*1+0,0]+ u[edofMat][:,3*6+0,0]+\
               u[edofMat][:,3*5+0,0] + u[edofMat][:,3*3+0,0] + u[edofMat][:,3*0+0,0]+\
               u[edofMat][:,3*7+0,0]+ u[edofMat][:,3*4+0,0])/8
@@ -195,6 +199,7 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
         xPhys = l/(1+np.exp(-k*(xPhys-0.5)))+c
         # Normalize density
         xPhys = volfrac/(np.sum(xPhys)/nel)*xPhys
+        xPhys = np.clip(xPhys, 0.0, 1.0) # Ensure values remain within [0, 1]
         
         # Yield the visible part of the structure for plotting
         xPhys_cropped = xPhys.reshape(nelx, nely, nelz)[margin_X:-margin_X, margin_Y:-margin_Y, margin_Z:-margin_Z]
@@ -203,9 +208,7 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
         if progress_callback:
             progress_callback(it + 2)
             
-def lk():
-    E=1
-    nu=0.25
+def lk(E=1.0, nu=0.25):
     A = np.array([[ 32, 6, -8,  6, -6, 4, 3, -6, -10,  3, -3, -3, -4, -8],
                   [-48, 0,  0,-24, 24, 0, 0,  0,  12,-12,  0, 12, 12, 12]])
     k = 1/72 * np.matmul(A.T,np.array([1,nu]).T)
