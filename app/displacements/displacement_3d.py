@@ -202,7 +202,7 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
         xPhys = np.clip(xPhys, 0.0, 1.0) # Ensure values remain within [0, 1]
         
         # Yield the visible part of the structure for plotting
-        xPhys_cropped = xPhys.reshape(nelx, nely, nelz)[margin_X:-margin_X, margin_Y:-margin_Y, margin_Z:-margin_Z]
+        xPhys_cropped = xPhys.reshape(nelz, nelx, nely)[margin_Z:-margin_Z, margin_X:-margin_X, margin_Y:-margin_Y]
         yield xPhys_cropped.flatten()
         
         if progress_callback:
