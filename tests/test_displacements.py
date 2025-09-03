@@ -3,8 +3,7 @@
 # Tests for the displacements.
 
 import numpy as np
-from app.displacements import displacement_2d, displacement_3d
-from app.optimizers.base_optimizer import oc
+from app.core import displacements
 import json
 from pathlib import Path
 import pytest
@@ -52,17 +51,17 @@ def test_displacement_with_presets(preset_name, preset_params):
     
     # Test linear displacement function
     if is_3d:
-        vertices_moved, triangles = displacement_3d.single_linear_displacement_3d(result, u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], disp_params['nelxyz'][2], 1.0)
+        vertices_moved, triangles = displacements.single_linear_displacement_3d(result, u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], disp_params['nelxyz'][2], 1.0)
         assert not(vertices_moved is None or triangles is None), "Displacement function returned None arrays"
     else:
-        X, Y = displacement_2d.single_linear_displacement_2d(u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], 1.0)
+        X, Y = displacements.single_linear_displacement_2d(u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], 1.0)
         assert not(X is None or Y is None), "Displacement function returned None arrays"
     
     # Test iterative displacement function
     if is_3d:
-        result_displaced = displacement_3d.run_iterative_displacement_3d(disp_params, result)
+        result_displaced = displacements.run_iterative_displacement_3d(disp_params, result)
     else:
-        result_displaced = displacement_2d.run_iterative_displacement_2d(disp_params, result)
+        result_displaced = displacements.run_iterative_displacement_2d(disp_params, result)
     assert result_displaced is not None, "Iterative displacement function returned None"
     vals = np.array(list(result_displaced)).ravel()
     assert np.max(vals) <= 1.0 and np.min(vals) >= 0.0, "Displaced densities should remain within [0, 1]"

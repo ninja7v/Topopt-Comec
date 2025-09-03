@@ -3,8 +3,7 @@
 # Tests for the optimizers.
 
 import numpy as np
-from app.optimizers import optimizer_2d, optimizer_3d
-from app.optimizers.base_optimizer import oc
+from app.core import optimizers
 import json
 from pathlib import Path
 import pytest
@@ -12,13 +11,13 @@ import pytest
 def test_lk_properties():
     """Unit Test: Checks the 2D element stiffness matrix (lk) function."""
     # compute 2D stiffness matrix
-    KE_2D = optimizer_2d.lk(E=1.0, nu=0.3)
+    KE_2D = optimizers.lk(E=1.0, nu=0.3, is_3d=False)
     assert isinstance(KE_2D, np.ndarray), "lk should return a NumPy array"
     assert KE_2D.shape == (8, 8), "The 2D stiffness matrix must be 8x8"
     assert np.allclose(KE_2D, KE_2D.T), "The stiffness matrix must be symmetric"
     
     # compute 3D stiffness matrix
-    KE_3D = optimizer_3d.lk(E=1.0, nu=0.3)
+    KE_3D = optimizers.lk(E=1.0, nu=0.3, is_3d=True)
     assert isinstance(KE_3D, np.ndarray), "lk should return a NumPy array"
     assert KE_3D.shape == (24, 24), "The 3D stiffness matrix must be 24x24"
     assert np.allclose(KE_3D, KE_3D.T), "The stiffness matrix must be symmetric"
@@ -33,7 +32,7 @@ def test_oc_update_rule():
     g = 0.0
 
     # Run OC update
-    xnew, gt = oc(nel, x, volfrac, dc, dv, g)
+    xnew, gt = optimizers.oc(nel, x, volfrac, dc, dv, g)
 
     # Check shape
     assert isinstance(xnew, np.ndarray), "oc should return a NumPy array"
@@ -77,9 +76,9 @@ def test_optimizers_with_presets(preset_name, preset_params):
     
     # Run the entire optimization
     if is_3d:
-        result, u_vec = optimizer_3d.optimize(**optimizer_params)
+        result, u_vec = optimizers.optimize_3d(**optimizer_params)
     else:
-        result, u_vec = optimizer_2d.optimize(**optimizer_params)
+        result, u_vec = optimizers.optimize_2d(**optimizer_params)
     
     # Check if not empty
     assert result is not None, "Optimizer returned None"
