@@ -792,23 +792,6 @@ class MainWindow(QMainWindow):
     # PLOT #
     ########
 
-    def set_initial_plot(self):
-        """Sets the initial plot to a default state with no data."""
-        self.figure.clear()
-        
-        # Get theme colors
-        bg_color = '#2E2E2E' if self.current_theme == 'dark' else '#F0F0F0'
-        text_color = 'white' if self.current_theme == 'dark' else 'black'
-        self.figure.patch.set_facecolor(bg_color)
-
-        ax = self.figure.add_subplot(111, facecolor=bg_color)
-        
-        ax.text(0.5, 0.5, 'Configure parameters and press "Create"',
-                ha='center', va='center', fontsize=16, alpha=0.5, color=text_color)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        self.canvas.draw()
-        
     def style_plot_default(self):
         """Sets the plot to a fixed white theme. Called only once."""
         self.figure.patch.set_facecolor('white')
@@ -869,6 +852,7 @@ class MainWindow(QMainWindow):
                             interpolation='nearest', origin='lower', norm=plt.Normalize(0, 1))
         else:
             if self.sections['material'].visibility_button.isChecked():
+                to_be_initialized = self.xPhys is None
                 if self.xPhys is None:
                     p = self.last_params
                     # Initialize xPhys with uniform density
@@ -909,13 +893,15 @@ class MainWindow(QMainWindow):
                                     ii, jj = i_grid[mask], j_grid[mask]
                                     indices = jj + ii * nely
                         self.xPhys[indices.flatten()] = 1e-6
+                self.plot_material(ax, is_3d=is_3d_mode)
+                if to_be_initialized:
+                    init_message = 'Configure parameters and press "Create"'
                     if is_3d_mode:
-                        ax.text(0.5, 0.5, 0.5, s='Configure parameters and press "Create"', transform=ax.transAxes,
+                        ax.text(0.5, 0.5, 0.5, s=init_message, transform=ax.transAxes,
                             ha='center', va='center', fontsize=16, alpha=0.5, color='black')
                     else:
-                        ax.text(0.5, 0.5, s='Configure parameters and press "Create"', transform=ax.transAxes,
+                        ax.text(0.5, 0.5, s=init_message, transform=ax.transAxes,
                             ha='center', va='center', fontsize=16, alpha=0.5, color='black')
-                self.plot_material(ax, is_3d=is_3d_mode)
         
         self.redraw_non_material_layers(ax, is_3d_mode)
         if not is_3d_mode:
