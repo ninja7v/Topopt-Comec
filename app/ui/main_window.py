@@ -618,10 +618,10 @@ class MainWindow(QMainWindow):
             QApplication.processEvents() # Update UI
             
             if is_3d_mode:
-                from app.displacements.displacement_3d import single_linear_displacement_3d
+                from app.core.displacements import single_linear_displacement_3d
                 self.last_displayed_frame_data = single_linear_displacement_3d(self.xPhys, self.u, *params['nelxyz'], params['disp_factor'])
             else:
-                from app.displacements.displacement_2d import single_linear_displacement_2d
+                from app.core.displacements import single_linear_displacement_2d
                 self.last_displayed_frame_data = single_linear_displacement_2d(self.u, params['nelxyz'][0], params['nelxyz'][1], params['disp_factor'])
             self.replot()
             self.handle_displacement_finished("Single frame shown.")
@@ -1268,7 +1268,7 @@ class MainWindow(QMainWindow):
             j_valid = j_coords.flatten()[material_mask]
             node_valid = node_indices[material_mask]
             
-            factor = disp_factor / p['fv'][0] if p['fv'][0] != 0 else disp_factor
+            factor = disp_factor / p['fnorm'][0] if p['fnorm'][0] != 0 else disp_factor
             ux = self.u[2 * node_valid, 0] * factor
             uy = -self.u[2 * node_valid + 1, 0] * factor
             

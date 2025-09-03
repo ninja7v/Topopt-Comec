@@ -3,8 +3,7 @@
 # QThread worker for running optimizers and displacements in the background.
 
 from PySide6.QtCore import QThread, Signal
-from app.optimizers import optimizer_2d, optimizer_3d
-from app.displacements import displacement_2d, displacement_3d
+from app.core import optimizers, displacements
 import numpy as np
 
 class OptimizerWorker(QThread):
@@ -47,7 +46,7 @@ class OptimizerWorker(QThread):
             
             if is_3d:
                 print("Dispatching to 3D optimizer...")
-                result, u = optimizer_3d.optimize(**optimizer_params)
+                result, u = optimizers.optimize_3d(**optimizer_params)
             else:
                 print("Dispatching to 2D optimizer...")
                 # Remove 3D-specific keys from the already cleaned dictionary
@@ -57,7 +56,7 @@ class OptimizerWorker(QThread):
                 params_2d.pop('sz', None)
                 params_2d['nelxyz'] = params_2d['nelxyz'][:2]
                 
-                result, u = optimizer_2d.optimize(**params_2d)
+                result, u = optimizers.optimize_2d(**params_2d)
                 
             self.finished.emit((result, u)) # Emit the tuple (xPhys, u)
         except Exception as e:
@@ -103,7 +102,7 @@ class DisplacementWorker(QThread):
 
             if is_3d:
                 # The function is a generator, yielding each frame
-                for frame_data in displacement_3d.run_iterative_displacement_3d(
+                for frame_data in displacements.run_iterative_displacement_3d(
                     self.params, self.xPhys, progress_callback
                 ):
                     self.frameReady.emit(frame_data)
@@ -112,7 +111,7 @@ class DisplacementWorker(QThread):
                         break
             else:
                 # The function is a generator, yielding each frame
-                for frame_data in displacement_2d.run_iterative_displacement_2d(
+                for frame_data in displacements.run_iterative_displacement_2d(
                     self.params, self.xPhys, progress_callback
                 ):
                     self.frameReady.emit(frame_data)
