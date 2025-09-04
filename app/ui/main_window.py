@@ -743,52 +743,67 @@ class MainWindow(QMainWindow):
     # Save #
     ########
 
-    def save_as_png(self):
-        """Saves the current canvas to a file."""
-        if self.xPhys is None: return
-        
-        if not os.path.exists('results'):
-            os.makedirs('results')
-            
-        filename = 'results/result_2d.png'
-        if self.last_params['nelxyz'][2] > 0:
-            filename = 'results/result_3d.png'
-        
+    def save_result_as(self, file_type):
+        """
+        Save the current result as file_type in a result folder.
+        The result folder is created if it does not exist.
+        """
+        if self.xPhys is None:
+            return
+
+        os.makedirs("results", exist_ok=True)
+
+        # Base filename depending on preset
+        if self.preset.presets_combo.currentText() != "Select a preset...":
+            base_name = self.preset.presets_combo.currentText()
+        else:
+            base_name = "result_3d" if self.last_params["nelxyz"][2] > 0 else "result_2d"
+
+        # File dialog config
+        filters = {
+            "png": ("Save as PNG", "Portable Network Graphics (*.png)"),
+            "vti": ("Save as VTI", "VTK Image Data (*.vti)"),
+            "stl": ("Save as STL", "STL File (*.stl)")
+        }
+
+        window_title, extension_filter = filters[file_type]
+        default_path = f"results/{base_name}.{file_type}"
+
+        filepath, _ = QFileDialog.getSaveFileName(self, window_title, default_path, extension_filter)
+        if not filepath:  # user canceled
+            return
+
         try:
-            self.figure.savefig(filename, dpi=300, bbox_inches='tight')
-            self.status_bar.showMessage(f"Result saved to {filename}", 5000)
+            if file_type == "png":
+                self.figure.savefig(filepath, dpi=300, bbox_inches="tight")
+
+            elif file_type == "vti":
+                success, error_msg = exporters.save_as_vti(self.xPhys, self.last_params["nelxyz"], filepath)
+                if not success:
+                    raise Exception(error_msg)
+
+            elif file_type == "stl":
+                success, error_msg = exporters.save_as_stl(self.xPhys, self.last_params["nelxyz"], filepath)
+                if not success:
+                    raise Exception(error_msg)
+
+            self.status_bar.showMessage(f"Result saved to {filepath}", 5000)
+
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Could not save the file:\n{e}")
+        
+
+    def save_as_png(self):
+        """Function connected to the save as PNG button."""
+        self.save_result_as('png')
 
     def save_as_vti(self):
-        """Saves the current 3D result as a .vti file."""
-        if self.xPhys is None:
-            QMessageBox.warning(self, "Export Error", "You must run an optimization before exporting.")
-            return
-
-        filename, _ = QFileDialog.getSaveFileName(self, "Save as VTI", "results/result.vti", "VTK Image Data (*.vti)")
-        if not filename: return
-         
-        success, error_msg = exporters.save_as_vti(self.xPhys, self.last_params['nelxyz'], filename)
-        if success:
-            self.status_bar.showMessage(f"Result saved to {filename}", 5000)
-        else:
-            QMessageBox.critical(self, "Save Error", f"Could not save VTI file:\n{error_msg}")
+        """Function connected to the save as VTI button."""
+        self.save_result_as('vti')
 
     def save_as_stl(self):
-        """Saves the current 3D result as an .stl file."""
-        if self.xPhys is None:
-            QMessageBox.warning(self, "Export Error", "You must run an optimization before exporting.")
-            return
-
-        filename, _ = QFileDialog.getSaveFileName(self, "Save as STL", "results/result.stl", "STL Files (*.stl)")
-        if not filename: return
-        
-        success, error_msg = exporters.save_as_stl(self.xPhys, self.last_params['nelxyz'], filename)
-        if success:
-            self.status_bar.showMessage(f"Result saved to {filename}", 5000)
-        else:
-            QMessageBox.critical(self, "Save Error", f"Could not save STL file:\n{error_msg}")
+        """Function connected to the save as STL button."""
+        self.save_result_as('stl')
 
     ########
     # PLOT #
