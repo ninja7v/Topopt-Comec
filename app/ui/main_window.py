@@ -399,13 +399,13 @@ class MainWindow(QMainWindow):
                 p.pop('vz')
             # --- Normalize Supports ---
             # Zip all support lists together, filter for active ones, then unzip.
-            zipped_supports = zip(p.get('sx', []), p.get('sy', []), p.get('sz', []) if not is_2d else [0]*len(p.get('sx', [])), p.get('dim', []))
+            zipped_supports = zip(p.get('sx', []), p.get('sy', []), p.get('sz', []) if not is_2d else [0]*len(p.get('sx', [])), p.get('sdim', []))
             active_supports = [s for s in zipped_supports if s[3] != '-']
             if active_supports:
-                sx, sy, sz, dim = list(zip(*active_supports))
-                p['sx'], p['sy'], p['sz'], p['dim'] = list(sx), list(sy), list(sz), list(dim)
+                sx, sy, sz, sdim = list(zip(*active_supports))
+                p['sx'], p['sy'], p['sz'], p['sdim'] = list(sx), list(sy), list(sz), list(sdim)
             else:
-                p['sx'], p['sy'], p['sz'], p['dim'] = [], [], [], []
+                p['sx'], p['sy'], p['sz'], p['sdim'] = [], [], [], []
             if is_2d and 'sz' in p:
                 p.pop('sz')
             # --- Normalize Forces ---
@@ -1364,6 +1364,7 @@ class MainWindow(QMainWindow):
         
         # Void Regions
         for i, void_group in enumerate(self.void_widget.inputs):
+            void_group['vshape'].blockSignals(True) # Reblock to avoid triggering on change
             void_group['vshape'].setCurrentText(f"{params['vshape'][0]} (Square)" if params['vshape'][0] == '□' else f"{params['vshape'][0]} (Circle)" if params['vshape'][0] == '○' else '-')
             void_group['vradius'].setValue(params['vradius'][0])
             void_group['vx'].setValue(params['vx'][0])
@@ -1411,7 +1412,7 @@ class MainWindow(QMainWindow):
         
         # unblock signals
         for w in all_widgets: w.blockSignals(False)
-        for group in self.forces_widget.inputs + self.supports_widget.inputs:
+        for group in self.void_widget.inputs + self.forces_widget.inputs + self.supports_widget.inputs:
             for w in group.values(): w.blockSignals(False)
         
         # Manually trigger a single update
