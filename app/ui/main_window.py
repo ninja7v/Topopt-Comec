@@ -498,11 +498,13 @@ class MainWindow(QMainWindow):
 
     def run_optimization(self):
         """Starts the optimization process based on current parameters, and gives live updates."""
-        #self.last_params = self.gather_parameters()
         error = self.validate_parameters(self.last_params)
         if error:
             QMessageBox.critical(self, "Input Error", error)
             return
+        
+        if self.is_displaying_deformation:
+            self.reset_displacement_view()
         
         # Stop animation
         self.footer.stop_create_button_effect()
@@ -1016,8 +1018,6 @@ class MainWindow(QMainWindow):
         self.plot_dimensions_frame(ax, is_3d=is_3d_mode)
         self.plot_displacement_preview(ax, is_3d=is_3d_mode)
 
-
-
     def plot_dimensions_frame(self, ax, is_3d):
         """Draws a dotted frame around the design space, controlled by the Dimensions section's visibility button."""
         if not self.sections['dimensions'].visibility_button.isChecked():
@@ -1202,63 +1202,55 @@ class MainWindow(QMainWindow):
     def plot_displacement_preview(self, ax, is_3d):
         """Overlays displacement vectors (quivers) on the plot if the preview is active."""
         if not self.sections['displacement'].visibility_button.isChecked(): return
+        if self.is_displaying_deformation: return # The displacement vector doesn't match the deformed shape
         if self.u is None or self.xPhys is None: return
 
         p = self.last_params
-        nelx, nely = p['nelxyz'][:2]
         disp_factor = self.displacement_widget.mov_disp.value()
+        factor = disp_factor / p['fnorm'][0] if p['fnorm'][0] != 0 else disp_factor
 
         if is_3d:
-            from app.displacements.displacement_3d import get_edofMat, get_element_displacements
             nelx, nely, nelz = p['nelxyz']
-            step = 5 # Draw a vector every 5 elements to avoid clutter
+            step = max(1, int((nelx + nely + nelz) / 15)) # number of elements to skip between 2 arrows
+            x_coords, y_coords, z_coords = np.meshgrid(np.arange(0, nelx, step),
+                                                       np.arange(0, nely, step),
+                                                       np.arange(0, nelz, step), indexing='xy')
 
-            # 1. Get average displacement per element
-            edofMat = get_edofMat(nelx, nely, nelz)
-            ux, uy, uz = get_element_displacements(self.u, edofMat)
-
-            # 2. Create a grid of element coordinates to sample from
-            elx, ely, elz = np.meshgrid(np.arange(0, nelx, step), 
-                                        np.arange(0, nely, step),
-                                        np.arange(0, nelz, step), indexing='ij')
-
-            # 3. Filter for points that are inside the material
-            el_indices = elz * (nelx * nely) + elx * nely + ely
-            material_mask = self.xPhys[el_indices] > 0.5
-            
-            # 4. Get the coordinates and displacement vectors for the valid points
-            x_valid = elx[material_mask] + 0.5 # Center of element
-            y_valid = ely[material_mask] + 0.5
-            z_valid = elz[material_mask] + 0.5
-            el_indices_valid = el_indices[material_mask]
-
-            ax.quiver(x_valid, y_valid, z_valid,
-                      ux[el_indices_valid] * disp_factor,
-                      uy[el_indices_valid] * disp_factor,
-                      uz[el_indices_valid] * disp_factor,
-                      color='red', length=disp_factor/4, normalize=True)
-        else:
-            # Create a grid of points to draw vectors at (e.g., every 5th element)
-            step = 5
-            i_coords, j_coords = np.meshgrid(np.arange(0, nelx, step), np.arange(0, nely, step), indexing='ij')
-            
-            # Get the 1D indices for the original xPhys and u arrays
-            el_indices = (i_coords * nely + j_coords).flatten()
-            node_indices = (i_coords * (nely + 1) + j_coords).flatten()
-            
-            # Filter for points that are inside the material
-            material_mask = self.xPhys[el_indices] > 0.5
+            el_indices = (z_coords * (nelx * nely) + x_coords * nely + y_coords).flatten()
+            node_indices = (z_coords * ((nelx + 1) * (nely + 1)) + x_coords * (nely + 1) + y_coords).flatten()
+            material_mask = self.xPhys[el_indices] > 0.5  # Only show arrows in material regions
             
             # Get the coordinates and displacement vectors for the valid points
-            i_valid = i_coords.flatten()[material_mask]
-            j_valid = j_coords.flatten()[material_mask]
+            x_valid = x_coords.flatten()[material_mask] + 0.5  # Center of element
+            y_valid = y_coords.flatten()[material_mask] + 0.5
+            z_valid = z_coords.flatten()[material_mask] + 0.5
             node_valid = node_indices[material_mask]
             
-            factor = disp_factor / p['fnorm'][0] if p['fnorm'][0] != 0 else disp_factor
-            ux = self.u[2 * node_valid, 0] * factor
+            ux =  self.u[3 * node_valid    , 0] * factor
+            uy = -self.u[3 * node_valid + 1, 0] * factor
+            uz =  self.u[3 * node_valid + 2, 0] * factor
+
+            ax.quiver(x_valid, y_valid, z_valid, ux, uy, uz, color='red', length=disp_factor/4, normalize=True)
+        else:
+            nelx, nely = p['nelxyz'][:2]
+            step = max(1, int((nelx + nely) / 25)) # number of elements to skip between 2 arrows
+            x_coords, y_coords = np.meshgrid(np.arange(0, nelx, step),
+                                             np.arange(0, nely, step), indexing='xy')
+            
+            el_indices = (x_coords * nely + y_coords).flatten()
+            node_indices = (x_coords * (nely + 1) + y_coords).flatten()
+            
+            material_mask = self.xPhys[el_indices] > 0.5 # Only show arrows in material regions
+            
+            # Get the coordinates and displacement vectors for the valid points
+            x_valid = x_coords.flatten()[material_mask]
+            y_valid = y_coords.flatten()[material_mask]
+            node_valid = node_indices[material_mask]
+            
+            ux =  self.u[2 * node_valid    , 0] * factor
             uy = -self.u[2 * node_valid + 1, 0] * factor
             
-            ax.quiver(i_valid, j_valid, ux, uy, color='red', scale=40, scale_units='xy', angles='xy')
+            ax.quiver(x_valid, y_valid, ux, uy, color='red', scale=40, scale_units='xy', angles='xy')
 
     ###########
     # Presets #
