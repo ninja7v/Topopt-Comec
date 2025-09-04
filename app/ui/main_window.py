@@ -394,24 +394,22 @@ class MainWindow(QMainWindow):
                     p['vshape'], p['vradius'], p['vx'], p['vy'], p['vz'] = list(vshape), list(vradius), list(vx), list(vy), list(vz)
                 else:
                     for key in ['vshape', 'vradius', 'vx', 'vy', 'vz']:
-                        p.pop(key, None)
-            if is_2d and 'vz' in p:
-                p.pop('vz')
+                        p.pop(key, None) # pop them, not just empty them
+                if is_2d and 'vz' in p:
+                    p.pop('vz')
             # --- Normalize Supports ---
-            # Zip all support lists together, filter for active ones, then unzip.
-            zipped_supports = zip(p.get('sx', []), p.get('sy', []), p.get('sz', []) if not is_2d else [0]*len(p.get('sx', [])), p.get('sdim', []))
-            active_supports = [s for s in zipped_supports if s[3] != '-']
-            if active_supports:
-                sx, sy, sz, sdim = list(zip(*active_supports))
-                p['sx'], p['sy'], p['sz'], p['sdim'] = list(sx), list(sy), list(sz), list(sdim)
-            else:
-                p['sx'], p['sy'], p['sz'], p['sdim'] = [], [], [], []
-            if is_2d and 'sz' in p:
-                p.pop('sz')
+            if 'sdim' in p:
+                zipped_supports = zip(p.get('sx', []), p.get('sy', []), p.get('sz', []) if not is_2d else [0]*len(p.get('sx', [])), p.get('sdim', []))
+                active_supports = [s for s in zipped_supports if s[3] != '-']
+                if active_supports:
+                    sx, sy, sz, sdim = list(zip(*active_supports))
+                    p['sx'], p['sy'], p['sz'], p['sdim'] = list(sx), list(sy), list(sz), list(sdim)
+                else: # Should not happen as at least one support is required
+                    p['sx'], p['sy'], p['sz'], p['sdim'] = [], [], [], []
+                if is_2d and 'sz' in p:
+                    p.pop('sz')
             # --- Normalize Forces ---
-            # The input force (index 0) is always kept.
-            # We only filter the output forces (indices 1 and beyond).
-            if 'fx' in p and 'fdir' in p:
+            if 'fdir' in p:
                 zipped_forces = zip(p.get('fx', []), p.get('fy', []), p.get('fz', []) if not is_2d else [0]*len(p.get('fx', [])), p.get('fdir', []), p.get('fnorm', []))
                 force_list = list(zipped_forces)
                 # Keep the input force, and any output forces that are active.
@@ -419,10 +417,10 @@ class MainWindow(QMainWindow):
                 if active_forces:
                     fx, fy, fz, fdir, fnorm = list(zip(*active_forces))
                     p['fx'], p['fy'], p['fz'], p['fdir'], p['fnorm'] = list(fx), list(fy), list(fz), list(fdir), list(fnorm)
-                else: # Should not happen as input force is required, but safe to have
+                else: # Should not happen as one input force is required
                     p['fx'], p['fy'], p['fz'], p['fdir'], p['fnorm'] = [], [], [], [], []
-            if is_2d and 'fz' in p:
-                p.pop('fz')
+                if is_2d and 'fz' in p:
+                    p.pop('fz')
             
             return p
         
