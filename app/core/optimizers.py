@@ -1,11 +1,13 @@
-# app/optimizers/optimizer.py
+# app/core/optimizers.py
 # MIT License - Copyright (c) 2025 Luc Prevost
-# A 3D Topology Optimizer
+# Topology Optimizer
 
 import numpy as np
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 from typing import List, Tuple, Callable, Optional
+
+from app.core import initializers
 
 def get_element_coordinates(el_idx: int, nelx: int, nely: int) -> Tuple[int, int, int]:
     """Get 3D integer coordinates of an element from its 1D index."""
@@ -118,7 +120,7 @@ def optimize_2d(
     nelxyz: List[int], volfrac: float, vx: List[int], vy: List[int], vradius: List[int], vshape: List[str],
     fx: List[int], fy: List[int], fdir: List[str], fnorm: List[float],
     sx: List[int], sy: List[int], sdim: List[str],
-    E: float, nu: float, filter_type: str, filter_radius_min: float, penal: float, max_change: float, n_it: int,
+    E: float, nu: float, init_type: int, filter_type: str, filter_radius_min: float, penal: float, max_change: float, n_it: int,
     progress_callback: Optional[Callable[[int, float, float], None]] = None
 ) -> np.ndarray:
     """
@@ -132,9 +134,6 @@ def optimize_2d(
     nel = nelx * nely # Total number of elements
     ndof = 2 * (nelx + 1) * (nely + 1) # Total number of degrees of freedom
     Emin, Emax = 1e-9, E # Minimum and maximum Young's modulus
-    x = volfrac * np.ones(nel, dtype=float) # Initial design variables (densities)
-    xold = x.copy()
-    xPhys = x.copy()
     g = 0. # Lagrangian multiplier for volume constraint
     
     # Element stiffness matrix
@@ -201,6 +200,17 @@ def optimize_2d(
     
     # Void regions
     active_voids_indices = [i for i in range(len(vshape)) if vshape[i] != '-']
+    
+    # Material
+    fx_active = np.array(fx)[active_forces_indices]
+    fy_active = np.array(fy)[active_forces_indices]
+    sx_active = np.array(sx)[active_supports_indices]
+    sy_active = np.array(sy)[active_supports_indices]
+    all_x = np.concatenate([fx_active, sx_active])
+    all_y = np.concatenate([fy_active, sy_active])
+    x = initializers.initialize_material_2d(init_type, volfrac, nelx, nely, all_x, all_y)
+    xold = x.copy()
+    xPhys = x.copy()
     
     # Optimization loop
     loop, change = 0, 1.0
@@ -293,7 +303,7 @@ def optimize_3d(
     nelxyz: List[int], volfrac: float, vx: List[int], vy: List[int], vz: List[int], vradius: float, vshape: str,
     fx: List[int], fy: List[int], fz: List[int], fdir: List[str], fnorm: List[float],
     sx: List[int], sy: List[int], sz: List[int], sdim: List[str],
-    E: float, nu: float, filter_type: int, filter_radius_min: float, penal: float, max_change: float, n_it: int,
+    E: float, nu: float, init_type: int, filter_type: int, filter_radius_min: float, penal: float, max_change: float, n_it: int,
     progress_callback: Optional[Callable[[int, float, float], None]] = None
 ) -> np.ndarray:
     '''
@@ -303,13 +313,11 @@ def optimize_3d(
         progress_callback: A function to call with (iteration, objective, change) for UI updates.
     '''
     # Initializations
-    nelx, nely, nelz = nelxyz
-    nel = nelx * nely * nelz
-    ndof = 3 * (nelx + 1) * (nely + 1) * (nelz + 1)
-    Emin, Emax = 1e-9, E
-    x = volfrac * np.ones(nel, dtype=float)
-    xold, xPhys = x.copy(), x.copy()
-    g = 0.
+    nelx, nely, nelz = nelxyz # Number of elements in x, y and z directions
+    nel = nelx * nely * nelz # Total number of elements
+    ndof = 3 * (nelx + 1) * (nely + 1) * (nelz + 1) # Total number of degrees of freedom
+    Emin, Emax = 1e-9, E # Minimum and maximum Young's modulus
+    g = 0. # Lagrangian multiplier for volume constraint
     
     # Element stiffness matrix and DOF mapping
     KE = lk(E, nu, True)
@@ -384,6 +392,20 @@ def optimize_3d(
     
     # Void regions
     active_voids_indices = [i for i in range(1, len(vshape)) if vshape[i] != '-']
+    
+    # Material
+    sx_active = np.array(sx)[active_supports_indices]
+    sy_active = np.array(sy)[active_supports_indices]
+    sz_active = np.array(sz)[active_supports_indices]
+    fx_active = np.array(fx)[active_forces_indices]
+    fy_active = np.array(fy)[active_forces_indices]
+    fz_active = np.array(fz)[active_forces_indices]
+    all_x = np.concatenate([fx_active, sx_active])
+    all_y = np.concatenate([fy_active, sy_active])
+    all_z = np.concatenate([fz_active, sz_active])
+    x = initializers.initialize_material_3d(init_type, volfrac, nelx, nely, nelz, all_x, all_y, all_z)
+    xold = x.copy()
+    xPhys = x.copy()
     
     # Optimization loop
     loop, change = 0, 1.0

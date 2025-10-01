@@ -391,6 +391,12 @@ class MaterialWidget(QWidget):
         self.mat_color = ColorPickerButton()
         self.mat_color.setToolTip("Color used in the plot for this material")
         layout.addWidget(self.mat_color, 2, 1)
+        # Initialization
+        layout.addWidget(QLabel("Initialization:"), 3, 0)
+        self.mat_init_type = QComboBox()
+        self.mat_init_type.addItems(["Uniform", "Around activity points", "Random"]); self.mat_init_type.setCurrentIndex(0)
+        self.mat_init_type.setToolTip("Material distribution initialization type")
+        layout.addWidget(self.mat_init_type, 3, 1)
 
 class OptimizerWidget(QWidget):
     """Custom widget for optimizer inputs."""

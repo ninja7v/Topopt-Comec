@@ -110,9 +110,11 @@ def test_material_widget_initialization(qt_app):
     
     assert isinstance(widget.mat_E, QDoubleSpinBox)
     assert isinstance(widget.mat_nu, QDoubleSpinBox)
+    assert isinstance(widget.mat_init_type, QComboBox)
     
     assert widget.mat_E.value() == 1.0
     assert widget.mat_nu.value() == 0.25
+    assert widget.mat_init_type.currentText() == 'Uniform'
 
 def test_optimizer_widget_initialization(qt_app):
     """Unit Test: Verifies the OptimizerWidget initializes correctly."""

@@ -16,9 +16,11 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
 from matplotlib.patches import Rectangle
+from typing import List
 #import mcubes
 
 from app.ui import exporters
+from app.core import initializers
 from .workers import OptimizerWorker, DisplacementWorker
 from .widgets import (HeaderWidget, PresetWidget,
                       CollapsibleSection, DimensionsWidget, VoidWidget,
@@ -221,6 +223,7 @@ class MainWindow(QMainWindow):
         self.material_widget.mat_E.valueChanged.connect(self.on_parameter_changed)
         self.material_widget.mat_nu.valueChanged.connect(self.on_parameter_changed)
         self.material_widget.mat_color.clicked.connect(self.replot)
+        self.material_widget.mat_init_type.currentIndexChanged.connect(self.on_parameter_changed)
         return section
 
     def create_optimizer_section(self):
@@ -324,6 +327,7 @@ class MainWindow(QMainWindow):
         # Material
         params['E'] = self.material_widget.mat_E.value()
         params['nu'] = self.material_widget.mat_nu.value()
+        params['init_type'] = self.material_widget.mat_init_type.currentIndex()
         
         # Optimizer
         params['filter_type'] = 'Sensitivity' if self.optimizer_widget.opt_ft.currentIndex() == 0 else 'Density'
@@ -870,11 +874,25 @@ class MainWindow(QMainWindow):
                 to_be_initialized = self.xPhys is None
                 if self.xPhys is None:
                     p = self.last_params
-                    # Initialize xPhys with uniform density
+                    # Initialize xPhys
                     nelx = p['nelxyz'][0]
                     nely = p['nelxyz'][1]
                     if is_3d_mode: nelz = p['nelxyz'][2]
-                    self.xPhys = np.full(nelx * nely * nelz if is_3d_mode else nelx * nely, p['volfrac'])
+                    active_forces_indices = [i for i in range(len(p['fdir'])) if np.array(p['fdir'])[i] != '-']
+                    active_supports_indices = [i for i in range(len(p['sdim'])) if np.array(p['sdim'])[i] != '-']
+                    fx_active = np.array(p['fx'])[active_forces_indices]
+                    fy_active = np.array(p['fy'])[active_forces_indices]
+                    sx_active = np.array(p['sx'])[active_supports_indices]
+                    sy_active = np.array(p['sy'])[active_supports_indices]
+                    all_x = np.concatenate([fx_active, sx_active])
+                    all_y = np.concatenate([fy_active, sy_active])
+                    if is_3d_mode:
+                        fz_active = np.array(p['fz'])[active_forces_indices]
+                        sz_active = np.array(p['sz'])[active_supports_indices]
+                        all_z = np.concatenate([fz_active, sz_active])
+                        self.xPhys = initializers.initialize_material_3d(p['init_type'], p['volfrac'], nelx, nely, nelz, all_x, all_y, all_z)
+                    else:
+                        self.xPhys = initializers.initialize_material_2d(p['init_type'], p['volfrac'], nelx, nely, all_x, all_y)
                     # Add voids if specified
                     for i, shape in enumerate(p['vshape']):
                         if shape == '-': continue
@@ -1396,6 +1414,7 @@ class MainWindow(QMainWindow):
         # Material
         self.material_widget.mat_E.setValue(params['E'])
         self.material_widget.mat_nu.setValue(params['nu'])
+        self.material_widget.mat_init_type.setCurrentIndex(params['init_type'])
 
         # Optimizer
         self.optimizer_widget.opt_ft.setCurrentIndex(0 if params['filter_type'] == "Sensitivity" else 1)
