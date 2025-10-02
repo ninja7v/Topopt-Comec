@@ -1,6 +1,6 @@
 # app/core/initializers.py
 # MIT License - Copyright (c) 2025 Luc Prevost
-# Material initializators
+# Material initializators.
 
 import numpy as np
 from typing import List

@@ -1,6 +1,6 @@
-# app/analysis/displacement_3d.py
+# app/core/displacements.py
 # MIT License - Copyright (c) 2025 Luc Prevost
-# Refactored 3D linear and non-linear displacement analysis.
+# Linear displacement computation.
 
 import numpy as np
 from scipy.sparse import coo_matrix # Provides good N-dimensional array manipulation

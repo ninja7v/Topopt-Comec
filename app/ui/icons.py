@@ -1,6 +1,6 @@
 # app/ui/icons.py
 # MIT License - Copyright (c) 2025 Luc Prevost
-# Centralized icon management for the application.
+# Icon management.
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QStyle, QApplication

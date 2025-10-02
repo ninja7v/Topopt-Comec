@@ -1,6 +1,6 @@
 # app/ui/themes.py
 # MIT License - Copyright (c) 2025 Luc Prevost
-# Contains stylesheets for the Light and Dark themes.
+# Stylesheets for the Light and Dark themes.
 
 # Light theme
 LIGHT_THEME_STYLESHEET = """

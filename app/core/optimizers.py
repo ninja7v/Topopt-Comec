@@ -1,6 +1,6 @@
 # app/core/optimizers.py
 # MIT License - Copyright (c) 2025 Luc Prevost
-# Topology Optimizer
+# Topology Optimizers.
 
 import numpy as np
 from scipy.sparse import coo_matrix

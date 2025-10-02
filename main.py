@@ -1,6 +1,6 @@
 # main.py
 # MIT License - Copyright (c) 2025 Luc Prevost
-# Entry point for the TopOpt-Comec application.
+# Entry point of TopOpt-Comec application.
 
 import sys
 from pathlib import Path
@@ -24,7 +24,7 @@ def main():
         fallback_icon = app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
         app.setWindowIcon(fallback_icon)
 
-    # Now that the app exists, we can safely import our main window
+    # Now that the app exists, import the main window
     from app.ui.main_window import MainWindow
     
     window = MainWindow()

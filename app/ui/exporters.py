@@ -1,6 +1,6 @@
 # app/analysis/exporters.py
 # MIT License - Copyright (c) 2025 Luc Prevost
-# Contains functions for exporting results to various file formats.
+# Export result to various file formats.
 
 import numpy as np
 import vtk
@@ -23,7 +23,7 @@ def save_as_vti(xPhys: np.ndarray, nelxyz: list, filename: str):
         
         # VTK requires data to be flattened in Fortran order ('F')
         vtk_array = numpy_to_vtk(num_array=density_field.flatten('F'), deep=True,
-                                array_type=get_vtk_array_type(density_field.dtype))
+                                 array_type=get_vtk_array_type(density_field.dtype))
         
         image_data = vtk.vtkImageData()
         image_data.SetOrigin([0, 0, 0])
@@ -41,7 +41,7 @@ def save_as_vti(xPhys: np.ndarray, nelxyz: list, filename: str):
         return False, str(e) # Failure, error message
 
 def save_as_stl(xPhys: np.ndarray, nelxyz: list, filename: str):
-    """Saves the result as a solid .stl file using a direct-from-xPhys method."""
+    """Saves the result as a solid .stl file."""
     try:
         if len(nelxyz) == 3 and nelxyz[2] > 0:
             nx, ny, nz = nelxyz
@@ -49,10 +49,10 @@ def save_as_stl(xPhys: np.ndarray, nelxyz: list, filename: str):
         else:
             nx, ny = nelxyz[:2]
             nz = 1 # Extrude to a single layer
-            # Reshape and add a new axis for Z
+            # Reshape 2D data and add a new axis for the Z dimension
             density_field = xPhys.reshape((nx, ny)).T[np.newaxis, :, :]
 
-        # --- Common Marching Cubes and STL Logic ---
+        # Common Marching Cubes and STL Logic
         vertices, triangles = mcubes.marching_cubes(density_field, 0.5)
         stl_mesh = mesh.Mesh(np.zeros(triangles.shape[0], dtype=mesh.Mesh.dtype))
         stl_mesh.vectors = vertices[triangles]
