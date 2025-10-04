@@ -351,6 +351,7 @@ class MainWindow(QMainWindow):
         if self.xPhys is not None:
             self.xPhys = None
             self.u = None
+            self.is_displaying_deformation = False
 
             # Disable buttons that require a valid result
             self.footer.binarize_button.setEnabled(False)
