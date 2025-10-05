@@ -878,7 +878,7 @@ class MainWindow(QMainWindow):
                     # Initialize xPhys
                     nelx = p['nelxyz'][0]
                     nely = p['nelxyz'][1]
-                    if is_3d_mode: nelz = p['nelxyz'][2]
+                    nelz = p['nelxyz'][2]
                     active_forces_indices = [i for i in range(len(p['fdir'])) if np.array(p['fdir'])[i] != '-']
                     active_supports_indices = [i for i in range(len(p['sdim'])) if np.array(p['sdim'])[i] != '-']
                     fx_active = np.array(p['fx'])[active_forces_indices]
@@ -890,10 +890,8 @@ class MainWindow(QMainWindow):
                     if is_3d_mode:
                         fz_active = np.array(p['fz'])[active_forces_indices]
                         sz_active = np.array(p['sz'])[active_supports_indices]
-                        all_z = np.concatenate([fz_active, sz_active])
-                        self.xPhys = initializers.initialize_material_3d(p['init_type'], p['volfrac'], nelx, nely, nelz, all_x, all_y, all_z)
-                    else:
-                        self.xPhys = initializers.initialize_material_2d(p['init_type'], p['volfrac'], nelx, nely, all_x, all_y)
+                    all_z = np.concatenate([fz_active, sz_active]) if is_3d_mode else np.array([0]*len(all_x))
+                    self.xPhys = initializers.initialize_material(p['init_type'], p['volfrac'], nelx, nely, nelz, all_x, all_y, all_z)
                     # Add voids if specified
                     for i, shape in enumerate(p['vshape']):
                         if shape == '-': continue
@@ -918,12 +916,12 @@ class MainWindow(QMainWindow):
                             if len(idx_x) > 0 and len(idx_y) > 0:
                                 if (is_3d_mode and len(idx_z) > 0):
                                     i_grid, j_grid, k_grid = np.meshgrid(idx_x, idx_y, idx_z, indexing='ij')
-                                    mask = (i_grid - p['vx'][i])**2 + (j_grid - p['vy'][i])**2 + (k_grid - p['vz'][i])**2 <= p['vradius']**2
+                                    mask = (i_grid - p['vx'][i])**2 + (j_grid - p['vy'][i])**2 + (k_grid - p['vz'][i])**2 <= p['vradius'][i]**2
                                     ii, jj, kk = i_grid[mask], j_grid[mask], k_grid[mask]
                                     indices = kk + jj * nelz + ii * nely * nelz
                                 elif not is_3d_mode:
                                     i_grid, j_grid = np.meshgrid(idx_x, idx_y, indexing='ij')
-                                    mask = (i_grid - p['vx'][i])**2 + (j_grid - p['vy'][i])**2 <= p['vradius']**2
+                                    mask = (i_grid - p['vx'][i])**2 + (j_grid - p['vy'][i])**2 <= p['vradius'][i]**2
                                     ii, jj = i_grid[mask], j_grid[mask]
                                     indices = jj + ii * nely
                         self.xPhys[indices.flatten()] = 1e-6

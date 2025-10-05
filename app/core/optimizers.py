@@ -116,190 +116,7 @@ def oc(nel: int, x: np.ndarray, max_change: float, dc: np.ndarray, dv: np.ndarra
     
     return xnew, gt
 
-def optimize_2d(
-    nelxyz: List[int], volfrac: float, vx: List[int], vy: List[int], vradius: List[int], vshape: List[str],
-    fx: List[int], fy: List[int], fdir: List[str], fnorm: List[float],
-    sx: List[int], sy: List[int], sdim: List[str],
-    E: float, nu: float, init_type: int, filter_type: str, filter_radius_min: float, penal: float, max_change: float, n_it: int,
-    progress_callback: Optional[Callable[[int, float, float], None]] = None
-) -> np.ndarray:
-    """
-    2D topology optimization for a compliant mechanism.
-
-    Args:
-        progress_callback: A function to call with (iteration, objective, change) for UI updates.
-    """
-    # Initializations
-    nelx, nely = nelxyz[0], nelxyz[1] # Number of elements in x and y directions
-    nel = nelx * nely # Total number of elements
-    ndof = 2 * (nelx + 1) * (nely + 1) # Total number of degrees of freedom
-    Emin, Emax = 1e-9, E # Minimum and maximum Young's modulus
-    g = 0. # Lagrangian multiplier for volume constraint
-    
-    # Element stiffness matrix
-    KE = lk(E, nu, False)
-    edofMat = np.zeros((nel, 8), dtype=int)
-    for elx in range(nelx):
-        for ely in range(nely):
-            el = ely + elx * nely
-            n1 = (nely + 1) * elx + ely
-            n2 = (nely + 1) * (elx + 1) + ely
-            edofMat[el, :] = [2*n1+2, 2*n1+3, # top left
-                              2*n2+2, 2*n2+3, # top right
-                              2*n2, 2*n2+1, # bottom right
-                              2*n1, 2*n1+1] # bottom left
-    iK = np.kron(edofMat, np.ones((8, 1))).flatten()
-    jK = np.kron(edofMat, np.ones((1, 8))).flatten()
-    
-    # Filter
-    nfilter = int(nel * (2 * (np.ceil(filter_radius_min) - 1) + 1)**2)
-    iH, jH, sH = np.zeros(nfilter), np.zeros(nfilter), np.zeros(nfilter)
-    cc = 0
-    for i in range(nelx):
-        for j in range(nely):
-            row = i * nely + j
-            k_start, k_end = int(max(i - (np.ceil(filter_radius_min) - 1), 0)), int(min(i + np.ceil(filter_radius_min), nelx))
-            l_start, l_end = int(max(j - (np.ceil(filter_radius_min) - 1), 0)), int(min(j + np.ceil(filter_radius_min), nely))
-            for k in range(k_start, k_end):
-                for l in range(l_start, l_end):
-                    col = k * nely + l
-                    fac = filter_radius_min - np.sqrt((i-k)**2 + (j-l)**2)
-                    if fac > 0:
-                        iH[cc], jH[cc], sH[cc] = row, col, fac
-                        cc += 1
-    H = coo_matrix((sH[:cc], (iH[:cc], jH[:cc])), shape=(nel, nel)).tocsc()
-    Hs = H.sum(1)
-    
-    # Supports
-    active_supports_indices = [i for i in range(len(sdim)) if sdim[i] != '-']
-    dofs = np.arange(ndof)
-    fixed = []
-    for i in active_supports_indices:
-        node_idx = sy[i] + sx[i] * (nely + 1)
-        if 'X' in sdim[i]: fixed.append(2 * node_idx)
-        if 'Y' in sdim[i]: fixed.append(2 * node_idx + 1)
-    free = np.setdiff1d(dofs, fixed)
-    
-    # Forces
-    active_forces_indices = [i for i in range(len(fdir)) if fdir[i] != '-']
-    nb_forces = len(active_forces_indices)
-    f = np.zeros((ndof, nb_forces))
-    d, d_vals = [], []
-    for i in active_forces_indices:
-        node_idx = fy[i] + fx[i] * (nely + 1)
-        d_val = 4.0 / 100.0
-        if 'X' in fdir[i]:
-            dof = 2 * node_idx
-            if '←' in fdir[i]: d_val = -d_val
-        elif 'Y' in fdir[i]:
-            dof = 2 * node_idx + 1
-            if '↑' in fdir[i]: d_val = -d_val
-        d.append(dof)
-        d_vals.append(d_val)
-        f[dof, i] = d_val
-    
-    # Void regions
-    active_voids_indices = [i for i in range(len(vshape)) if vshape[i] != '-']
-    
-    # Material
-    fx_active = np.array(fx)[active_forces_indices]
-    fy_active = np.array(fy)[active_forces_indices]
-    sx_active = np.array(sx)[active_supports_indices]
-    sy_active = np.array(sy)[active_supports_indices]
-    all_x = np.concatenate([fx_active, sx_active])
-    all_y = np.concatenate([fy_active, sy_active])
-    x = initializers.initialize_material_2d(init_type, volfrac, nelx, nely, all_x, all_y)
-    xold = x.copy()
-    xPhys = x.copy()
-    
-    # Optimization loop
-    loop, change = 0, 1.0
-    u = np.zeros((ndof, nb_forces))
-    print("2D Optimizer starting...")
-    while change > 0.01 and loop < n_it:
-        loop += 1
-        xold[:] = x
-        
-        # Void regions
-        for i in active_voids_indices:
-            nelx, nely = nelxyz[0], nelxyz[1]
-            if vshape[i] == '□':  # Square
-                x_min, x_max = max(0, int(vx[i] - vradius[i])), min(nelx, int(vx[i] + vradius[i]))
-                y_min, y_max = max(0, int(vy[i] - vradius[i])), min(nely, int(vy[i] + vradius[i]))
-                
-                idx_x = np.arange(x_min, x_max)
-                idx_y = np.arange(y_min, y_max)
-                if len(idx_x) > 0 and len(idx_y) > 0:
-                    xx, yy = np.meshgrid(idx_x, idx_y, indexing='ij')
-                    indices = (yy + xx * nely).flatten()
-                    xPhys[indices] = 1e-6
-            elif vshape[i] == '○':  # Circle
-                x_min, x_max = max(0, int(vx[i] - vradius[i])), min(nelx, int(vx[i] + vradius[i]) + 1)
-                y_min, y_max = max(0, int(vy[i] - vradius[i])), min(nely, int(vy[i] + vradius[i]) + 1)
-                
-                idx_x = np.arange(x_min, x_max)
-                idx_y = np.arange(y_min, y_max)
-                if len(idx_x) > 0 and len(idx_y) > 0:
-                    i_grid, j_grid = np.meshgrid(idx_x, idx_y, indexing='ij')
-                    mask = (i_grid - vx[i])**2 + (j_grid - vy[i])**2 <= vradius[i]**2
-                    ii, jj = i_grid[mask], j_grid[mask]
-                    indices = jj + ii * nely
-                    xPhys[indices] = 1e-6
-
-        # FE analysis
-        sK = (KE.flatten()[np.newaxis]).T * (Emin + xPhys**penal * (Emax - Emin))
-        K = coo_matrix((sK.flatten(order='F'), (iK, jK)), shape=(ndof, ndof)).tocsc()
-        
-        for i in range(len(d)):
-            if fnorm[i] > 0: K[d[i], d[i]] += fnorm[i]
-        
-        K_free = K[free, :][:, free]
-        for i in active_forces_indices:
-            if np.any(f[free, i]):
-                u[free, i] = spsolve(K_free, f[free, i])
-
-        Ue_in = u[edofMat, 0]  # Shape: (nel, 8)
-        ce_total = np.zeros(nel)
-        
-        # Calculate sensitivities for each output force using einsum for speed
-        for i in active_forces_indices[1:]:  # Start from index 1 to skip a[0]
-            Ue_out = u[edofMat, i]
-            ce_total += np.einsum('ij,jk,ik->i', Ue_in, KE, Ue_out)
-        
-        # Objective
-        obj_val = sum(abs(u[d[i], 0]) for i in active_forces_indices) / nb_forces
-        
-        # Filtering
-        dc = penal * (xPhys ** (penal - 1)) * ce_total
-        dv = np.ones(nel)
-        if filter_type == 'Sensitivity':
-            dc = np.asarray((H @ (x * dc)) / Hs.flatten()) / np.maximum(0.001, x)
-        elif filter_type == 'Density':
-            dc[:] = np.asarray(H*(dc[np.newaxis].T/Hs))[:, 0]
-            dv[:] = np.asarray(H*(dv[np.newaxis].T/Hs))[:, 0]
-        
-        # OC update
-        x, g = oc(nel, x, max_change, dc, dv, g)
-        
-        # Filter design variables
-        if filter_type == 'Sensitivity':
-            xPhys = x
-        elif filter_type == 'Density':
-            xPhys = np.asarray(H @ x / Hs.flatten())
-        
-        change = np.linalg.norm(x - xold, np.inf)
-
-        print(f"It.: {loop:3d}, Obj.: {obj_val:.4f}, Vol.: {xPhys.mean():.3f}, Ch.: {change:.3f}")
-        if progress_callback:
-            should_stop = progress_callback(loop, obj_val, change, xPhys)
-            if should_stop:
-                print("Optimization stopped by user.")
-                break
-
-    print("2D Optimizer finished.")
-    return xPhys, u
-
-def optimize_3d(
+def optimize(
     nelxyz: List[int], volfrac: float, vx: List[int], vy: List[int], vz: List[int], vradius: float, vshape: str,
     fx: List[int], fy: List[int], fz: List[int], fdir: List[str], fnorm: List[float],
     sx: List[int], sy: List[int], sz: List[int], sdim: List[str],
@@ -307,51 +124,69 @@ def optimize_3d(
     progress_callback: Optional[Callable[[int, float, float], None]] = None
 ) -> np.ndarray:
     '''
-    3D topology optimization for a compliant mechanism.
+    Topology optimization for a compliant mechanism.
     
     Args:
         progress_callback: A function to call with (iteration, objective, change) for UI updates.
     '''
     # Initializations
     nelx, nely, nelz = nelxyz # Number of elements in x, y and z directions
-    nel = nelx * nely * nelz # Total number of elements
-    ndof = 3 * (nelx + 1) * (nely + 1) * (nelz + 1) # Total number of degrees of freedom
+    is_3d = nelz > 0
+    nel = nelx * nely * (nelz if is_3d else 1) # Total number of elements
+    elemndof = 3 if is_3d else 2 # Degrees of freedom per element
+    ndof = elemndof * (nelx + 1) * (nely + 1) * ((nelz + 1) if is_3d else 1) # Total number of degrees of freedom
     Emin, Emax = 1e-9, E # Minimum and maximum Young's modulus
     g = 0. # Lagrangian multiplier for volume constraint
     
     # Element stiffness matrix and DOF mapping
-    KE = lk(E, nu, True)
-    n_el_nodes = 8
-    edofMat = np.zeros((nel, 3 * n_el_nodes), dtype=int)
-    for el in range (nel):
-        (elx, ely, elz) = get3DCoordinates(el, 2, nelx, nely, nelz)
-        n1 = elz*(nelx+1)*(nely+1) + elx*(nely+1) + ely
-        n2 = n1 + nely
-        n3 = n1 + (nelx+1)*(nely+1)
-        n4 = n3 + nely
-        edofMat[el, :] = np.array([3*n1+3,3*n1+4,3*n1+5,3*n2+6,3*n2+7,3*n2+8,
-                                   3*n2+3,3*n2+4,3*n2+5,3*n1,  3*n1+1,3*n1+2,
-                                   3*n3+3,3*n3+4,3*n3+5,3*n4+6,3*n4+7,3*n4+8,
-                                   3*n4+3,3*n4+4,3*n4+5,3*n3,  3*n3+1,3*n3+2])
-    iK = np.kron(edofMat, np.ones((24, 1))).flatten()
-    jK = np.kron(edofMat, np.ones((1, 24))).flatten()
+    KE = lk(E, nu, is_3d)
+    size = 8 * (elemndof if is_3d else 1)
+    edofMat = np.zeros((nel, size), dtype=int)
+    for ex in range(nelx):
+        for ey in range(nely):
+            for ez in range(nelz if is_3d else 1):
+                n1 = (ez * (nelx + 1) * (nely + 1) if is_3d else 0) + ex * (nely + 1) + ey
+                n2 = n1 + nely + 1
+                n3 = n2 + 1
+                n4 = n1 + 1
+                nodes = [n4, n3, n2, n1] # first square (XY plane, bottom face)
+                if is_3d:
+                    n5 = n1 + (nelx + 1) * (nely + 1)
+                    n6 = n2 + (nelx + 1) * (nely + 1)
+                    n7 = n3 + (nelx + 1) * (nely + 1)
+                    n8 = n4 + (nelx + 1) * (nely + 1)
+                    nodes += [n8, n7, n6, n5] # second square (top face)
+                dofs = []
+                for n in nodes:
+                    for d in range(elemndof):
+                        dofs.append(elemndof * n + d)
+                
+                el = (ez * (nelx * nely) if is_3d else 0) + ex * nely + ey # element index
+                edofMat[el, :] = dofs
+    iK = np.kron(edofMat, np.ones((size, 1))).flatten() # Kronecker product
+    jK = np.kron(edofMat, np.ones((1, size))).flatten() # Kronecker product
 
     # Filter
-    nfilter = int(nel * (2 * (np.ceil(filter_radius_min) - 1) + 1)**3)
+    nfilter = int(nel * (2 * (np.ceil(filter_radius_min) - 1) + 1)**elemndof)
     iH, jH, sH = np.zeros(nfilter), np.zeros(nfilter), np.zeros(nfilter)
     cc = 0
-    for elz in range(nelz):
-        for elx in range(nelx):
-            for ely in range(nely):
-                el1 = elz * nelx*nely + elx*nely + ely
-                k_start, k_end = int(max(elz-(np.ceil(filter_radius_min)-1),0)), int(min(elz+np.ceil(filter_radius_min),nelz))
-                i_start, i_end = int(max(elx-(np.ceil(filter_radius_min)-1),0)), int(min(elx+np.ceil(filter_radius_min),nelx))
-                j_start, j_end = int(max(ely-(np.ceil(filter_radius_min)-1),0)), int(min(ely+np.ceil(filter_radius_min),nely))
-                for k in range(k_start,k_end):
-                    for i in range(i_start,i_end):
-                        for j in range(j_start,j_end):
-                            el2 = k * nelx*nely + i*nely + j
-                            dist = np.sqrt((elx-i)**2 + (ely-j)**2 + (elz-k)**2)
+    for ez in range(nelz if is_3d else 1):
+        for ex in range(nelx):
+            for ey in range(nely):
+                el1 = (ez * nelx * nely if is_3d else 0) + ex * nely + ey
+
+                k_start = int(max(ez - (np.ceil(filter_radius_min) - 1), 0))
+                k_end   = int(min(ez + np.ceil(filter_radius_min), nelz if is_3d else 1))
+                i_start = int(max(ex - (np.ceil(filter_radius_min) - 1), 0))
+                i_end   = int(min(ex + np.ceil(filter_radius_min), nelx))
+                j_start = int(max(ey - (np.ceil(filter_radius_min) - 1), 0))
+                j_end   = int(min(ey + np.ceil(filter_radius_min), nely))
+
+                for k in range(k_start, k_end):
+                    for i in range(i_start, i_end):
+                        for j in range(j_start, j_end):
+                            el2 = (k * nelx * nely if is_3d else 0) + i * nely + j
+                            dist = np.sqrt((ex - i)**2 + (ey - j)**2 + (ez - k)**2)
                             fac = filter_radius_min - dist
                             if fac > 0:
                                 iH[cc], jH[cc], sH[cc] = el1, el2, fac
@@ -364,10 +199,10 @@ def optimize_3d(
     dofs = np.arange(ndof)
     fixed = []
     for i in active_supports_indices:
-        node_idx = sz[i]*(nelx+1)*(nely+1) + sx[i]*(nely+1) + sy[i]
-        if 'X' in sdim[i]: fixed.append(3 * node_idx)
-        if 'Y' in sdim[i]: fixed.append(3 * node_idx + 1)
-        if 'Z' in sdim[i]: fixed.append(3 * node_idx + 2)
+        node_idx = (sz[i]*(nelx+1)*(nely+1) if is_3d else 0) + sx[i]*(nely+1) + sy[i]
+        if 'X' in sdim[i]: fixed.append(elemndof * node_idx)
+        if 'Y' in sdim[i]: fixed.append(elemndof * node_idx + 1)
+        if is_3d and 'Z' in sdim[i]: fixed.append(elemndof * node_idx + 2)
     free = np.setdiff1d(dofs, np.unique(fixed))
     
     # Forces
@@ -375,35 +210,35 @@ def optimize_3d(
     nb_forces = len(active_forces_indices)
     d, d_vals, f = [], [], np.zeros((ndof, len(fx)))
     for i in active_forces_indices:
-        node_idx = fz[i]*(nelx+1)*(nely+1) + fx[i]*(nely+1) + fy[i]
+        node_idx = (fz[i]*(nelx+1)*(nely+1) if is_3d else 0) + fx[i]*(nely+1) + fy[i]
         d_val = 4 / 100.0
         if 'X' in fdir[i]:
-            dof = 3 * node_idx
+            dof = elemndof * node_idx
             if '←' in fdir[i]: d_val = -d_val
         elif 'Y' in fdir[i]:
-            dof = 3 * node_idx + 1
-            if '↓' in fdir[i]: d_val = -d_val
-        elif 'Z' in fdir[i]:
-            dof = 3 * node_idx + 2
+            dof = elemndof * node_idx + 1
+            if '↑' in fdir[i]: d_val = -d_val
+        elif is_3d and'Z' in fdir[i]:
+            dof = elemndof * node_idx + 2
             if '>' in fdir[i]: d_val = -d_val
         d.append(dof)
         d_vals.append(d_val)
         f[dof, i] = d_val
     
     # Void regions
-    active_voids_indices = [i for i in range(1, len(vshape)) if vshape[i] != '-']
+    active_voids_indices = [i for i in range(len(vshape)) if vshape[i] != '-']
     
     # Material
     sx_active = np.array(sx)[active_supports_indices]
     sy_active = np.array(sy)[active_supports_indices]
-    sz_active = np.array(sz)[active_supports_indices]
+    if is_3d: sz_active = np.array(sz)[active_supports_indices]
     fx_active = np.array(fx)[active_forces_indices]
     fy_active = np.array(fy)[active_forces_indices]
-    fz_active = np.array(fz)[active_forces_indices]
+    if is_3d: fz_active = np.array(fz)[active_forces_indices]
     all_x = np.concatenate([fx_active, sx_active])
     all_y = np.concatenate([fy_active, sy_active])
-    all_z = np.concatenate([fz_active, sz_active])
-    x = initializers.initialize_material_3d(init_type, volfrac, nelx, nely, nelz, all_x, all_y, all_z)
+    all_z = np.concatenate([fz_active, sz_active]) if is_3d else np.array([0]*len(all_x))
+    x = initializers.initialize_material(init_type, volfrac, nelx, nely, nelz, all_x, all_y, all_z)
     xold = x.copy()
     xPhys = x.copy()
     
@@ -417,17 +252,22 @@ def optimize_3d(
 
         # Void regions
         for i in active_voids_indices:
-            if vshape[i] == '□': # Cube
-                for i in range(max(0, vx[i]-vradius[i]), min(nelx, vx[i]+vradius[i])):
-                    for j in range(max(0, vy[i]-vradius[i]), min(nely, vy[i]+vradius[i])):
-                        for k in range(max(0, vz[i]-vradius[i]), min(nelz, vz[i]+vradius[i])):
-                            xPhys[k*(nelx*nely) + i*nely + j] = 1e-6
-            elif vshape[i] == '○': # Sphere
-                for k in range(nelz):
-                    for i in range(nelx):
-                        for j in range(nely):
-                            if (i-vx[i])**2 + (j-vy[i])**2 + (k-vz[i])**2 <= vradius[i]**2:
-                                xPhys[k*(nelx*nely) + i*nely + j] = 1e-6
+            r = vradius[i]
+            if vshape[i] == '□':  # cube/square
+                for ez in range(max(0, int(vz[i] - r)), min(nelz, int(vz[i] + r)) if is_3d else 1):
+                    for ex in range(max(0, int(vx[i] - r)), min(nelx, int(vx[i] + r))):
+                        for ey in range(max(0, int(vy[i] - r)), min(nely, int(vy[i] + r))):
+                            if vshape[i] == '□':  # cube/square
+                                idx = (ez * nelx * nely if is_3d else 0) + ex * nely + ey
+                                xPhys[idx] = 1e-6
+            elif vshape[i] == '○':  # sphere/circle
+                for ez in range(max(0, int(vz[i] - r)), min(nelz, int(vz[i] + r)) if is_3d else 1):
+                    for ex in range(max(0, int(vx[i] - r)), min(nelx, int(vx[i] + r))):
+                        for ey in range(max(0, int(vy[i] - r)), min(nely, int(vy[i] + r))):
+                            dist2 = (ex - vx[i]) ** 2 + (ey - vy[i]) ** 2 + ((ez - vz[i]) ** 2 if is_3d else 0)
+                            if dist2 <= r ** 2:
+                                idx = (ez * nelx * nely if is_3d else 0) + ex * nely + ey
+                                xPhys[idx] = 1e-6
 
         # FE analysis
         sK = (KE.flatten()[np.newaxis]).T * (Emin + xPhys**penal * (Emax - Emin))
@@ -445,17 +285,28 @@ def optimize_3d(
         obj_val = sum(abs(u[d[i], 0]) for i in active_forces_indices) / nb_forces
 
         # Filtering
-        dc = np.zeros(nel)
-        for el in range(nel):
-            Ue_in = u[edofMat[el, :], [0]]
-            ce_total = 0
-            for i in active_forces_indices[1:]:
-                Ue_out = u[edofMat[el, :], [i]]
-                ce_total += (Ue_in.T @ KE @ Ue_out).item()
-            dc[el] = penal * (xPhys[el]**(penal-1)) * ce_total
+        if is_3d:
+            dc = np.zeros(nel)
+            for el in range(nel):
+                Ue_in = u[edofMat[el, :], [0]]
+                ce_total = 0
+                for i in active_forces_indices[1:]:  # Start from index 1 to skip a[0]
+                    Ue_out = u[edofMat[el, :], [i]]
+                    ce_total += (Ue_in.T @ KE @ Ue_out).item()
+                dc[el] = penal * (xPhys[el] ** (penal - 1)) * ce_total
+        else:
+            Ue_in = u[edofMat, 0]  # Shape: (nel, 8)
+            ce_total = np.zeros(nel)
+            for i in active_forces_indices[1:]:  # Start from index 1 to skip a[0]
+                Ue_out = u[edofMat, i]
+                ce_total += np.einsum('ij,jk,ik->i', Ue_in, KE, Ue_out)
+            dc = penal * (xPhys ** (penal - 1)) * ce_total
         dv = np.ones(nel)
         if filter_type == 'Sensitivity':
-            dc[:] = np.asarray((H*(x*dc))[np.newaxis].T/Hs)[:,0] / np.maximum(0.001,x)
+            if is_3d:
+                dc[:] = np.asarray((H*(x*dc))[np.newaxis].T/Hs)[:,0] / np.maximum(0.001,x)
+            else:
+                dc = np.asarray((H @ (x * dc)) / Hs.flatten()) / np.maximum(0.001, x)
         elif filter_type == 'Density':
             dc[:] = np.asarray(H*(dc[np.newaxis].T/Hs))[:,0]
             dv[:] = np.asarray(H*(dv[np.newaxis].T/Hs))[:,0]
@@ -477,20 +328,5 @@ def optimize_3d(
                 print("Optimization stopped by user.")
                 break
             
-    print("3D Optimizer finished.")
+    print("Optimizer finished.")
     return xPhys, u
-
-def get3DCoordinates(c, isElement, nelx, nely, nelz):
-    if isElement==0:
-        x = ((c//3)%((nely+1)*(nelx+1)))//(nely+1)
-        y = ((c//3)%((nely+1)*(nelx+1)))%(nely+1)
-        z = (c//3)//((nely+1)*(nelx+1))
-    elif isElement==1:
-        x = (c%(nely*nelx))//nely+0.5
-        y = (c%(nely*nelx))%nely+0.5
-        z = c//(nely*nelx)+0.5
-    elif isElement==2:
-        x = int((c%(nely*nelx))//nely)
-        y = int((c%(nely*nelx))%nely)
-        z = int(c//(nely*nelx))
-    return(x, y, z)

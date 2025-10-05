@@ -30,81 +30,38 @@ def rescale_densities(d: np.ndarray, volfrac: float) -> np.ndarray:
 
     return np.clip(d_new, 0, 1)
 
-def initialize_material_2d(init_type: int, volfrac: float, nelx: int, nely: int, all_x: List[int], all_y: List[int]) -> np.ndarray:
+def initialize_material(init_type: int, volfrac: float, nelx: int, nely: int, nelz: int, all_x: List[int], all_y: List[int], all_z: List[int]) -> np.ndarray:
     """Initialize the material distribution based on the selected type."""
-    nel = nelx * nely
+    is_3d = nelz > 0
+    nel = nelx * nely * (nelz if is_3d else 1)
 
     if init_type == 0:  # Uniform
         return np.full(nel, volfrac)
 
     elif init_type == 1:  # Around activity points
-        # Combine fixed and support points
-        points = np.stack([all_x, all_y], axis=1)  # shape (n_points, 2)
-
-        # Create full grid of element coordinates
-        xx, yy = np.meshgrid(np.arange(nelx), np.arange(nely), indexing="ij")
-        coords = np.stack([xx.ravel(), yy.ravel()], axis=1)  # shape (nel, 2)
-
-        # Compute all distances (broadcasted)
-        diff = coords[:, None, :] - points[None, :, :]  # shape (nel, n_points, 2)
-        dist = np.sqrt(np.sum(diff**2, axis=2))         # shape (nel, n_points)
-
-        # Get minimum distance per element
-        distance_max = np.sqrt(nelx**2 + nely**2)
-        d = ((distance_max - np.min(dist, axis=1)) / distance_max)**0.2
-
-        # Rescale
-        d = rescale_densities(d, volfrac)
-        return d
-
-    elif init_type == 2:  # Random
-        np.random.seed(42)
-        d = np.random.rand(nel)
-
-        # Rescale
-        d = rescale_densities(d, volfrac)
-        return d
-
-    else:
-        raise ValueError("Invalid initialization type. Must be 0 (Uniform), 1 (Critical points), or 2 (Random).")
-
-def initialize_material_3d(init_type: int, volfrac: float, nelx: int, nely: int, nelz: int, all_x: List[int], all_y: List[int], all_z: List[int]) -> np.ndarray:
-    """Initialize the material distribution based on the selected type."""
-    nel = nelx * nely * nelz
-
-    if init_type == 0:  # Uniform
-        return np.full(nel, volfrac)
-
-    elif init_type == 1:  # Around activity points
-        # Combine fixed and support points
-        points = np.stack([all_x, all_y, all_z], axis=1)
-
-        # Create full grid of element coordinates
-        xx, yy, zz = np.meshgrid(np.arange(nelx),
+        points = np.stack([all_x, all_y, all_z] if is_3d else [all_x, all_y], axis=1)
+        if is_3d:
+            zz, xx, yy = np.meshgrid(np.arange(nelz),
+                                    np.arange(nelx),
+                                    np.arange(nely),
+                                    indexing="ij")
+        else:
+            xx, yy = np.meshgrid(np.arange(nelx),
                                  np.arange(nely),
-                                 np.arange(nelz),
                                  indexing="ij")
-        coords = np.stack([xx.ravel(), yy.ravel(), zz.ravel()], axis=1)
-
-        # Compute distances (broadcasted)
-        diff = coords[:, None, :] - points[None, :, :]  # (nel, n_points, 3)
+        coords = np.stack([xx.ravel(), yy.ravel(), zz.ravel()] if is_3d else [xx.ravel(), yy.ravel()], axis=1)
+        diff = coords[:, None, :] - points[None, :, :]  # (nel, n_points, 2-3)
         dist = np.sqrt(np.sum(diff**2, axis=2))         # (nel, n_points)
-
-        # Min distance per element
-        distance_max = np.sqrt(nelx**2 + nely**2 + nelz**2)
+        distance_max = np.sqrt(nelx**2 + nely**2 + (nelz**2 if is_3d else 0))
         d = (distance_max - np.min(dist, axis=1)) / distance_max
-
-        # Rescale
         d = rescale_densities(d, volfrac)
         return d
 
     elif init_type == 2:  # Random
         np.random.seed(42)
         d = np.random.rand(nel)
-
-        # Rescale
         d = rescale_densities(d, volfrac)
         return d
 
     else:
-        raise ValueError("Invalid initialization type. Must be 0 (Uniform), 1 (Critical points), or 2 (Random).")
+        raise ValueError("Invalid initialization type. Must be 0 (Uniform), 1 (Around activity points), or 2 (Random).")

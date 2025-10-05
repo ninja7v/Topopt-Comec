@@ -44,19 +44,8 @@ class OptimizerWorker(QThread):
 
             optimizer_params['progress_callback'] = progress_callback
             
-            if is_3d:
-                print("Dispatching to 3D optimizer...")
-                result, u = optimizers.optimize_3d(**optimizer_params)
-            else:
-                print("Dispatching to 2D optimizer...")
-                # Remove 3D-specific keys from the already cleaned dictionary
-                params_2d = optimizer_params.copy()
-                params_2d.pop('vz', None)
-                params_2d.pop('fz', None)
-                params_2d.pop('sz', None)
-                params_2d['nelxyz'] = params_2d['nelxyz'][:2]
-                
-                result, u = optimizers.optimize_2d(**params_2d)
+            print("Dispatching to optimizer...")
+            result, u = optimizers.optimize(**optimizer_params)
                 
             self.finished.emit((result, u)) # Emit the tuple (xPhys, u)
         except Exception as e:

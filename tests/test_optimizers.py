@@ -75,10 +75,7 @@ def test_optimizers_with_presets(preset_name, preset_params):
         optimizer_params.pop(key, None) # Use .pop() to safely remove
     
     # Run the entire optimization
-    if is_3d:
-        result, u_vec = optimizers.optimize_3d(**optimizer_params)
-    else:
-        result, u_vec = optimizers.optimize_2d(**optimizer_params)
+    result, u_vec = optimizers.optimize(**optimizer_params)
     
     # Check if not empty
     assert result is not None, "Optimizer returned None"
