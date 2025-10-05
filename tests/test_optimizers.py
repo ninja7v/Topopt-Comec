@@ -70,7 +70,6 @@ def test_optimizers_with_presets(preset_name, preset_params):
     optimizer_params['n_it'] = 2
     # Remove all keys that are not part of the optimizer's function signature
     keys_to_remove = ['disp_factor', 'disp_iterations']
-    if not is_3d: keys_to_remove = keys_to_remove + ['vz', 'fz', 'sz']
     for key in keys_to_remove:
         optimizer_params.pop(key, None) # Use .pop() to safely remove
     
@@ -86,6 +85,15 @@ def test_optimizers_with_presets(preset_name, preset_params):
     assert result.shape == (nel,), f"Result shape is wrong, expected ({nel},)"
     ndof = (3 if is_3d else 2) * (optimizer_params['nelxyz'][0] + 1) * (optimizer_params['nelxyz'][1] + 1) * ((optimizer_params['nelxyz'][2] + 1) if is_3d else 1)
     assert u_vec.size == ndof*sum(1 for x in optimizer_params['fdir'] if x != "-"), "Displacement vector should be (ndof x nf)"
+    
+    # Check displacement direction at the input force
+    idx = (optimizer_params['fz'][0] * optimizer_params['nelxyz'][0] * optimizer_params['nelxyz'][1] if is_3d else 0) + optimizer_params['fx'][0] * optimizer_params['nelxyz'][1] + optimizer_params['fy'][0]
+    idx = idx * (3 if is_3d else 2) + (0 if optimizer_params['fdir'][0] == "X:\u2192" or optimizer_params['fdir'][0] == "X:\u2190" else
+                                       1 if optimizer_params['fdir'][0] == "Y:\u2193" or optimizer_params['fdir'][0] == "Y:\u2191" else 2)
+    direction_sign = 1 if optimizer_params['fdir'][0] == "X:\u2192" or\
+                          optimizer_params['fdir'][0] == "Y:\u2193" or\
+                          optimizer_params['fdir'][0] == "Z:<" else -1
+    assert u_vec[idx, 0] * direction_sign > 0
 
     # Check volume fraction
     volfrac = preset_params['volfrac']

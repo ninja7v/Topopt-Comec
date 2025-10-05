@@ -97,7 +97,21 @@ def single_linear_displacement_3d(xPhys, u, nelx, nely, nelz, disp_factor):
     Returns the vertices and triangles of the deformed mesh.
     """
     # 1. Get the element-to-dof mapping
-    edofMat = get_edofMat(nelx, nely, nelz)
+    nel = nelx * nely * nelz
+    elz, elx, ely = np.meshgrid(np.arange(nelz), np.arange(nelx), np.arange(nely), indexing='ij')
+    n1 = (elz * (nelx + 1) * (nely + 1)) + (elx * (nely + 1)) + ely
+    n2 = n1 + (nely + 1)
+    n3 = n1 + 1
+    n4 = n2 + 1
+    n5 = n1 + (nelx + 1) * (nely + 1)
+    n6 = n5 + (nely + 1)
+    n7 = n5 + 1
+    n8 = n6 + 1
+    node_ids = np.stack([n1, n2, n3, n4, n5, n6, n7, n8], axis=-1)
+    dof_indices = 3 * np.repeat(node_ids, 3, axis=-1) + np.tile([0, 1, 2], 8)
+    # Reorder to match the stiffness matrix convention
+    # The order is: n1, n2, n4, n3, n5, n6, n8, n7
+    edofMat = dof_indices.reshape(nel, 8, 3)[:, [0, 1, 3, 2, 4, 5, 7, 6], :].reshape(nel, 24)
     
     # 2. Calculate the average displacement for each element
     ux, uy, uz = np.mean(u[edofMat].reshape(-1, 8, 3), axis=1).T
@@ -265,7 +279,7 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
     KE = lk(params['E'], params['nu'], True)
     edofMat=np.zeros((nel,24),dtype=int)
     for el in range (nel):
-        (elx, ely, elz) = get3DCoordinates(el, 2, nelx, nely, nelz)
+        (elx, ely, elz) = get3DCoordinates(el, False, nelx, nely, nelz)
         n1 = elz*(nelx+1)*(nely+1) + elx*(nely+1) + ely
         n2 = n1 + nely
         n3 = n1 + (nelx+1)*(nely+1)
@@ -287,13 +301,13 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
         voxels = [(x, y, z)] + [(x+dx, y+dy, z+dz) for dx, dy, dz in neighbors] # add fixed supports in the neighborhood to make sure that the mechanism doesn't detach
         for vx, vy, vz in voxels:
             if 0 <= vx <= nelx and 0 <= vy <= nely and 0 <= vz <= nelz: # stay inside domain
-                node_idx = 3 * ((vz + margin_Z) * (nelx + 1) * (nely + 1) + (vx + margin_X) * (nely+1) + (vy + margin_Y))
+                node_idx = (vz + margin_Z) * (nelx + 1) * (nely + 1) + (vx + margin_X) * (nely+1) + (vy + margin_Y)
                 if 'X' in params['sdim'][i]:
-                    fixed.append(2 * node_idx)
+                    fixed.append(3 * node_idx)
                 if 'Y' in params['sdim'][i]:
-                    fixed.append(2 * node_idx + 1)
+                    fixed.append(3 * node_idx + 1)
                 if 'Z' in params['sdim'][i]:
-                    fixed.append(2 * node_idx + 2)
+                    fixed.append(3 * node_idx + 2)
     free = np.setdiff1d(dofs,fixed)
     
     # Define forces
@@ -366,11 +380,11 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
               u[edofMat][:,3*5+2,0] + u[edofMat][:,3*3+2,0] + u[edofMat][:,3*0+2,0]+\
               u[edofMat][:,3*7+2,0]+ u[edofMat][:,3*4+2,0])/8
         for el in range(nel):
-            (points_interp[el, 0], points_interp[el, 1], points_interp[el, 2]) = get3DCoordinates(el, 1, nelx, nely, nelz)
+            (points_interp[el, 0], points_interp[el, 1], points_interp[el, 2]) = get3DCoordinates(el, True, nelx, nely, nelz)
             points[el, 0] = points_interp[el, 0]+ux[el]*delta_disp
             points[el, 1] = points_interp[el, 1]+uy[el]*delta_disp
             points[el, 2] = points_interp[el, 2]+uz[el]*delta_disp
-        xPhys = griddata(points,xPhys,points_interp,method='linear')
+        xPhys = griddata(points, xPhys, points_interp, method='linear')
         xPhys = np.nan_to_num(xPhys, copy=True, nan=0.0, posinf=None, neginf=None)
         # Threshold density
         xPhys = l/(1+np.exp(-k*(xPhys-0.5)))+c
@@ -385,48 +399,13 @@ def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None)
         if progress_callback:
             progress_callback(it + 2)
 
-def get3DCoordinates(c, isElement, nelx, nely, nelz):
-    if isElement==0:
-        x = ((c//3)%((nely+1)*(nelx+1)))//(nely+1)
-        y = ((c//3)%((nely+1)*(nelx+1)))%(nely+1)
-        z = (c//3)//((nely+1)*(nelx+1))
-    elif isElement==1:
+def get3DCoordinates(c, center, nelx, nely, nelz):
+    if center: # center of the element
         x = (c%(nely*nelx))//nely+0.5
         y = (c%(nely*nelx))%nely+0.5
         z = c//(nely*nelx)+0.5
-    elif isElement==2:
+    else: # element index
         x = int((c%(nely*nelx))//nely)
         y = int((c%(nely*nelx))%nely)
         z = int(c//(nely*nelx))
     return(x, y, z)
-
-def get_edofMat(nelx, nely, nelz):
-    """
-    Generates the element-to-dof mapping matrix for a 3D case.
-    Returns the shuffled DOF indices for all elements.
-    """
-    nel = nelx * nely * nelz
-    
-    # Create coordinate grids for element origins
-    elz, elx, ely = np.meshgrid(np.arange(nelz), np.arange(nelx), np.arange(nely), indexing='ij')
-
-    # Calculate the 8 node numbers for each element
-    n1 = (elz * (nelx + 1) * (nely + 1)) + (elx * (nely + 1)) + ely
-    n2 = n1 + (nely + 1)
-    n3 = n1 + 1
-    n4 = n2 + 1
-    n5 = n1 + (nelx + 1) * (nely + 1)
-    n6 = n5 + (nely + 1)
-    n7 = n5 + 1
-    n8 = n6 + 1
-
-    # Assemble the DOFs for all elements
-    node_ids = np.stack([n1, n2, n3, n4, n5, n6, n7, n8], axis=-1)
-    dof_indices = 3 * np.repeat(node_ids, 3, axis=-1) + np.tile([0, 1, 2], 8)
-    
-    # Reorder to match the stiffness matrix convention
-    # This is a bit tricky, but it maps the nodes correctly
-    # The order is: n1, n2, n4, n3, n5, n6, n8, n7
-    shuffled_dof_indices = dof_indices.reshape(nel, 8, 3)[:, [0, 1, 3, 2, 4, 5, 7, 6], :].reshape(nel, 24)
-    
-    return shuffled_dof_indices

@@ -59,12 +59,16 @@ def test_displacement_with_presets(preset_name, preset_params):
     
     # Test iterative displacement function
     if is_3d:
-        result_displaced = displacements.run_iterative_displacement_3d(disp_params, result)
+        for frame in displacements.run_iterative_displacement_3d(disp_params, result):
+            last_result_displaced = frame  
     else:
-        result_displaced = displacements.run_iterative_displacement_2d(disp_params, result)
-    assert result_displaced is not None, "Iterative displacement function returned None"
-    vals = np.array(list(result_displaced)).ravel()
+        for frame in displacements.run_iterative_displacement_2d(disp_params, result):
+            last_result_displaced = frame
+    assert last_result_displaced is not None, "Iterative displacement function returned None"
+    assert last_result_displaced.shape == np.array(result).shape, "Iterative displacement function returned different shapes"
+    vals = last_result_displaced.ravel()
     assert np.max(vals) <= 1.0 and np.min(vals) >= 0.0, "Displaced densities should remain within [0, 1]"
+    assert np.sum(np.abs(np.array(result) - vals)) < 0.05 * nel, "Displaced densities should be very close to original for small displacements"
 
     # Check volume fraction
     assert np.isclose(result.mean(), volfrac, atol=0.05), \
