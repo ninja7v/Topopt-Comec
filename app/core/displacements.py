@@ -145,103 +145,162 @@ def single_linear_displacement_3d(xPhys, u, nelx, nely, nelz, disp_factor):
 
     return vertices_moved, triangles
 
-def run_iterative_displacement_2d(params, xPhys_initial, progress_callback=None):
+def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     """
-    Performs an iterative FE analysis to simulate displacement.
+    Performs iterative FE analysis to simulate displacement.
     Yields the cropped density field for each iteration.
     """
     # Initialization
-    nelx_orig, nely_orig = params['nelxyz'][:2]
-    delta_disp = params['disp_factor'] / params['disp_iterations'] if params['disp_iterations'] > 0 else 0
-    nf = 1 # 1 input force so far
-    Emin, Emax = 1e-9, params['E'] # Minimum and maximum Young's modulus
-
-    # Extend domain with margins
-    margin_X, margin_Y = nelx_orig // 10, nely_orig // 10 # Margin size=10%
-    nelx, nely = nelx_orig + 2 * margin_X, nely_orig + 2 * margin_Y
-    ndof, nel = 2 * (nelx + 1) * (nely + 1), nelx * nely
-
-    # Create FE model elements (stiffness matrix, dof mapping)
-    KE = lk(params['E'], params['nu'], False)
-    edofMat = np.zeros((nel, 8), dtype=int)
-    for elx in range(nelx):
-        for ely in range(nely):
-            el = ely + elx * nely
-            n1 = (nely + 1) * elx + ely
-            n2 = (nely + 1) * (elx + 1) + ely
-            edofMat[el, :] = np.array([2*n1+2, 2*n1+3, 2*n2+2, 2*n2+3, 2*n2, 2*n2+1, 2*n1, 2*n1+1])
-    iK = np.kron(edofMat, np.ones((8, 1))).flatten()
-    jK = np.kron(edofMat, np.ones((1, 8))).flatten()
+    xPhyst = xPhys_initial
+    nelx, nely, nelz = params['nelxyz'][:3]
+    is_3d = nelz > 0
+    # Extend domain with margins (5%)
+    margin_X = nelx//5
+    margin_Y = nely//5
+    if is_3d: margin_Z = nely//5
+    nely += 2*margin_Y
+    nelx += 2*margin_X
+    if is_3d: nelz += 2*margin_Z
+    elemndof = 3 if is_3d else 2
+    ndof = elemndof*(nelx+1)*(nely+1)*((nelz+1) if is_3d else 1)
+    nel = nelx*nely*(nelz if is_3d else 1)
+    Emin, Emax = 1e-9, 100.0
+    KE = lk(params['E'], params['nu'], is_3d)
+    size = 8 * (elemndof if is_3d else 1)
+    edofMat=np.zeros((nel,size),dtype=int)
+    for ex in range(nelx):
+        for ey in range(nely):
+            for ez in range(nelz if is_3d else 1):
+                n1 = (ez * (nelx + 1) * (nely + 1) if is_3d else 0) + ex * (nely + 1) + ey
+                n2 = n1 + nely + 1
+                n3 = n2 + 1
+                n4 = n1 + 1
+                nodes = [n4, n3, n2, n1] # first square (XY plane, bottom face)
+                if is_3d:
+                    n5 = n1 + (nelx + 1) * (nely + 1)
+                    n6 = n2 + (nelx + 1) * (nely + 1)
+                    n7 = n3 + (nelx + 1) * (nely + 1)
+                    n8 = n4 + (nelx + 1) * (nely + 1)
+                    nodes += [n8, n7, n6, n5] # second square (top face)
+                dofs = []
+                for n in nodes:
+                    for d in range(elemndof):
+                        dofs.append(elemndof * n + d)
+                
+                el = (ez * (nelx * nely) if is_3d else 0) + ex * nely + ey # element index
+                edofMat[el, :] = dofs
+    iK = np.kron(edofMat,np.ones((size, 1))).flatten()
+    jK = np.kron(edofMat,np.ones((1, size))).flatten()
     
-    # Define supports
+    # Supports
     active_supports_indices = [i for i in range(len(params['sdim'])) if params['sdim'][i] != '-']
     dofs = np.arange(ndof)
     fixed = []
-    neighbors = [(-1, -1), (-1, 1), (1, -1), (1, 1)] # diagonals positions
+    neighbors = [(-1, -1, -1), (-1, -1, 1), (1, -1, -1), (-1, 1, -1), (-1, 1, 1), (1, -1, 1), (1, 1, -1), (1, 1, 1)] if is_3d else\
+                [(-1, -1, 0), (-1, 1, 0), (1, -1, 0), (1, 1, 0)] # diagonals positions
     for i in active_supports_indices:
         x, y = params['sx'][i], params['sy'][i]
-        voxels = [(x, y)] + [(x+dx, y+dy) for dx, dy in neighbors] # add fixed supports in the neighborhood to make sure that the mechanism doesn't detach
-        for vx, vy in voxels:
-            if 0 <= vx <= nelx and 0 <= vy <= nely: # stay inside domain
-                node_idx = (vx + margin_X) * (nely + 1) + (vy + margin_Y)
+        z = params['sz'][i] if is_3d else 0
+        voxels = [(x, y, z)] + [(x+dx, y+dy, z+dz) for dx, dy, dz in neighbors] # add fixed supports in the neighborhood to make sure that the mechanism doesn't detach
+        for vx, vy, vz in voxels:
+            if 0 <= vx <= nelx and 0 <= vy <= nely and (not is_3d or 0 <= vz <= nelz): # stay inside domain
+                node_idx = ((vz + margin_Z) * (nelx + 1) * (nely + 1) if is_3d else 0) + (vx + margin_X) * (nely+1) + (vy + margin_Y)
                 if 'X' in params['sdim'][i]:
-                    fixed.append(2 * node_idx)
+                    fixed.append(elemndof * node_idx)
                 if 'Y' in params['sdim'][i]:
-                    fixed.append(2 * node_idx + 1)
-    free = np.setdiff1d(dofs, fixed)
+                    fixed.append(elemndof * node_idx + 1)
+                if is_3d and 'Z' in params['sdim'][i]:
+                    fixed.append(elemndof * node_idx + 2)
+    free = np.setdiff1d(dofs,fixed)
     
-    # Define forces
+    # Forces
     din = []
     dinVal = []
+    nf = 1 # 1 input force so far
     for i in range(nf):
-        din_i = 2 * ((params['fx'][i] + margin_X) * (nely + 1) + (params['fy'][i] + margin_Y))
+        din_i = elemndof * (((params['fz'][i] + margin_Z) * (nelx + 1) * (nely + 1) if is_3d else 0) + (params['fx'][i] + margin_X) * (nely+1) + (params['fy'][i] + margin_Y))
         dinVal_i = params['fnorm'][i]
         if 'X' in params['fdir'][i]:
             if '←' in params['fdir'][i]: dinVal_i = -dinVal_i
         elif 'Y' in params['fdir'][i]:
             din_i += 1
             if '↑' in params['fdir'][i]: dinVal_i = -dinVal_i
+        elif is_3d and 'Z' in params['fdir'][i]:
+            din_i += 2
+            if '<' in params['fdir'][i]: dinVal_i = -dinVal_i
         din.append(din_i)
         dinVal.append(dinVal_i)
-
-    # Embed the optimized structure into the larger domain
-    xPhys2d = np.zeros((nelx, nely))
-    xPhys2d[margin_X:-margin_X, margin_Y:-margin_Y] = xPhys_initial.reshape((nelx_orig, nely_orig))
-    xPhys = xPhys2d.flatten()
-    volfrac = np.sum(xPhys) / nel
     
+    # Material
+    xPhys_large = np.zeros((nelx, nely, nelz)) if is_3d else np.zeros((nelx, nely))
+    if is_3d:
+        xPhys_large[margin_X:nelx-margin_X, margin_Y:nely-margin_Y, margin_Z:nelz-margin_Z]=np.transpose(xPhys_initial.reshape(nelz-2*margin_Z,(nelx-2*margin_X)*(nely-2*margin_Y)).reshape(nelz-2*margin_Z,nelx-2*margin_X,nely-2*margin_Y),(1,2,0))#reshape((nelx-2*margin_X, nely-2*margin_Y, nelz-2*margin_Z))
+    else:
+        xPhys_large[margin_X:-margin_X, margin_Y:-margin_Y] = xPhys_initial.reshape((nelx-2*margin_X, nely-2*margin_Y))
+    xPhys = np.zeros((nel))
+    xPhys = xPhys_large.flatten(order='F') if is_3d else xPhys_large.flatten()
+    volfrac = np.sum(xPhys)/nel
     u = np.zeros((ndof, 2))
-    points, points_interp = np.zeros((nel, 2)), np.zeros((nel, 2))
+    points = np.zeros((nel, elemndof))
+    points_interp = np.zeros((nel, elemndof))
     k = 4 # steepness
     l = (1+np.exp(-k/2))*(1+np.exp(k/2))/(np.exp(k/2)-np.exp(-k/2))
     c = -l/(1+np.exp(k/2))
+    delta_disp = params['disp_factor'] / params['disp_iterations'] if params['disp_iterations'] > 0 else 0
     
     # Yield the initial state as Frame 0
     yield xPhys_initial
     if progress_callback:
         progress_callback(1)
-
+    
+    # Displacement loop
     for it in range(params['disp_iterations']):
+        # Move input force according to previous displacement
+        for i in range(nf):
+            din[i] += elemndof*(nelx+1)*(nely+1)*int(u[din[i]][0]) if 'Z' in params['fdir'][i] else\
+                      elemndof*(nely+1)*int(u[din[i]][0]) if 'Y' in params['fdir'][i] else\
+                      elemndof*int(u[din[i]][0])
         # Finite Element Analysis
         for i in range(nf):
             Fi = coo_matrix((np.array([dinVal[i]]), (np.array([din[i]]), np.array([0]))), shape=(ndof, 1)).toarray()
             f = Fi if i == 0 else np.concatenate((f, Fi), axis=1)
-        sK = ((KE.flatten()[np.newaxis]).T * (Emin + xPhys**params['penal'] * (Emax - Emin))).flatten(order='F')
-        K = coo_matrix((sK, (iK, jK)), shape=(ndof, ndof)).tocsc()
+        sK = ((KE.flatten()[np.newaxis]).T*(Emin+(xPhys)**params['penal']*(Emax-Emin))).flatten(order='F')
+        K = coo_matrix((sK,(iK,jK)), shape=(ndof, ndof))
+        K = K.tolil() if is_3d else K.tocsc()
         for i in range(nf):
             K[din[i], din[i]] += 0.1 # Artificial spring
-        K_free = K[free, :][:, free]
+        if is_3d:
+            keep = np.delete(np.arange(K.shape[0]), fixed)
+            K = K[keep, :][:, keep]
+            K = K.tocoo()
+            K_solve = spmatrix(K.data.tolist(),
+                               K.row.astype(int).tolist(),
+                               K.col.astype(int))
+        else:
+            K_solve = K[free, :][:, free]
         for i in range(nf):
-            u[free, 0] = spsolve(K_free, f[free, i])
+            if is_3d:
+                B = matrix(f[free,i])
+                cholmod.linsolve(K_solve,B)
+                u[free,i] = np.array(B)[:,0]
+            else:
+                u[free, i] = spsolve(K_solve, f[free, i])
+        
         # Move the density via interpolation (the core of the method)
-        ux = (u[edofMat][:, 4, 0] + u[edofMat][:, 2, 0] + u[edofMat][:, 6, 0] + u[edofMat][:, 0, 0]) / 4
-        uy = -(u[edofMat][:, 5, 0] + u[edofMat][:, 3, 0] + u[edofMat][:, 7, 0] + u[edofMat][:, 1, 0]) / 4
+        node_ids = [2, 1, 6, 5, 3, 0, 7, 4] if is_3d else [2, 1, 3, 0]
+        ux = np.sum(u[edofMat][:, [elemndof*i + 0 for i in node_ids], 0], axis=1) / len(node_ids)
+        uy = -np.sum(u[edofMat][:, [elemndof*i + 1 for i in node_ids], 0], axis=1) / len(node_ids)
+        if is_3d: uz = np.sum(u[edofMat][:, [elemndof*i + 2 for i in node_ids], 0], axis=1) / len(node_ids)
         for el in range(nel):
-            points_interp[el, 0], points_interp[el, 1] = el // nely, el % nely
+            if is_3d:
+                (points_interp[el, 0], points_interp[el, 1], points_interp[el, 2]) = get3DCoordinates(el, True, nelx, nely, nelz)
+            else:
+                points_interp[el, 0], points_interp[el, 1] = el // nely, el % nely
             points[el, 0] = points_interp[el, 0] + ux[el] * delta_disp
             points[el, 1] = points_interp[el, 1] + uy[el] * delta_disp
-        xPhys = griddata(points, xPhys, points_interp, method='linear', fill_value=0.0)
-        xPhys = np.nan_to_num(xPhys) # Handle any floating point issues
+            if is_3d: points[el, 2] = points_interp[el, 2]+uz[el]*delta_disp
+        xPhys = griddata(points, xPhys, points_interp, method='linear')
+        xPhys = np.nan_to_num(xPhys, copy=True, nan=0.0, posinf=None, neginf=None)
         # Threshold density
         xPhys = l/(1+np.exp(-k*(xPhys-0.5)))+c
         # Normalize density
@@ -249,151 +308,8 @@ def run_iterative_displacement_2d(params, xPhys_initial, progress_callback=None)
         xPhys = np.clip(xPhys, 0.0, 1.0) # Ensure values remain within [0, 1]
         
         # Yield the visible part of the structure for plotting
-        xPhys_cropped = xPhys.reshape(nelx, nely)[margin_X:-margin_X, margin_Y:-margin_Y]
-        yield xPhys_cropped.flatten()
-        
-        if progress_callback:
-            progress_callback(it + 2)
-
-def run_iterative_displacement_3d(params, xPhys_initial, progress_callback=None):
-    """
-    Performs iterative 3D FE analysis to simulate displacement.
-    Yields the cropped density field for each iteration.
-    """
-    # Initialization
-    xPhyst = xPhys_initial
-    nelx, nely, nelz = params['nelxyz'][:3]
-    # Extend domain with margins
-    margin_X = nelx//5
-    margin_Y = nely//5
-    margin_Z = 1
-    nely += 2*margin_Y
-    nelx += 2*margin_X
-    nelz += 2*margin_Z
-    ndof = 3*(nelx+1)*(nely+1)*(nelz+1)
-    nel = nelx*nely*nelz
-    Emin, Emax = 1e-9, 100.0
-    k = 4 # steepness
-    nf = 1 # 1 input force so far
-    ns = sum(1 for sdim in params['fdir'] if sdim != "-")
-    KE = lk(params['E'], params['nu'], True)
-    edofMat=np.zeros((nel,24),dtype=int)
-    for el in range (nel):
-        (elx, ely, elz) = get3DCoordinates(el, False, nelx, nely, nelz)
-        n1 = elz*(nelx+1)*(nely+1) + elx*(nely+1) + ely
-        n2 = n1 + nely
-        n3 = n1 + (nelx+1)*(nely+1)
-        n4 = n3 + nely
-        edofMat[el, :] = np.array([3*n1+3,3*n1+4,3*n1+5,3*n2+6,3*n2+7,3*n2+8,
-                                   3*n2+3,3*n2+4,3*n2+5,3*n1,  3*n1+1,3*n1+2,
-                                   3*n3+3,3*n3+4,3*n3+5,3*n4+6,3*n4+7,3*n4+8,
-                                   3*n4+3,3*n4+4,3*n4+5,3*n3,  3*n3+1,3*n3+2])
-    iK = np.kron(edofMat,np.ones((24, 1))).flatten()
-    jK = np.kron(edofMat,np.ones((1, 24))).flatten()
-    
-    # Define supports
-    active_supports_indices = [i for i in range(len(params['sdim'])) if params['sdim'][i] != '-']
-    dofs = np.arange(ndof)
-    fixed = []
-    neighbors = [(-1, -1, -1), (-1, -1, 1), (1, -1, -1), (-1, 1, -1), (-1, 1, 1), (1, -1, 1), (1, 1, -1), (1, 1, 1)] # diagonals positions
-    for i in active_supports_indices:
-        x, y, z = params['sx'][i], params['sy'][i], params['sz'][i]
-        voxels = [(x, y, z)] + [(x+dx, y+dy, z+dz) for dx, dy, dz in neighbors] # add fixed supports in the neighborhood to make sure that the mechanism doesn't detach
-        for vx, vy, vz in voxels:
-            if 0 <= vx <= nelx and 0 <= vy <= nely and 0 <= vz <= nelz: # stay inside domain
-                node_idx = (vz + margin_Z) * (nelx + 1) * (nely + 1) + (vx + margin_X) * (nely+1) + (vy + margin_Y)
-                if 'X' in params['sdim'][i]:
-                    fixed.append(3 * node_idx)
-                if 'Y' in params['sdim'][i]:
-                    fixed.append(3 * node_idx + 1)
-                if 'Z' in params['sdim'][i]:
-                    fixed.append(3 * node_idx + 2)
-    free = np.setdiff1d(dofs,fixed)
-    
-    # Define forces
-    din = []
-    dinVal = []
-    for i in range(nf):
-        x, y, z = params['fx'][i], params['fy'][i], params['fz'][i]
-        din_i = 3 * ((vz + margin_Z) * (nelx + 1) * (nely + 1) + (vx + margin_X) * (nely+1) + (vy + margin_Y))
-        dinVal_i = params['fnorm'][i]
-        if 'X' in params['fdir'][i]:
-            if '←' in params['fdir'][i]: dinVal_i = -dinVal_i
-        elif 'Y' in params['fdir'][i]:
-            din_i += 1
-            if '↑' in params['fdir'][i]: dinVal_i = -dinVal_i
-        elif 'Z' in params['fdir'][i]:
-            din_i += 2
-            if '<' in params['fdir'][i]: dinVal_i = -dinVal_i
-        din.append(din_i)
-        dinVal.append(dinVal_i)
-    
-    xPhys3d = np.zeros((nelx, nely, nelz))
-    xPhys3d[margin_X:nelx-margin_X, margin_Y:nely-margin_Y, margin_Z:nelz-margin_Z]=np.transpose(xPhyst.reshape(nelz-2*margin_Z,(nelx-2*margin_X)*(nely-2*margin_Y)).reshape(nelz-2*margin_Z,nelx-2*margin_X,nely-2*margin_Y),(1,2,0))#reshape((nelx-2*margin_X, nely-2*margin_Y, nelz-2*margin_Z))
-    xPhys = np.zeros((nel))
-    xPhys = xPhys3d.flatten(order='F')
-    volfrac = np.sum(xPhys)/nel
-    u = np.zeros((ndof, 2))
-    points = np.zeros((nel, 3))
-    points_interp = np.zeros((nel, 3))
-    l = (1+np.exp(-k/2))*(1+np.exp(k/2))/(np.exp(k/2)-np.exp(-k/2))
-    c = -l/(1+np.exp(k/2))
-    delta_disp = params['disp_factor'] / params['disp_iterations'] if params['disp_iterations'] > 0 else 0
-    
-    # Yield the initial state as Frame 0
-    yield xPhys_initial
-    if progress_callback:
-        progress_callback(1)
-    
-    for it in range(params['disp_iterations']):
-        # Finite Element Analysis
-        for i in range(nf):
-            din[i] += 3*(nelx+1)*(nely+1)*int(u[din[i]][0])
-        for i in range(nf):
-            Fi = coo_matrix((np.array([dinVal[i]]), (np.array([din[i]]), np.array([0]))), shape=(ndof, 1)).toarray()
-            f = Fi if i == 0 else np.concatenate((f, Fi), axis=1)
-        sK = ((KE.flatten()[np.newaxis]).T*(Emin+(xPhys)**params['penal']*(Emax-Emin))).flatten(order='F')
-        K = coo_matrix((sK,(iK,jK)), shape=(ndof, ndof))
-        K = K.tolil()
-        for i in range(nf):
-            K[din[i], din[i]] += 0.1 # Artificial spring
-        K = K.tocsr()
-        m = K.shape[0]
-        keep = np.delete(np.arange(m), fixed)
-        K = K[keep, :][:, keep]
-        K = K.tocoo()
-        K_cvx = spmatrix(K.data.tolist(),
-                        K.row.astype(int).tolist(),
-                        K.col.astype(int))
-        for i in range(nf):
-            B = matrix(f[free,i])
-            cholmod.linsolve(K_cvx,B)
-            u[free,i]=np.array(B)[:,0]
-        # Move the density via interpolation (the core of the method)
-        ux = (u[edofMat][:,3*2+0,0] + u[edofMat][:,3*1+0,0]+ u[edofMat][:,3*6+0,0]+\
-              u[edofMat][:,3*5+0,0] + u[edofMat][:,3*3+0,0] + u[edofMat][:,3*0+0,0]+\
-              u[edofMat][:,3*7+0,0]+ u[edofMat][:,3*4+0,0])/8
-        uy = -(u[edofMat][:,3*2+1,0] + u[edofMat][:,3*1+1,0]+ u[edofMat][:,3*6+1,0]+\
-              u[edofMat][:,3*5+1,0] + u[edofMat][:,3*3+1,0] + u[edofMat][:,3*0+1,0]+\
-              u[edofMat][:,3*7+1,0]+ u[edofMat][:,3*4+1,0])/8
-        uz = (u[edofMat][:,3*2+2,0] + u[edofMat][:,3*1+2,0]+ u[edofMat][:,3*6+2,0]+\
-              u[edofMat][:,3*5+2,0] + u[edofMat][:,3*3+2,0] + u[edofMat][:,3*0+2,0]+\
-              u[edofMat][:,3*7+2,0]+ u[edofMat][:,3*4+2,0])/8
-        for el in range(nel):
-            (points_interp[el, 0], points_interp[el, 1], points_interp[el, 2]) = get3DCoordinates(el, True, nelx, nely, nelz)
-            points[el, 0] = points_interp[el, 0]+ux[el]*delta_disp
-            points[el, 1] = points_interp[el, 1]+uy[el]*delta_disp
-            points[el, 2] = points_interp[el, 2]+uz[el]*delta_disp
-        xPhys = griddata(points, xPhys, points_interp, method='linear')
-        xPhys = np.nan_to_num(xPhys, copy=True, nan=0.0, posinf=None, neginf=None)
-        # Threshold density
-        xPhys = l/(1+np.exp(-k*(xPhys-0.5)))+c
-        # Normalize density
-        xPhys = volfrac/(np.sum(xPhys)/nel)*xPhys
-        xPhys = np.clip(xPhys, 0.0, 1.0) # Ensure values remain within [0, 1]
-        
-        # Yield the visible part of the structure for plotting
-        xPhys_cropped = xPhys.reshape(nelz, nelx, nely)[margin_Z:-margin_Z, margin_X:-margin_X, margin_Y:-margin_Y]
+        xPhys_cropped = xPhys.reshape(nelz, nelx, nely)[margin_Z:-margin_Z, margin_X:-margin_X, margin_Y:-margin_Y] if is_3d else\
+                        xPhys.reshape(nelx, nely)[margin_X:-margin_X, margin_Y:-margin_Y]
         yield xPhys_cropped.flatten()
         
         if progress_callback:

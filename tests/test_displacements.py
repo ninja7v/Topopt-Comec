@@ -58,12 +58,8 @@ def test_displacement_with_presets(preset_name, preset_params):
         assert not(X is None or Y is None), "Displacement function returned None arrays"
     
     # Test iterative displacement function
-    if is_3d:
-        for frame in displacements.run_iterative_displacement_3d(disp_params, result):
-            last_result_displaced = frame  
-    else:
-        for frame in displacements.run_iterative_displacement_2d(disp_params, result):
-            last_result_displaced = frame
+    for frame in displacements.run_iterative_displacement(disp_params, result):
+        last_result_displaced = frame
     assert last_result_displaced is not None, "Iterative displacement function returned None"
     assert last_result_displaced.shape == np.array(result).shape, "Iterative displacement function returned different shapes"
     vals = last_result_displaced.ravel()

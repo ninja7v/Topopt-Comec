@@ -83,30 +83,18 @@ class DisplacementWorker(QThread):
     def run(self):
         """Executes the analysis based on provided parameters."""
         try:
-            is_3d = self.params['nelxyz'][2] > 0
-            
             def progress_callback(iteration):
                 self.progress.emit(iteration)
                 return self._stop_requested 
 
-            if is_3d:
-                # The function is a generator, yielding each frame
-                for frame_data in displacements.run_iterative_displacement_3d(
-                    self.params, self.xPhys, progress_callback
-                ):
-                    self.frameReady.emit(frame_data)
-                    if self._stop_requested:
-                        print("Displacement stopped by user.")
-                        break
-            else:
-                # The function is a generator, yielding each frame
-                for frame_data in displacements.run_iterative_displacement_2d(
-                    self.params, self.xPhys, progress_callback
-                ):
-                    self.frameReady.emit(frame_data)
-                    if self._stop_requested:
-                        print("Displacement stopped by user.")
-                        break
+            # The function is a generator, yielding each frame
+            for frame_data in displacements.run_iterative_displacement(
+                self.params, self.xPhys, progress_callback
+            ):
+                self.frameReady.emit(frame_data)
+                if self._stop_requested:
+                    print("Displacement stopped by user.")
+                    break
                 
             self.finished.emit("Displacement finished or stopped.", True)
 
