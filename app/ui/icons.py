@@ -58,6 +58,7 @@ class IconProvider:
             'stop': QStyle.StandardPixmap.SP_MediaStop,
             'move': QStyle.StandardPixmap.SP_ArrowRight,
             'reset': QStyle.StandardPixmap.SP_BrowserReload,
+            'scale': QStyle.StandardPixmap.SP_ArrowRight,
         }
         pixmap = icon_map.get(icon_name)
         if pixmap:

@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
 
         self.sections = {}
         self.sections['dimensions'] = self.create_dimensions_section()
-        self.sections['void'] = self.create_void_section()
+        self.sections['void'] = self.create_voids_section()
         self.sections['forces'] = self.create_forces_section()
         self.sections['supports'] = self.create_supports_section()
         self.sections['material'] = self.create_material_section()
@@ -162,13 +162,14 @@ class MainWindow(QMainWindow):
         self.dim_widget.ny.valueChanged.connect(self.on_parameter_changed)
         self.dim_widget.nz.valueChanged.connect(self.on_parameter_changed)
         self.dim_widget.volfrac.valueChanged.connect(self.on_parameter_changed)
+        self.dim_widget.scale_button.clicked.connect(self.scale_parameters)
         self.dim_widget.nx.valueChanged.connect(self.update_position_ranges)
         self.dim_widget.ny.valueChanged.connect(self.update_position_ranges)
         self.dim_widget.nz.valueChanged.connect(self.update_position_ranges)
         self.dim_widget.nz.valueChanged.connect(self.on_mode_changed)
         return section
 
-    def create_void_section(self):
+    def create_voids_section(self):
         """Creates the second section for void region parameters."""
         self.void_widget = VoidWidget()
         section = CollapsibleSection("⚫ Void Region", self.void_widget)
@@ -483,6 +484,113 @@ class MainWindow(QMainWindow):
             support_group['sx'].setMaximum(nx)
             support_group['sy'].setMaximum(ny)
             support_group['sz'].setMaximum(nz)
+    
+    def scale_parameters(self):
+        """Scales all dimensional and positional parameters by a given factor."""
+        scale = self.dim_widget.scale.value()
+        is_3d = self.dim_widget.nz.value() > 0
+
+        if scale == 1.0:
+            self.status_bar.showMessage("Scale is 1.0, nothing to do.", 3000)
+            return
+        
+        def check(value, scale):
+            scaled_val = value * scale
+            if (scaled_val < 1 or scaled_val >1000) and value > 0:
+                return True, False
+            if abs(scaled_val - round(scaled_val)) > 1e-6: # Check if it's not an integer
+                return False, True
+            return False, False
+
+        proceed_impossible, warn_needed = False, False
+        
+        # Check dimensions
+        for dim_widget in [self.dim_widget.nx, self.dim_widget.ny] + ([self.dim_widget.nz] if is_3d else []):
+            pi, wn = check(dim_widget.value(), scale)
+            proceed_impossible |= pi; warn_needed |= wn
+        
+        # Check void regions
+        for void_group in self.void_widget.inputs:
+            if void_group['vshape'].currentText() == '-': continue
+            for key in ['vx', 'vy'] + (['vz'] if is_3d else []):
+                pi, wn = check(void_group[key].value(), scale)
+                proceed_impossible |= pi; warn_needed |= wn
+            pi, wn = check(void_group['vradius'].value(), scale)
+            proceed_impossible |= pi; warn_needed |= wn
+
+        # Check forces
+        for force_group in self.forces_widget.inputs:
+            if force_group['fdir'].currentText() == '-': continue
+            for key in ['fx', 'fy'] + (['fz'] if is_3d else []):
+                pi, wn = check(force_group[key].value(), scale)
+                proceed_impossible |= pi; warn_needed |= wn
+
+        # Check supports
+        for support_group in self.supports_widget.inputs:
+            if support_group['sdim'].currentText() == '-': continue
+            for key in ['sx', 'sy'] + (['sz'] if is_3d else []):
+                pi, wn = check(support_group[key].value(), scale)
+                proceed_impossible |= pi; warn_needed |= wn
+
+        if proceed_impossible:
+            QMessageBox.critical(self, "Scaling Error", "Scaling would lead position(s) out of range.")
+            return
+        if warn_needed:
+            reply = QMessageBox.question(self, "Scaling Warning", "Scaling would loss initial proportions due to rounding(s). Proceed?",
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        # --- Perform Scaling ---
+        # Temporarily block signals to prevent multiple replots
+        self.block_all_parameter_signals(True)
+
+        self.dim_widget.nx.setValue(round(self.dim_widget.nx.value() * scale))
+        self.dim_widget.ny.setValue(round(self.dim_widget.ny.value() * scale))
+        if is_3d: self.dim_widget.nz.setValue(round(self.dim_widget.nz.value() * scale))
+        
+        if scale > 1.0:
+            self.update_position_ranges() # Update max ranges before scaling positions otherwise they might get clamped
+        
+        for group in self.void_widget.inputs:
+            int0 = group['vx'].value()
+            int1 = round(group['vx'].value() * scale)
+            group['vx'].setValue(round(group['vx'].value() * scale))
+            group['vy'].setValue(round(group['vy'].value() * scale))
+            if is_3d: group['vz'].setValue(round(group['vz'].value() * scale))
+            group['vradius'].setValue(max(1, round(group['vradius'].value() * scale)))
+
+        for group in self.forces_widget.inputs:
+            group['fx'].setValue(round(group['fx'].value() * scale))
+            group['fy'].setValue(round(group['fy'].value() * scale))
+            if is_3d: group['fz'].setValue(round(group['fz'].value() * scale))
+
+        for group in self.supports_widget.inputs:
+            group['sx'].setValue(round(group['sx'].value() * scale))
+            group['sy'].setValue(round(group['sy'].value() * scale))
+            if is_3d: group['sz'].setValue(round(group['sz'].value() * scale))
+            
+        if scale < 1.0:
+            self.update_position_ranges() # Update max ranges after scaling positions otherwise values might be clamped before scaling
+        
+        self.block_all_parameter_signals(False)
+        
+        # Manually trigger a single, final update
+        self.on_parameter_changed()
+        self.status_bar.showMessage(f"All parameters scaled by a factor of {scale}.", 3000)
+
+    def block_all_parameter_signals(self, block: bool):
+        """Helper to block or unblock signals for all parameter widgets."""
+        # A helper to make the code cleaner. Add all your widgets to this list.
+        all_widgets = [self.dim_widget.nx, self.dim_widget.ny, self.dim_widget.nz,
+                       self.dim_widget.volfrac,
+                       self.material_widget.mat_E, self.material_widget.mat_nu, self.material_widget.mat_init_type,
+                       self.optimizer_widget.opt_ft, self.optimizer_widget.opt_fr,
+                       self.optimizer_widget.opt_p,
+                       self.optimizer_widget.opt_max_change, self.optimizer_widget.opt_n_it]
+        for w in all_widgets: w.blockSignals(block)
+        for group in self.void_widget.inputs + self.forces_widget.inputs + self.supports_widget.inputs:
+            for w in group.values(): w.blockSignals(block)
     
     def on_mode_changed(self):
         """
@@ -1356,19 +1464,8 @@ class MainWindow(QMainWindow):
 
     def apply_parameters(self, params):
         """Sets all UI widgets to the values from a given parameter dictionary."""
-        # --- Block signals to prevent a cascade of replots ---
-        all_widgets = [self.dim_widget.nx, self.dim_widget.ny, self.dim_widget.nz,
-                       self.dim_widget.volfrac,
-                       self.material_widget.mat_E, self.material_widget.mat_nu,
-                       self.optimizer_widget.opt_ft, self.optimizer_widget.opt_fr,
-                       self.optimizer_widget.opt_p,
-                       self.optimizer_widget.opt_max_change, self.optimizer_widget.opt_n_it]
-        for w in all_widgets: w.blockSignals(True)
-        for group in self.void_widget.inputs + self.forces_widget.inputs + self.supports_widget.inputs:
-            for w in group.values(): w.blockSignals(True)
+        self.block_all_parameter_signals(True)
 
-        # Apply values
-        
         # Dimensions
         self.dim_widget.nx.setValue(params['nelxyz'][0])
         self.dim_widget.ny.setValue(params['nelxyz'][1])
@@ -1426,10 +1523,8 @@ class MainWindow(QMainWindow):
         self.displacement_widget.mov_disp.setValue(params['disp_factor'])
         self.displacement_widget.mov_iter.setValue(params['disp_iterations'])
         
-        # unblock signals
-        for w in all_widgets: w.blockSignals(False)
-        for group in self.void_widget.inputs + self.forces_widget.inputs + self.supports_widget.inputs:
-            for w in group.values(): w.blockSignals(False)
+        # Unblock signals
+        self.block_all_parameter_signals(False)
         
         # Manually trigger a single update
         self.update_position_ranges()
