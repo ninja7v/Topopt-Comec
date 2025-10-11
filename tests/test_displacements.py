@@ -50,11 +50,12 @@ def test_displacement_with_presets(preset_name, preset_params):
     assert u_vec is not None, "Displacement vector is None"
     
     # Test linear displacement function
+    nb_active_iforces = sum(1 for d in disp_params['fidir'] if d != '-')
     if is_3d:
-        vertices_moved, triangles = displacements.single_linear_displacement_3d(result, u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], disp_params['nelxyz'][2], 1.0)
+        vertices_moved, triangles = displacements.single_linear_displacement_3d(result, u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], disp_params['nelxyz'][2], 1.0, nb_active_iforces)
         assert not(vertices_moved is None or triangles is None), "Displacement function returned None arrays"
     else:
-        X, Y = displacements.single_linear_displacement_2d(u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], 1.0)
+        X, Y = displacements.single_linear_displacement_2d(u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], 1.0, nb_active_iforces)
         assert not(X is None or Y is None), "Displacement function returned None arrays"
     
     # Test iterative displacement function

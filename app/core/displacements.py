@@ -74,7 +74,7 @@ def lk(E: float, nu: float, is_3d: bool) -> np.ndarray:
         ])
     return KE
 
-def single_linear_displacement_2d(u, nelx, nely, disp_factor):
+def single_linear_displacement_2d(u, nelx, nely, disp_factor, nb_active_iforces):
     """
     Computes the deformed mesh grid and a grid pattern for a single-frame plot.
     Returns X, Y meshgrid arrays for plotting.
@@ -83,15 +83,19 @@ def single_linear_displacement_2d(u, nelx, nely, disp_factor):
     i_coords = nodes_flat // (nely + 1)
     j_coords = nodes_flat % (nely + 1)
 
-    X_flat = i_coords + u[2 * nodes_flat, 0] * disp_factor
-    Y_flat = j_coords - u[2 * nodes_flat + 1, 0] * disp_factor # Use '+' for origin='lower' and '-' for 'upper'
+    # Average displacement over all input forces
+    ux_avg = np.mean(u[2 * nodes_flat, :nb_active_iforces], axis=1)
+    uy_avg = np.mean(u[2 * nodes_flat + 1, :nb_active_iforces], axis=1)
+
+    X_flat = i_coords + ux_avg * disp_factor
+    Y_flat = j_coords - uy_avg * disp_factor # Use '+' for origin='lower' and '-' for 'upper'
 
     X = X_flat.reshape((nelx + 1, nely + 1))
     Y = Y_flat.reshape((nelx + 1, nely + 1))
 
     return X, Y
 
-def single_linear_displacement_3d(xPhys, u, nelx, nely, nelz, disp_factor):
+def single_linear_displacement_3d(xPhys, u, nelx, nely, nelz, disp_factor, nb_active_iforces):
     """
     Computes the deformed 3D mesh using PyMCubes.
     Returns the vertices and triangles of the deformed mesh.
@@ -151,7 +155,6 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     Yields the cropped density field for each iteration.
     """
     # Initialization
-    xPhyst = xPhys_initial
     nelx, nely, nelz = params['nelxyz'][:3]
     is_3d = nelz > 0
     # Extend domain with margins (5%)
@@ -216,18 +219,19 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     # Forces
     din = []
     dinVal = []
-    nf = 1 # 1 input force so far
-    for i in range(nf):
-        din_i = elemndof * (((params['fz'][i] + margin_Z) * (nelx + 1) * (nely + 1) if is_3d else 0) + (params['fx'][i] + margin_X) * (nely+1) + (params['fy'][i] + margin_Y))
-        dinVal_i = params['fnorm'][i]
-        if 'X' in params['fdir'][i]:
-            if '←' in params['fdir'][i]: dinVal_i = -dinVal_i
-        elif 'Y' in params['fdir'][i]:
+    active_iforces_indices = [i for i, d in enumerate(params['fidir']) if d != '-']
+    nf = len(active_iforces_indices)
+    for i in active_iforces_indices:
+        din_i = elemndof * (((params['fiz'][i] + margin_Z) * (nelx + 1) * (nely + 1) if is_3d else 0) + (params['fix'][i] + margin_X) * (nely+1) + (params['fiy'][i] + margin_Y))
+        dinVal_i = params['finorm'][i]
+        if 'X' in params['fidir'][i]:
+            if '←' in params['fidir'][i]: dinVal_i = -dinVal_i
+        elif 'Y' in params['fidir'][i]:
             din_i += 1
-            if '↑' in params['fdir'][i]: dinVal_i = -dinVal_i
-        elif is_3d and 'Z' in params['fdir'][i]:
+            if '↑' in params['fidir'][i]: dinVal_i = -dinVal_i
+        elif is_3d and 'Z' in params['fidir'][i]:
             din_i += 2
-            if '<' in params['fdir'][i]: dinVal_i = -dinVal_i
+            if '<' in params['fidir'][i]: dinVal_i = -dinVal_i
         din.append(din_i)
         dinVal.append(dinVal_i)
     
@@ -240,7 +244,7 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     xPhys = np.zeros((nel))
     xPhys = xPhys_large.flatten(order='F') if is_3d else xPhys_large.flatten()
     volfrac = np.sum(xPhys)/nel
-    u = np.zeros((ndof, 2))
+    u = np.zeros((ndof, nf))
     points = np.zeros((nel, elemndof))
     points_interp = np.zeros((nel, elemndof))
     k = 4 # steepness
@@ -256,14 +260,16 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     # Displacement loop
     for it in range(params['disp_iterations']):
         # Move input force according to previous displacement
-        for i in range(nf):
-            din[i] += elemndof*(nelx+1)*(nely+1)*int(u[din[i]][0]) if 'Z' in params['fdir'][i] else\
-                      elemndof*(nely+1)*int(u[din[i]][0]) if 'Y' in params['fdir'][i] else\
-                      elemndof*int(u[din[i]][0])
+        j = 0
+        for i in active_iforces_indices:
+            din[j] += elemndof*(nelx+1)*(nely+1)*int(u[din[j]][j]) if 'Z' in params['fidir'][i] else\
+                      elemndof*(nely+1)*int(u[din[j]][j]) if 'Y' in params['fidir'][i] else\
+                      elemndof*int(u[din[j]][j])
+            j += 1
         # Finite Element Analysis
+        f = np.zeros((ndof, nf))
         for i in range(nf):
-            Fi = coo_matrix((np.array([dinVal[i]]), (np.array([din[i]]), np.array([0]))), shape=(ndof, 1)).toarray()
-            f = Fi if i == 0 else np.concatenate((f, Fi), axis=1)
+            f[din[i], i] = dinVal[i]
         sK = ((KE.flatten()[np.newaxis]).T*(Emin+(xPhys)**params['penal']*(Emax-Emin))).flatten(order='F')
         K = coo_matrix((sK,(iK,jK)), shape=(ndof, ndof))
         K = K.tolil() if is_3d else K.tocsc()
@@ -288,9 +294,14 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         
         # Move the density via interpolation (the core of the method)
         node_ids = [2, 1, 6, 5, 3, 0, 7, 4] if is_3d else [2, 1, 3, 0]
-        ux = np.sum(u[edofMat][:, [elemndof*i + 0 for i in node_ids], 0], axis=1) / len(node_ids)
-        uy = -np.sum(u[edofMat][:, [elemndof*i + 1 for i in node_ids], 0], axis=1) / len(node_ids)
-        if is_3d: uz = np.sum(u[edofMat][:, [elemndof*i + 2 for i in node_ids], 0], axis=1) / len(node_ids)
+        ux_nodes = np.sum(u[edofMat][:, [elemndof*i + 0 for i in node_ids], :], axis=1) / len(node_ids)
+        uy_nodes = -np.sum(u[edofMat][:, [elemndof*i + 1 for i in node_ids], :], axis=1) / len(node_ids)
+        if is_3d: uz_nodes = np.sum(u[edofMat][:, [elemndof*i + 2 for i in node_ids], :], axis=1) / len(node_ids)
+        # Average over all input forces
+        ux = np.mean(ux_nodes, axis=1)
+        uy = np.mean(uy_nodes, axis=1)
+        if is_3d: uz = np.mean(uz_nodes, axis=1)
+        # Move the points
         for el in range(nel):
             if is_3d:
                 (points_interp[el, 0], points_interp[el, 1], points_interp[el, 2]) = get3DCoordinates(el, True, nelx, nely, nelz)

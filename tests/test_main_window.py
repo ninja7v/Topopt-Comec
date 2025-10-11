@@ -10,37 +10,45 @@ from app.ui.main_window import MainWindow
 # A base 2D preset
 p_base_2d = {"nelxyz": [60, 40, 0],
              "sdim": ["Y", "X"], "sx": [0, 60], "sy": [20, 20],
-             "fx": [0, 100], "fy": [30, 40], "fz": [0, 0], "fdir": ["X:\u2192", "Y:\u2193"], "fnorm": [0.01, 0.01]}
+             "fix": [0, 100], "fiy": [30, 40], "fiz": [0, 0], "fidir": ["X:\u2192", "Y:\u2193"], "finorm": [0.01, 0.01],
+             "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01]}
 # A 2D preset with an inactive support
 p_inactive_support = {"nelxyz": [60, 40, 0],
                       "sdim": ["Y", "X", "-"], "sx": [0, 60, 0], "sy": [20, 20, 0],
-                      "fx": [0, 100], "fy": [30, 40], "fz": [0, 0], "fdir": ["X:\u2192", "Y:\u2193"], "fnorm": [0.01, 0.01]}
+                      "fix": [0, 100], "fiy": [30, 40], "fiz": [0, 0], "fidir": ["X:\u2192", "Y:\u2193"], "finorm": [0.01, 0.01],
+                      "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01]}
 # A 2D preset with an different support
 p_different_support = {"nelxyz": [60, 40, 0],
                        "sdim": ["Y", "X", "X"], "sx": [0, 60, 0], "sy": [20, 20, 0],
-                       "fx": [0, 100], "fy": [30, 40], "fz": [0, 0], "fdir": ["X:\u2192", "Y:\u2193"], "fnorm": [0.01, 0.01]}
+                       "fix": [0, 100], "fiy": [30, 40], "fiz": [0, 0], "fidir": ["X:\u2192", "Y:\u2193"], "finorm": [0.01, 0.01],
+                       "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01]}
 # A 2D preset with an inactive force
 p_inactive_force = {"nelxyz": [60, 40, 0],
                     "sdim": ["Y", "X", "-"], "sx": [0, 60], "sy": [20, 20],
-                    "fx": [0, 100, 0], "fy": [30, 40, 0], "fz": [0, 0, 0], "fdir": ["X:\u2192", "Y:\u2193", "-"], "fnorm": [0.01, 0.01, 0.0]}
+                    "fix": [0, 100, 0], "fiy": [30, 40, 0], "fiz": [0, 0, 0], "fidir": ["X:\u2192", "Y:\u2193", "-"], "finorm": [0.01, 0.01, 0.0],
+                    "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01]}
 # A 2D preset with an different force
 p_different_force = {"nelxyz": [60, 40, 0],
                      "sdim": ["Y", "X", "-"], "sx": [0, 60], "sy": [20, 20],
-                     "fx": [0, 100, 0], "fy": [30, 40, 0], "fz": [0, 0, 0], "fdir": ["X:\u2192", "Y:\u2193", "Y:\u2193"], "fnorm": [0.01, 0.01, 0.0]}
+                     "fix": [0, 100, 0], "fiy": [30, 40, 0], "fiz": [0, 0, 0], "fidir": ["X:\u2192", "Y:\u2193", "Y:\u2193"], "finorm": [0.01, 0.01, 0.0],
+                     "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01]}
 # A 2D preset with an inactive void
 p_inactive_void = {"nelxyz": [60, 40, 0],
                    "sdim": ["Y", "X", "-"], "sx": [0, 60], "sy": [20, 20],
-                   "fx": [0, 100], "fy": [30, 40], "fz": [0, 0], "fdir": ["X:\u2192", "Y:\u2193"], "fnorm": [0.01, 0.01],
+                   "fix": [0, 100], "fiy": [30, 40], "fiz": [0, 0], "fidir": ["X:\u2192", "Y:\u2193"], "finorm": [0.01, 0.01],
+                   "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01],
                    "vshape": ["-"], "vradius": [5], "vx": [30], "vy": [20], "vz": [0]}
 # A 2D preset with an different void
 p_different_void = {"nelxyz": [60, 40, 0],
                     "sdim": ["Y", "X", "-"], "sx": [0, 60], "sy": [20, 20],
-                    "fx": [0, 100], "fy": [30, 40], "fz": [0, 0], "fdir": ["X:\u2192", "Y:\u2193"], "fnorm": [0.01, 0.01],
+                    "fix": [0, 100], "fiy": [30, 40], "fiz": [0, 0], "fidir": ["X:\u2192", "Y:\u2193"], "finorm": [0.01, 0.01],
+                    "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01],
                     "vshape": ["□"], "vradius": [5], "vx": [30], "vy": [20], "vz": [0]}
 # A preset that is truly different
 p_different = {"nelxyz": [80, 50, 0],
                "sdim": ["X", "Y"], "sx": [0, 60], "sy": [20, 20],
-               "fx": [0, 100, 0], "fy": [30, 40, 0], "fz": [0, 0, 0], "fdir": ["X:\u2192", "Y:\u2193", "-"], "fnorm": [0.01, 0.01, 0.0],
+               "fix": [0, 100, 0], "fiy": [30, 40, 0], "fiz": [0, 0, 0], "fidir": ["X:\u2192", "Y:\u2193", "-"], "finorm": [0.01, 0.01, 0.0],
+               "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01],
                "vshape": ["□"], "vradius": [7], "vx": [20], "vy": [30], "vy": [0]}
 
 @pytest.mark.parametrize("p1, p2, expected", [

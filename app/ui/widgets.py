@@ -287,49 +287,54 @@ class ForcesWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.inputs = [] # This list will hold the input widgets so the MainWindow can access them
-        # The main layout for this widget stacks the 3 force sections vertically
+        # The main layout for this widget stacks the force sections vertically
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(10)
 
         arrows = ['-', 'X:→', 'X:←', 'Y:↑', 'Y:↓', 'Z:<', 'Z:>']
-        force_labels = ["Input", "Output 1", "Output 2"]
-        default_pos = [[30, 0, 0], [30, 40, 0], [0, 0, 0]]
-        default_arrows = [3, 4, 0]
-        default_fv = [0.01, 0.01, 0.0]
+        nb_default_input_forces = 2
+        iorigins = [[30, 0, 0], [0, 0, 0]]
+        iarrows = [3, 0]
+        inorms = [0.01, 0.0]
+        nb_default_output_forces = 2
+        oorigins = [[30, 40, 0], [0, 0, 0]]
+        oarrows = [4, 0]
+        onorms = [0.01, 0.0]
 
-        for i, label in enumerate(force_labels):
-            # Use a grid to neatly align the rows for this force
+        force_input_label = QLabel('Input')
+        force_input_label.setStyleSheet("color: red;")
+        main_layout.addWidget(force_input_label)
+        for i in range(nb_default_input_forces):
             grid = QGridLayout()
             grid.setColumnStretch(1, 1) # Allow input column to expand
             # Force position Row
-            force_label = QLabel(label)
-            force_label.setStyleSheet("color: red;" if label == "Input" else "color: blue;")
-            grid.addWidget(force_label, 0, 0)
+            origin_label = QLabel('Origin:')
+            grid.addWidget(origin_label, 0, 0)
             pos_layout = QHBoxLayout()
             fx = QSpinBox()
-            fx.setRange(0, 1000); fx.setValue(default_pos[i][0]); fx.setMaximumWidth(70)
+            fx.setRange(0, 1000); fx.setValue(iorigins[i][0]); fx.setMaximumWidth(70)
             fx.setToolTip("X")
             pos_layout.addWidget(fx)
             fy = QSpinBox()
-            fy.setRange(0, 1000); fy.setValue(default_pos[i][1]); fy.setMaximumWidth(70)
+            fy.setRange(0, 1000); fy.setValue(iorigins[i][1]); fy.setMaximumWidth(70)
             fy.setToolTip("Y")
             pos_layout.addWidget(fy)
             fz = QSpinBox()
-            fz.setRange(0, 1000); fz.setValue(default_pos[i][2]); fz.setMaximumWidth(70)
+            fz.setRange(0, 1000); fz.setValue(iorigins[i][2]); fz.setMaximumWidth(70)
             fz.setToolTip("Z")
             pos_layout.addWidget(fz)
             grid.addLayout(pos_layout, 0, 1)
             # Direction
             dir_layout = QHBoxLayout()
             dir_layout.addWidget(QLabel("Dir:"))
-            fdir = QComboBox(); fdir.addItems(arrows); fdir.setCurrentIndex(default_arrows[i])
+            fdir = QComboBox(); fdir.addItems(arrows); fdir.setCurrentIndex(iarrows[i])
             fdir.setToolTip("Force direction")
             dir_layout.addWidget(fdir)
             dir_layout.addSpacing(20)
             # Force spring
             dir_layout.addWidget(QLabel("Spring (N/m):"))
             fnorm = QDoubleSpinBox()
-            fnorm.setRange(0, 10); fnorm.setSingleStep(0.01); fnorm.setValue(default_fv[i])
+            fnorm.setRange(0, 10); fnorm.setSingleStep(0.01); fnorm.setValue(inorms[i])
             fnorm.setToolTip("Force magnitude for input, spring stiffness for output")
             dir_layout.addWidget(fnorm)
             dir_layout.addStretch()
@@ -339,10 +344,62 @@ class ForcesWidget(QWidget):
             main_layout.addLayout(grid)
             
             # Store the widgets in the public 'inputs' list
-            self.inputs.append({'fx': fx, 'fy': fy, 'fz': fz, 'fdir': fdir, 'fnorm': fnorm})
+            self.inputs.append({'fix': fx, 'fiy': fy, 'fiz': fz, 'fidir': fdir, 'finorm': fnorm})
 
             # Add a separator line between force sections
-            if i < len(force_labels) - 1:
+            if i < nb_default_input_forces - 1:
+                line = QFrame()
+                line.setFrameShape(QFrame.Shape.HLine)
+                line.setFrameShadow(QFrame.Shadow.Sunken)
+                main_layout.addWidget(line)
+
+        force_output_label = QLabel('Output')
+        force_output_label.setStyleSheet("color: blue;")
+        main_layout.addWidget(force_output_label)
+        for i in range(nb_default_output_forces):
+            grid = QGridLayout()
+            grid.setColumnStretch(1, 1) # Allow input column to expand
+            # Force position Row
+            origin_label = QLabel('Origin:')
+            grid.addWidget(origin_label, 0, 0)
+            pos_layout = QHBoxLayout()
+            fx = QSpinBox()
+            fx.setRange(0, 1000); fx.setValue(oorigins[i][0]); fx.setMaximumWidth(70)
+            fx.setToolTip("X")
+            pos_layout.addWidget(fx)
+            fy = QSpinBox()
+            fy.setRange(0, 1000); fy.setValue(oorigins[i][1]); fy.setMaximumWidth(70)
+            fy.setToolTip("Y")
+            pos_layout.addWidget(fy)
+            fz = QSpinBox()
+            fz.setRange(0, 1000); fz.setValue(oorigins[i][2]); fz.setMaximumWidth(70)
+            fz.setToolTip("Z")
+            pos_layout.addWidget(fz)
+            grid.addLayout(pos_layout, 0, 1)
+            # Direction
+            dir_layout = QHBoxLayout()
+            dir_layout.addWidget(QLabel("Dir:"))
+            fdir = QComboBox(); fdir.addItems(arrows); fdir.setCurrentIndex(oarrows[i])
+            fdir.setToolTip("Force direction")
+            dir_layout.addWidget(fdir)
+            dir_layout.addSpacing(20)
+            # Force spring
+            dir_layout.addWidget(QLabel("Spring (N/m):"))
+            fnorm = QDoubleSpinBox()
+            fnorm.setRange(0, 10); fnorm.setSingleStep(0.01); fnorm.setValue(onorms[i])
+            fnorm.setToolTip("Force magnitude for input, spring stiffness for output")
+            dir_layout.addWidget(fnorm)
+            dir_layout.addStretch()
+            grid.addLayout(dir_layout, 1, 0, 1, 2) # Span across both columns
+
+            # Add this force's grid to the main vertical layout
+            main_layout.addLayout(grid)
+            
+            # Store the widgets in the public 'inputs' list
+            self.inputs.append({'fox': fx, 'foy': fy, 'foz': fz, 'fodir': fdir, 'fonorm': fnorm})
+
+            # Add a separator line between force sections
+            if i < nb_default_output_forces - 1:
                 line = QFrame()
                 line.setFrameShape(QFrame.Shape.HLine)
                 line.setFrameShadow(QFrame.Shadow.Sunken)

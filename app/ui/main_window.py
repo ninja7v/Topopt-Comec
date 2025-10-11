@@ -192,11 +192,18 @@ class MainWindow(QMainWindow):
 
         # 3. Connect the signals from the widgets INSIDE the ForcesWidget
         for force_group in self.forces_widget.inputs:
-            force_group['fx'].valueChanged.connect(self.on_parameter_changed)
-            force_group['fy'].valueChanged.connect(self.on_parameter_changed)
-            force_group['fz'].valueChanged.connect(self.on_parameter_changed)
-            force_group['fdir'].currentIndexChanged.connect(self.on_parameter_changed)
-            force_group['fnorm'].valueChanged.connect(self.on_parameter_changed)
+            if 'fix' in force_group:
+                force_group['fix'].valueChanged.connect(self.on_parameter_changed)
+                force_group['fiy'].valueChanged.connect(self.on_parameter_changed)
+                force_group['fiz'].valueChanged.connect(self.on_parameter_changed)
+                force_group['fidir'].currentIndexChanged.connect(self.on_parameter_changed)
+                force_group['finorm'].valueChanged.connect(self.on_parameter_changed)
+            elif 'fox' in force_group:
+                force_group['fox'].valueChanged.connect(self.on_parameter_changed)
+                force_group['foy'].valueChanged.connect(self.on_parameter_changed)
+                force_group['foz'].valueChanged.connect(self.on_parameter_changed)
+                force_group['fodir'].currentIndexChanged.connect(self.on_parameter_changed)
+                force_group['fonorm'].valueChanged.connect(self.on_parameter_changed)
             
         return section
 
@@ -307,14 +314,23 @@ class MainWindow(QMainWindow):
             params['vz'].append(vw['vz'].value())
         
         # Forces
-        params['fx'], params['fy'], params['fz'] = [], [], []
-        params['fdir'], params['fnorm'] = [], []
+        params['fix'], params['fiy'], params['fiz'] = [], [], []
+        params['fidir'], params['finorm'] = [], []
+        params['fox'], params['foy'], params['foz'] = [], [], []
+        params['fodir'], params['fonorm'] = [], []
         for fw in self.forces_widget.inputs:
-            params['fx'].append(fw['fx'].value())
-            params['fy'].append(fw['fy'].value())
-            params['fz'].append(fw['fz'].value())
-            params['fdir'].append(fw['fdir'].currentText())
-            params['fnorm'].append(fw['fnorm'].value())
+            if 'fix' in fw: # Input force
+                params['fix'].append(fw['fix'].value())
+                params['fiy'].append(fw['fiy'].value())
+                params['fiz'].append(fw['fiz'].value())
+                params['fidir'].append(fw['fidir'].currentText())
+                params['finorm'].append(fw['finorm'].value())
+            elif 'fox' in fw: # Output force
+                params['fox'].append(fw['fox'].value())
+                params['foy'].append(fw['foy'].value())
+                params['foz'].append(fw['foz'].value())
+                params['fodir'].append(fw['fodir'].currentText())
+                params['fonorm'].append(fw['fonorm'].value())
             
         # Supports
         params['sx'], params['sy'], params['sz'] = [], [], []
@@ -415,18 +431,30 @@ class MainWindow(QMainWindow):
                 if is_2d and 'sz' in p:
                     p.pop('sz')
             # --- Normalize Forces ---
-            if 'fdir' in p:
-                zipped_forces = zip(p.get('fx', []), p.get('fy', []), p.get('fz', []) if not is_2d else [0]*len(p.get('fx', [])), p.get('fdir', []), p.get('fnorm', []))
+            if 'fidir' in p:
+                zipped_forces = zip(p.get('fix', []), p.get('fiy', []), p.get('fiz', []) if not is_2d else [0]*len(p.get('fix', [])), p.get('fidir', []), p.get('finorm', []))
                 force_list = list(zipped_forces)
                 # Keep the input force, and any output forces that are active.
                 active_forces = [force_list[0]] + [f for f in force_list[1:] if f[3] != '-']
                 if active_forces:
                     fx, fy, fz, fdir, fnorm = list(zip(*active_forces))
-                    p['fx'], p['fy'], p['fz'], p['fdir'], p['fnorm'] = list(fx), list(fy), list(fz), list(fdir), list(fnorm)
+                    p['fix'], p['fiy'], p['fiz'], p['fidir'], p['finorm'] = list(fx), list(fy), list(fz), list(fdir), list(fnorm)
                 else: # Should not happen as one input force is required
-                    p['fx'], p['fy'], p['fz'], p['fdir'], p['fnorm'] = [], [], [], [], []
-                if is_2d and 'fz' in p:
-                    p.pop('fz')
+                    p['fix'], p['fiy'], p['fiz'], p['fidir'], p['finorm'] = [], [], [], [], []
+                if is_2d and 'fiz' in p:
+                    p.pop('fiz')
+            if 'fodir' in p:
+                zipped_forces = zip(p.get('fox', []), p.get('foy', []), p.get('foz', []) if not is_2d else [0]*len(p.get('fox', [])), p.get('fodir', []), p.get('fonorm', []))
+                force_list = list(zipped_forces)
+                # Keep the input force, and any output forces that are active.
+                active_forces = [force_list[0]] + [f for f in force_list[1:] if f[3] != '-']
+                if active_forces:
+                    fx, fy, fz, fdir, fnorm = list(zip(*active_forces))
+                    p['fox'], p['foy'], p['foz'], p['fodir'], p['fonorm'] = list(fx), list(fy), list(fz), list(fdir), list(fnorm)
+                else: # Should not happen as one input force is required
+                    p['fox'], p['foy'], p['foz'], p['fodir'], p['fonorm'] = [], [], [], [], []
+                if is_2d and 'foz' in p:
+                    p.pop('foz')
             
             return p
         
@@ -441,13 +469,10 @@ class MainWindow(QMainWindow):
         """Checks for common input errors."""
         nx, ny, nz = p['nelxyz']
         if nx <= 0 or ny <= 0 or nz < 0: return "Nx, Ny, Nz must be positive."
-        if p['fdir'][0] == '-': return "Input force (Force 1) direction must be set."
-        if len(p['fdir']) > 2 and p['fdir'][1] == '-' and p['fdir'][2] == '-': 
-            return "At least one output force must be set."
-        elif len(p['fdir']) == 2 and p['fdir'][1] == '-':
-            return "At least one output force must be set."
-        elif len(p['fdir']) == 1:
-            return "At least one output force must be set."
+        if not any(d != '-' for d in p['fidir']):
+            print("At least one input force must be active")
+        if not any(d != '-' for d in p['fodir']):
+            print("At least one output force must be active")
         has_support = any(d != '-' for d in p['sdim'])
         if not has_support: return "At least one support must be defined."
         return None
@@ -475,9 +500,14 @@ class MainWindow(QMainWindow):
 
         # Update ranges for all forces
         for force_group in self.forces_widget.inputs:
-            force_group['fx'].setMaximum(nx)
-            force_group['fy'].setMaximum(ny)
-            force_group['fz'].setMaximum(nz)
+            if 'fix' in force_group: # Input force
+                force_group['fix'].setMaximum(nx)
+                force_group['fiy'].setMaximum(ny)
+                force_group['fiz'].setMaximum(nz)
+            elif 'fox' in force_group: # Output force
+                force_group['fox'].setMaximum(nx)
+                force_group['foy'].setMaximum(ny)
+                force_group['foz'].setMaximum(nz)
 
         # Update ranges for all supports
         for support_group in self.supports_widget.inputs:
@@ -520,10 +550,16 @@ class MainWindow(QMainWindow):
 
         # Check forces
         for force_group in self.forces_widget.inputs:
-            if force_group['fdir'].currentText() == '-': continue
-            for key in ['fx', 'fy'] + (['fz'] if is_3d else []):
-                pi, wn = check(force_group[key].value(), scale)
-                proceed_impossible |= pi; warn_needed |= wn
+            if 'fidir' in force_group:
+                if force_group['fidir'].currentText() != '-':
+                    for key in ['fix', 'fiy'] + (['fiz'] if is_3d else []):
+                        pi, wn = check(force_group[key].value(), scale)
+                        proceed_impossible |= pi; warn_needed |= wn
+            elif 'fodir' in force_group:
+                if force_group['fodir'].currentText() != '-':
+                    for key in ['fox', 'foy'] + (['foz'] if is_3d else []):
+                        pi, wn = check(force_group[key].value(), scale)
+                        proceed_impossible |= pi; warn_needed |= wn
 
         # Check supports
         for support_group in self.supports_widget.inputs:
@@ -561,9 +597,12 @@ class MainWindow(QMainWindow):
             group['vradius'].setValue(max(1, round(group['vradius'].value() * scale)))
 
         for group in self.forces_widget.inputs:
-            group['fx'].setValue(round(group['fx'].value() * scale))
-            group['fy'].setValue(round(group['fy'].value() * scale))
-            if is_3d: group['fz'].setValue(round(group['fz'].value() * scale))
+            group['fix'].setValue(round(group['fix'].value() * scale))
+            group['fiy'].setValue(round(group['fiy'].value() * scale))
+            if is_3d: group['fiz'].setValue(round(group['fiz'].value() * scale))
+            group['fox'].setValue(round(group['fox'].value() * scale))
+            group['foy'].setValue(round(group['foy'].value() * scale))
+            if is_3d: group['foz'].setValue(round(group['foz'].value() * scale))
 
         for group in self.supports_widget.inputs:
             group['sx'].setValue(round(group['sx'].value() * scale))
@@ -729,13 +768,13 @@ class MainWindow(QMainWindow):
             # Run single-frame logic directly
             self.status_bar.showMessage("Calculating single displacement frame...")
             QApplication.processEvents() # Update UI
-            
+            nb_active_iforces = sum(1 for d in params['fidir'] if d != '-')
             if is_3d_mode:
                 from app.core.displacements import single_linear_displacement_3d
-                self.last_displayed_frame_data = single_linear_displacement_3d(self.xPhys, self.u, *params['nelxyz'], params['disp_factor'])
+                self.last_displayed_frame_data = single_linear_displacement_3d(self.xPhys, self.u, *params['nelxyz'], params['disp_factor'], nb_active_iforces)
             else:
                 from app.core.displacements import single_linear_displacement_2d
-                self.last_displayed_frame_data = single_linear_displacement_2d(self.u, params['nelxyz'][0], params['nelxyz'][1], params['disp_factor'])
+                self.last_displayed_frame_data = single_linear_displacement_2d(self.u, params['nelxyz'][0], params['nelxyz'][1], params['disp_factor'], nb_active_iforces)
             self.replot()
             self.handle_displacement_finished("Single frame shown.")
             self.status_bar.showMessage("Single displacement plot shown.", 3000)
@@ -987,18 +1026,22 @@ class MainWindow(QMainWindow):
                     nelx = p['nelxyz'][0]
                     nely = p['nelxyz'][1]
                     nelz = p['nelxyz'][2]
-                    active_forces_indices = [i for i in range(len(p['fdir'])) if np.array(p['fdir'])[i] != '-']
+                    active_iforces_indices = [i for i in range(len(p['fidir'])) if np.array(p['fidir'])[i] != '-']
+                    active_oforces_indices = [i for i in range(len(p['fodir'])) if np.array(p['fodir'])[i] != '-']
                     active_supports_indices = [i for i in range(len(p['sdim'])) if np.array(p['sdim'])[i] != '-']
-                    fx_active = np.array(p['fx'])[active_forces_indices]
-                    fy_active = np.array(p['fy'])[active_forces_indices]
+                    fix_active = np.array(p['fix'])[active_iforces_indices]
+                    fiy_active = np.array(p['fiy'])[active_iforces_indices]
+                    fox_active = np.array(p['fox'])[active_oforces_indices]
+                    foy_active = np.array(p['foy'])[active_oforces_indices]
                     sx_active = np.array(p['sx'])[active_supports_indices]
                     sy_active = np.array(p['sy'])[active_supports_indices]
-                    all_x = np.concatenate([fx_active, sx_active])
-                    all_y = np.concatenate([fy_active, sy_active])
+                    all_x = np.concatenate([fix_active, fox_active, sx_active])
+                    all_y = np.concatenate([fiy_active, foy_active, sy_active])
                     if is_3d_mode:
-                        fz_active = np.array(p['fz'])[active_forces_indices]
+                        fiz_active = np.array(p['fiz'])[active_iforces_indices]
+                        foz_active = np.array(p['foz'])[active_oforces_indices]
                         sz_active = np.array(p['sz'])[active_supports_indices]
-                    all_z = np.concatenate([fz_active, sz_active]) if is_3d_mode else np.array([0]*len(all_x))
+                    all_z = np.concatenate([fiz_active, foz_active, sz_active]) if is_3d_mode else np.array([0]*len(all_x))
                     self.xPhys = initializers.initialize_material(p['init_type'], p['volfrac'], nelx, nely, nelz, all_x, all_y, all_z)
                     # Add voids if specified
                     for i, shape in enumerate(p['vshape']):
@@ -1206,59 +1249,85 @@ class MainWindow(QMainWindow):
         p = self.last_params
         if self.is_displaying_deformation and self.u is not None:
             if self.displacement_widget.mov_iter.value() == 1: # Only show forces in single-frame displacement mode, not supported yet in animation mode
-                active_forces = [g for g in self.forces_widget.inputs if g['fdir'].currentText() != '-']
-                if not active_forces: return
-                orig_fx = np.array([g['fx'].value() for g in active_forces])
-                orig_fy = np.array([g['fy'].value() for g in active_forces])
-                if is_3d: orig_fz = np.array([g['fz'].value() for g in active_forces])
-                colors = ['r' if i == 0 else 'b' for i, g in enumerate(self.forces_widget.inputs) if g['fdir'].currentText() != '-']
-                disp_factor = self.displacement_widget.mov_disp.value()
-                nely = p['nelxyz'][1]
-                indices = (orig_fz * (orig_fx + 1) * (nely + 1)) + (orig_fx * (nely + 1)) + orig_fy if is_3d else (orig_fx * (nely + 1)) + orig_fy
-                ux = self.u[2 * indices    , 0] * disp_factor
-                uy = self.u[2 * indices + 1, 0] * disp_factor
-                if is_3d: uz = self.u[2 * indices + 2, 0] * disp_factor
-                new_fx = orig_fx + ux
-                new_fy = orig_fy + uy if is_3d else orig_fy - uy
-                if is_3d: new_fz = orig_fz + uz
-                
+                for xkey, ykey, dirkey, col in [
+                    ('fix', 'fiy', 'fidir', 'r'),  # input forces
+                    ('fox', 'foy', 'fodir', 'b')   # output forces
+                ]:
+                    active_forces = [g for g in self.forces_widget.inputs if dirkey in g and g[dirkey].currentText() != '-']
+                    if len(active_forces) == 0:
+                        continue
+
+                    orig_fx = np.array([g[xkey].value() for g in active_forces])
+                    orig_fy = np.array([g[ykey].value() for g in active_forces])
+                    if is_3d:
+                        if xkey == 'fix': orig_fz = np.array([g['fiz'].value() for g in active_forces])
+                        else: orig_fz = np.array([g['foz'].value() for g in active_forces])
+
+                    colors = [col for g in self.forces_widget.inputs if dirkey in g and g[dirkey].currentText() != '-']
+                    disp_factor = self.displacement_widget.mov_disp.value()
+                    nely = p['nelxyz'][1]
+                    indices = (orig_fz * (orig_fx + 1) * (nely + 1)) + (orig_fx * (nely + 1)) + orig_fy if is_3d else (orig_fx * (nely + 1)) + orig_fy
+
+                    ux = self.u[2 * indices    , 0] * disp_factor
+                    uy = self.u[2 * indices + 1, 0] * disp_factor
+                    if is_3d:
+                        uz = self.u[2 * indices + 2, 0] * disp_factor
+
+                    new_fx = orig_fx + ux
+                    new_fy = orig_fy + uy if is_3d else orig_fy - uy
+                    if is_3d:
+                        new_fz = orig_fz + uz
+
+                    length = np.mean(p['nelxyz'][:2]) / 6
+                    dx, dy = np.zeros_like(new_fx), np.zeros_like(new_fy)
+                    if is_3d:
+                        dz = np.zeros_like(new_fz)
+
+                    directions = [g[dirkey].currentText() for g in active_forces]
+                    for i, d in enumerate(directions):
+                        if d == '-': continue
+                        if   'X:→' in d: dx[i] =  length
+                        elif 'X:←' in d: dx[i] = -length
+                        elif 'Y:↑' in d: dy[i] =  length
+                        elif 'Y:↓' in d: dy[i] = -length
+                        elif is_3d:
+                            if   'Z:<' in d: dz[i] =  length
+                            elif 'Z:>' in d: dz[i] = -length
+
+                    if is_3d:
+                        ax.quiver(new_fx, new_fy, new_fz, dx, dy, dz, color=colors, length=length, normalize=True)
+                    else:
+                        ax.quiver(new_fx, new_fy, dx, dy, color=colors, scale_units='xy', angles='xy', scale=1)
+        else:
+            for xkey, ykey, zkey, dirkey, col in [
+                ('fix', 'fiy', 'fiz', 'fidir', 'r'),  # input forces
+                ('fox', 'foy', 'foz', 'fodir', 'b')  # output forces
+            ]:
+                directions = p[dirkey]
+                if all(d == '-' for d in directions):
+                    continue
+
+                colors = [col for d in directions if d != '-']
+                dx, dy = np.zeros_like(p[xkey]), np.zeros_like(p[ykey])
+                if is_3d:
+                    dz = np.zeros_like(p[zkey])
+
                 length = np.mean(p['nelxyz'][:2]) / 6
-                dx, dy = np.zeros_like(new_fx), np.zeros_like(new_fy)
-                if is_3d: dz = np.zeros_like(new_fz)
-                directions = [g['fdir'].currentText() for g in active_forces]
+
                 for i, d in enumerate(directions):
                     if d == '-': continue
-                    elif 'X:→' in d: dx[i] = length
+                    if   'X:→' in d: dx[i] =  length
                     elif 'X:←' in d: dx[i] = -length
-                    elif 'Y:↑' in d: dy[i] = length
+                    elif 'Y:↑' in d: dy[i] =  length
                     elif 'Y:↓' in d: dy[i] = -length
                     elif is_3d:
-                        if 'Z:<' in d: dz[i] = length
+                        if   'Z:<' in d: dz[i] =  length
                         elif 'Z:>' in d: dz[i] = -length
-                
+
                 if is_3d:
-                    ax.quiver(new_fx, new_fy, new_fz, dx, dy, dz, color=colors, length=length, normalize=True)
+                    ax.quiver(p[xkey], p[ykey], p[zkey], dx, dy, dz, color=colors, length=length, normalize=True)
                 else:
-                    ax.quiver(new_fx, new_fy, dx, dy, color=colors, scale_units='xy', angles='xy', scale=1)
-        else:
-            colors = ['r' if i == 0 else 'b' for i, g in enumerate(self.forces_widget.inputs) if g['fdir'].currentText() != '-']
-            dx, dy = np.zeros_like(p['fx']), np.zeros_like(p['fy'])
-            if is_3d: dz = np.zeros_like(p['fz'])
-            length = np.mean(p['nelxyz'][:2])/6
-            directions = p['fdir']
-            for i, d in enumerate(directions):
-                if d == '-': continue
-                elif 'X:→' in d: dx[i] = length
-                elif 'X:←' in d: dx[i] = -length
-                elif 'Y:↑' in d: dy[i] = length
-                elif 'Y:↓' in d: dy[i] = -length
-                elif is_3d:
-                    if 'Z:<' in d: dz[i] = length
-                    elif 'Z:>' in d: dz[i] = -length
-            if is_3d:
-                ax.quiver(p['fx'], p['fy'], p['fz'], dx, dy, dz, color=colors, length=length, normalize=True)
-            else:
-                ax.quiver(p['fx'], p['fy'], dx, dy, color=colors, scale_units='xy', angles='xy', scale=1)
+                    ax.quiver(p[xkey], p[ykey], dx, dy, color=colors, scale_units='xy', angles='xy', scale=1)
 
     def plot_supports(self, ax, is_3d):
         """Plots the supports as triangles."""
@@ -1484,12 +1553,21 @@ class MainWindow(QMainWindow):
             void_group['vz'].setValue(params['vz'][0])
         
         # Forces
+        nb_input_forces = 0
         for i, force_group in enumerate(self.forces_widget.inputs):
-            force_group['fx'].setValue(params['fx'][i])
-            force_group['fy'].setValue(params['fy'][i])
-            force_group['fz'].setValue(params['fz'][i])
-            force_group['fdir'].setCurrentText(params['fdir'][i])
-            force_group['fnorm'].setValue(params['fnorm'][i])
+            if 'fix' in force_group:
+                force_group['fix'].setValue(params['fix'][i])
+                force_group['fiy'].setValue(params['fiy'][i])
+                force_group['fiz'].setValue(params['fiz'][i])
+                force_group['fidir'].setCurrentText(params['fidir'][i])
+                force_group['finorm'].setValue(params['finorm'][i])
+                nb_input_forces += 1
+            else:
+                force_group['fox'].setValue(params['fox'][i-nb_input_forces])
+                force_group['foy'].setValue(params['foy'][i-nb_input_forces])
+                force_group['foz'].setValue(params['foz'][i-nb_input_forces])
+                force_group['fodir'].setCurrentText(params['fodir'][i-nb_input_forces])
+                force_group['fonorm'].setValue(params['fonorm'][i-nb_input_forces])
         
         # Supports
         num_supports_in_preset = len(params.get('sx', []))
@@ -1592,6 +1670,8 @@ class MainWindow(QMainWindow):
         self.header.info_button.setIcon(icons.get('info'))
         self.preset.save_preset_button.setIcon(icons.get('save'))
         self.preset.delete_preset_button.setIcon(icons.get('delete'))
+        # Update dimensions icons
+        self.dim_widget.scale_button.setIcon(icons.get('scale'))
         # Update displacement icons
         self.displacement_widget.run_disp_button.setIcon(icons.get('move'))
         self.displacement_widget.stop_disp_button.setIcon(icons.get('stop'))

@@ -9,13 +9,6 @@ from typing import List, Tuple, Callable, Optional
 
 from app.core import initializers
 
-def get_element_coordinates(el_idx: int, nelx: int, nely: int) -> Tuple[int, int, int]:
-    """Get 3D integer coordinates of an element from its 1D index."""
-    elx = int((el_idx % (nely * nelx)) // nely)
-    ely = int((el_idx % (nely * nelx)) % nely)
-    elz = int(el_idx // (nely * nelx))
-    return elx, ely, elz
-
 def lk(E: float, nu: float, is_3d: bool) -> np.ndarray:
     """Get element stiffness matrix."""
     # Get K
@@ -88,7 +81,7 @@ def oc(nel: int, x: np.ndarray, max_change: float, dc: np.ndarray, dv: np.ndarra
     Args:
         nel: Total number of elements.
         x: Current design variables (densities).
-        volfrac: Target volume fraction.
+        max_change: Maximum allowed change in design variables per iteration.
         dc: Sensitivities of the objective function.
         dv: Sensitivities of the volume constraint.
         g: Lagrangian multiplier for the volume constraint.
@@ -107,7 +100,7 @@ def oc(nel: int, x: np.ndarray, max_change: float, dc: np.ndarray, dv: np.ndarra
         x_update = x * np.maximum(1e-10, -dc / dv / lmid) ** 0.3
         xnew[:] = np.maximum(rhomin, np.maximum(x - max_change, np.minimum(1.0, np.minimum(x + max_change, x_update))))
         
-        gt = g + np.sum(dv * (xnew - x))
+        gt = g + np.sum(dv * (xnew - x)) # Should be near zero for the volume constraint
         
         if gt > 0:
             l1 = lmid
@@ -118,11 +111,12 @@ def oc(nel: int, x: np.ndarray, max_change: float, dc: np.ndarray, dv: np.ndarra
 
 def optimize(
     nelxyz: List[int], volfrac: float, vx: List[int], vy: List[int], vz: List[int], vradius: float, vshape: str,
-    fx: List[int], fy: List[int], fz: List[int], fdir: List[str], fnorm: List[float],
+    fix: List[int], fiy: List[int], fiz: List[int], fidir: List[str], finorm: List[float],
+    fox: List[int], foy: List[int], foz: List[int], fodir: List[str], fonorm: List[float],
     sx: List[int], sy: List[int], sz: List[int], sdim: List[str],
     E: float, nu: float, init_type: int, filter_type: int, filter_radius_min: float, penal: float, max_change: float, n_it: int,
     progress_callback: Optional[Callable[[int, float, float], None]] = None
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray]:
     '''
     Topology optimization for a compliant mechanism.
     
@@ -139,7 +133,6 @@ def optimize(
     g = 0. # Lagrangian multiplier for volume constraint
     
     # Element stiffness matrix and DOF mapping
-    KE = lk(E, nu, is_3d)
     size = 8 * (elemndof if is_3d else 1)
     edofMat = np.zeros((nel, size), dtype=int)
     for ex in range(nelx):
@@ -167,20 +160,19 @@ def optimize(
     jK = np.kron(edofMat, np.ones((1, size))).flatten() # Kronecker product
 
     # Filter
-    nfilter = int(nel * (2 * (np.ceil(filter_radius_min) - 1) + 1)**elemndof)
-    iH, jH, sH = np.zeros(nfilter), np.zeros(nfilter), np.zeros(nfilter)
-    cc = 0
+    r = np.ceil(filter_radius_min)
+    iH, jH, sH = [], [], []
     for ez in range(nelz if is_3d else 1):
         for ex in range(nelx):
             for ey in range(nely):
                 el1 = (ez * nelx * nely if is_3d else 0) + ex * nely + ey
 
-                k_start = int(max(ez - (np.ceil(filter_radius_min) - 1), 0))
-                k_end   = int(min(ez + np.ceil(filter_radius_min), nelz if is_3d else 1))
-                i_start = int(max(ex - (np.ceil(filter_radius_min) - 1), 0))
-                i_end   = int(min(ex + np.ceil(filter_radius_min), nelx))
-                j_start = int(max(ey - (np.ceil(filter_radius_min) - 1), 0))
-                j_end   = int(min(ey + np.ceil(filter_radius_min), nely))
+                k_start = int(max(ez - (r - 1), 0))
+                k_end   = int(min(ez + r, nelz if is_3d else 1))
+                i_start = int(max(ex - (r - 1), 0))
+                i_end   = int(min(ex + r, nelx))
+                j_start = int(max(ey - (r - 1), 0))
+                j_end   = int(min(ey + r, nely))
 
                 for k in range(k_start, k_end):
                     for i in range(i_start, i_end):
@@ -189,41 +181,63 @@ def optimize(
                             dist = np.sqrt((ex - i)**2 + (ey - j)**2 + (ez - k)**2)
                             fac = filter_radius_min - dist
                             if fac > 0:
-                                iH[cc], jH[cc], sH[cc] = el1, el2, fac
-                                cc += 1
-    H = coo_matrix((sH[:cc], (iH[:cc], jH[:cc])), shape=(nel, nel)).tocsc()
+                                iH.append(el1)
+                                jH.append(el2)
+                                sH.append(fac)
+    H = coo_matrix((np.array(sH), (np.array(iH), np.array(jH))), shape=(nel, nel)).tocsc()
     Hs = H.sum(1)
     
     # Supports
     active_supports_indices = [i for i in range(len(sdim)) if sdim[i] != '-']
-    dofs = np.arange(ndof)
+    dofs = np.arange(ndof)  
     fixed = []
     for i in active_supports_indices:
         node_idx = (sz[i]*(nelx+1)*(nely+1) if is_3d else 0) + sx[i]*(nely+1) + sy[i]
-        if 'X' in sdim[i]: fixed.append(elemndof * node_idx)
-        if 'Y' in sdim[i]: fixed.append(elemndof * node_idx + 1)
-        if is_3d and 'Z' in sdim[i]: fixed.append(elemndof * node_idx + 2)
+        if 'X' in sdim[i]:
+            fixed.append(elemndof * node_idx)
+        if 'Y' in sdim[i]:
+            fixed.append(elemndof * node_idx + 1)
+        if is_3d and 'Z' in sdim[i]:
+            fixed.append(elemndof * node_idx + 2)
     free = np.setdiff1d(dofs, np.unique(fixed))
     
     # Forces
-    active_forces_indices = [i for i in range(len(fdir)) if fdir[i] != '-']
-    nb_forces = len(active_forces_indices)
-    d, d_vals, f = [], [], np.zeros((ndof, len(fx)))
-    for i in active_forces_indices:
-        node_idx = (fz[i]*(nelx+1)*(nely+1) if is_3d else 0) + fx[i]*(nely+1) + fy[i]
-        d_val = 4 / 100.0
-        if 'X' in fdir[i]:
+    active_iforces_indices = [i for i in range(len(fidir)) if fidir[i] != '-']
+    active_oforces_indices = [i for i in range(len(fodir)) if fodir[i] != '-']
+    nb_act_if = len(active_iforces_indices)
+    nb_act_of = len(active_oforces_indices)
+    fi = np.zeros((ndof, nb_act_if))
+    fo = np.zeros((ndof, nb_act_of))
+    di = []
+    do = []
+    for i in active_iforces_indices:
+        node_idx = (fiz[i]*(nelx+1)*(nely+1) if is_3d else 0) + fix[i]*(nely+1) + fiy[i]
+        d_val = 4 / 100.0 # Arfirtificial spring stiffness
+        if 'X' in fidir[i]:
             dof = elemndof * node_idx
-            if '←' in fdir[i]: d_val = -d_val
-        elif 'Y' in fdir[i]:
+            if '←' in fidir[i]: d_val = -d_val
+        elif 'Y' in fidir[i]:
             dof = elemndof * node_idx + 1
-            if '↑' in fdir[i]: d_val = -d_val
-        elif is_3d and'Z' in fdir[i]:
+            if '↑' in fidir[i]: d_val = -d_val
+        elif is_3d and'Z' in fidir[i]:
             dof = elemndof * node_idx + 2
-            if '>' in fdir[i]: d_val = -d_val
-        d.append(dof)
-        d_vals.append(d_val)
-        f[dof, i] = d_val
+            if '>' in fidir[i]: d_val = -d_val
+        di.append(dof)
+        fi[dof, i] = d_val
+    for i in active_oforces_indices:
+        node_idx = (foz[i]*(nelx+1)*(nely+1) if is_3d else 0) + fox[i]*(nely+1) + foy[i]
+        d_val = 4 / 100.0 # Arfirtificial spring stiffness
+        if 'X' in fodir[i]:
+            dof = elemndof * node_idx
+            if '←' in fodir[i]: d_val = -d_val
+        elif 'Y' in fodir[i]:
+            dof = elemndof * node_idx + 1
+            if '↑' in fodir[i]: d_val = -d_val
+        elif is_3d and'Z' in fodir[i]:
+            dof = elemndof * node_idx + 2
+            if '>' in fodir[i]: d_val = -d_val
+        do.append(dof)
+        fo[dof, i] = d_val
     
     # Void regions
     active_voids_indices = [i for i in range(len(vshape)) if vshape[i] != '-']
@@ -232,20 +246,25 @@ def optimize(
     sx_active = np.array(sx)[active_supports_indices]
     sy_active = np.array(sy)[active_supports_indices]
     if is_3d: sz_active = np.array(sz)[active_supports_indices]
-    fx_active = np.array(fx)[active_forces_indices]
-    fy_active = np.array(fy)[active_forces_indices]
-    if is_3d: fz_active = np.array(fz)[active_forces_indices]
-    all_x = np.concatenate([fx_active, sx_active])
-    all_y = np.concatenate([fy_active, sy_active])
-    all_z = np.concatenate([fz_active, sz_active]) if is_3d else np.array([0]*len(all_x))
+    fix_active = np.array(fix)[active_iforces_indices]
+    fiy_active = np.array(fiy)[active_iforces_indices]
+    if is_3d: fiz_active = np.array(fiz)[active_iforces_indices]
+    fox_active = np.array(fox)[active_oforces_indices]
+    foy_active = np.array(foy)[active_oforces_indices]
+    if is_3d: foz_active = np.array(foz)[active_oforces_indices]
+    all_x = np.concatenate([fix_active, fox_active, sx_active])
+    all_y = np.concatenate([fiy_active, foy_active, sy_active])
+    all_z = np.concatenate([fiz_active, foz_active, sz_active]) if is_3d else np.array([0]*len(all_x))
     x = initializers.initialize_material(init_type, volfrac, nelx, nely, nelz, all_x, all_y, all_z)
     xold = x.copy()
     xPhys = x.copy()
     
     # Optimization loop
-    loop, change = 0, 1.0
-    u = np.zeros((ndof, nb_forces))
+    KE = lk(E, nu, is_3d)
+    ui = np.zeros((ndof, nb_act_if))
+    uo = np.zeros((ndof, nb_act_of))
     print("3D Optimizer starting...")
+    loop, change = 0, 1.0
     while change > 0.01 and loop < n_it:
         loop += 1
         xold[:] = x
@@ -273,33 +292,44 @@ def optimize(
         sK = (KE.flatten()[np.newaxis]).T * (Emin + xPhys**penal * (Emax - Emin))
         K = coo_matrix((sK.flatten(order='F'), (iK, jK)), shape=(ndof, ndof)).tocsc()
         
-        for i in range(len(d)):
-            if fnorm[i] > 0: K[d[i], d[i]] += fnorm[i]
+        for i in range(len(di)):
+            if finorm[i] > 0:
+                K[di[i], di[i]] += finorm[active_iforces_indices[i]]
+        for i in range(len(do)):
+            if fonorm[i] > 0:
+                K[do[i], do[i]] += fonorm[active_oforces_indices[i]]
         
         K_free = K[free, :][:, free]
-        for i in active_forces_indices:
-            if np.any(f[free, i]):
-                u[free, i] = spsolve(K_free, f[free, i])
+        for i in active_iforces_indices:
+            if np.any(fi[free, i]):
+                ui[free, i] = spsolve(K_free, fi[free, i])
+        for i in active_oforces_indices:
+            if np.any(fo[free, i]):
+                uo[free, i] = spsolve(K_free, fo[free, i])
 
-        # Objective
-        obj_val = sum(abs(u[d[i], 0]) for i in active_forces_indices) / nb_forces
+        # Objective (average displacement in the output forces directions)
+        obj_val = 0
+        for i in range(len(di)):
+            obj_val += (sum(abs(uo[do[i], i]) for i in range(len(do)))) / (nb_act_of)
 
         # Filtering
         if is_3d:
             dc = np.zeros(nel)
             for el in range(nel):
-                Ue_in = u[edofMat[el, :], [0]]
                 ce_total = 0
-                for i in active_forces_indices[1:]:  # Start from index 1 to skip a[0]
-                    Ue_out = u[edofMat[el, :], [i]]
-                    ce_total += (Ue_in.T @ KE @ Ue_out).item()
+                for i_in in active_iforces_indices:
+                    Ue_in = ui[edofMat[el, :], [i_in]]
+                    for i_out in active_oforces_indices:
+                        Ue_out = uo[edofMat[el, :], [i_out]]
+                        ce_total += (Ue_in.T @ KE @ Ue_out).item()
                 dc[el] = penal * (xPhys[el] ** (penal - 1)) * ce_total
         else:
-            Ue_in = u[edofMat, 0]  # Shape: (nel, 8)
             ce_total = np.zeros(nel)
-            for i in active_forces_indices[1:]:  # Start from index 1 to skip a[0]
-                Ue_out = u[edofMat, i]
-                ce_total += np.einsum('ij,jk,ik->i', Ue_in, KE, Ue_out)
+            for i_in in active_iforces_indices:
+                Ue_in = ui[edofMat, i_in]  # Shape: (nel, 8)
+                for i_out in active_oforces_indices:
+                    Ue_out = uo[edofMat, i_out]  # Shape: (nel, 8)
+                    ce_total += np.einsum('ij,jk,ik->i', Ue_in, KE, Ue_out)
             dc = penal * (xPhys ** (penal - 1)) * ce_total
         dv = np.ones(nel)
         if filter_type == 'Sensitivity':
@@ -314,7 +344,7 @@ def optimize(
         # OC update
         x, g = oc(nel, x, max_change, dc, dv, g)
         
-        # Filter design variables
+        # xPhys update
         if filter_type == 'Sensitivity':
             xPhys = x
         elif filter_type == 'Density':
@@ -329,4 +359,4 @@ def optimize(
                 break
             
     print("Optimizer finished.")
-    return xPhys, u
+    return xPhys, np.concatenate((ui, uo), axis=1)
