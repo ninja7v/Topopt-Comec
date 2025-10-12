@@ -74,7 +74,7 @@ def lk(E: float, nu: float, is_3d: bool) -> np.ndarray:
         ])
     return KE
 
-def single_linear_displacement_2d(u, nelx, nely, disp_factor, nb_active_iforces):
+def single_linear_displacement_2d(u, nelx, nely, disp_factor):
     """
     Computes the deformed mesh grid and a grid pattern for a single-frame plot.
     Returns X, Y meshgrid arrays for plotting.
@@ -84,8 +84,8 @@ def single_linear_displacement_2d(u, nelx, nely, disp_factor, nb_active_iforces)
     j_coords = nodes_flat % (nely + 1)
 
     # Average displacement over all input forces
-    ux_avg = np.mean(u[2 * nodes_flat, :nb_active_iforces], axis=1)
-    uy_avg = np.mean(u[2 * nodes_flat + 1, :nb_active_iforces], axis=1)
+    ux_avg = np.mean(u[2 * nodes_flat, :], axis=1)
+    uy_avg = np.mean(u[2 * nodes_flat + 1, :], axis=1)
 
     X_flat = i_coords + ux_avg * disp_factor
     Y_flat = j_coords - uy_avg * disp_factor # Use '+' for origin='lower' and '-' for 'upper'
@@ -95,7 +95,7 @@ def single_linear_displacement_2d(u, nelx, nely, disp_factor, nb_active_iforces)
 
     return X, Y
 
-def single_linear_displacement_3d(xPhys, u, nelx, nely, nelz, disp_factor, nb_active_iforces):
+def single_linear_displacement_3d(xPhys, u, nelx, nely, nelz, disp_factor):
     """
     Computes the deformed 3D mesh using PyMCubes.
     Returns the vertices and triangles of the deformed mesh.
@@ -238,7 +238,9 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     # Material
     xPhys_large = np.zeros((nelx, nely, nelz)) if is_3d else np.zeros((nelx, nely))
     if is_3d:
-        xPhys_large[margin_X:nelx-margin_X, margin_Y:nely-margin_Y, margin_Z:nelz-margin_Z]=np.transpose(xPhys_initial.reshape(nelz-2*margin_Z,(nelx-2*margin_X)*(nely-2*margin_Y)).reshape(nelz-2*margin_Z,nelx-2*margin_X,nely-2*margin_Y),(1,2,0))#reshape((nelx-2*margin_X, nely-2*margin_Y, nelz-2*margin_Z))
+        xPhys_large[margin_X:nelx-margin_X, margin_Y:nely-margin_Y, margin_Z:nelz-margin_Z] =\
+            np.transpose(xPhys_initial.reshape(nelz-2*margin_Z,(nelx-2*margin_X)*(nely-2*margin_Y))
+                                      .reshape(nelz-2*margin_Z,nelx-2*margin_X,nely-2*margin_Y),(1,2,0))
     else:
         xPhys_large[margin_X:-margin_X, margin_Y:-margin_Y] = xPhys_initial.reshape((nelx-2*margin_X, nely-2*margin_Y))
     xPhys = np.zeros((nel))

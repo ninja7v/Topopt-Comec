@@ -359,4 +359,4 @@ def optimize(
                 break
             
     print("Optimizer finished.")
-    return xPhys, np.concatenate((ui, uo), axis=1)
+    return xPhys, ui

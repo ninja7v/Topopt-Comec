@@ -78,23 +78,23 @@ def test_forces_widget_initialization(qt_app):
     
     assert len(widget.inputs) >= 2, "ForcesWidget should always create at least 2 force rows."
     
-    first_force = widget.inputs[0]
-    second_force = widget.inputs[1]
+    first_iforce = widget.inputs[0]
+    first_oforce = widget.inputs[2]
     # Check instances
-    assert 'fx' in first_force and isinstance(first_force['fx'], QSpinBox)
-    assert 'fy' in first_force and isinstance(first_force['fy'], QSpinBox)
-    assert 'fdir' in first_force and isinstance(first_force['fdir'], QComboBox)
-    assert 'fx' in second_force and isinstance(second_force['fx'], QSpinBox)
-    assert 'fy' in second_force and isinstance(second_force['fy'], QSpinBox)
-    assert 'fdir' in second_force and isinstance(second_force['fdir'], QComboBox)
+    assert 'fix' in first_iforce and isinstance(first_iforce['fix'], QSpinBox)
+    assert 'fiy' in first_iforce and isinstance(first_iforce['fiy'], QSpinBox)
+    assert 'fidir' in first_iforce and isinstance(first_iforce['fidir'], QComboBox)
+    assert 'fox' in first_oforce and isinstance(first_oforce['fox'], QSpinBox)
+    assert 'foy' in first_oforce and isinstance(first_oforce['foy'], QSpinBox)
+    assert 'fodir' in first_oforce and isinstance(first_oforce['fodir'], QComboBox)
     
     # Check default values
-    assert first_force['fx'].value() == 30
-    assert first_force['fy'].value() == 0
-    assert first_force['fdir'].currentText() == 'Y:↑'
-    assert second_force['fx'].value() == 30
-    assert second_force['fy'].value() == 40
-    assert second_force['fdir'].currentText() == 'Y:↓'
+    assert first_iforce['fix'].value() == 30
+    assert first_iforce['fiy'].value() == 0
+    assert first_iforce['fidir'].currentText() == 'Y:↑'
+    assert first_oforce['fox'].value() == 30
+    assert first_oforce['foy'].value() == 40
+    assert first_oforce['fodir'].currentText() == 'Y:↓'
 
 def test_support_widget_initialization(qt_app):
     """Unit Test: Verifies that the static SupportWidget initializes with 4 rows."""

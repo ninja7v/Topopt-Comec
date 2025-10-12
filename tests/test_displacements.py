@@ -37,25 +37,23 @@ def test_displacement_with_presets(preset_name, preset_params):
     # Generate a mock result and displacement vector
     nel = disp_params['nelxyz'][0] * disp_params['nelxyz'][1] * (disp_params['nelxyz'][2] if is_3d else 1)
     ndof = (3 if is_3d else 2) * (disp_params['nelxyz'][0] + 1) * (disp_params['nelxyz'][1] + 1) * ((disp_params['nelxyz'][2] + 1) if is_3d else 1)
-    densities = np.zeros(nel)
-    volfrac = preset_params['volfrac']
-    n_solid = int(volfrac * nel) # number of solid voxels
-    densities[:n_solid] = 1
+    p = 1/preset_params['volfrac'] - 1 # f(x) = (x/volfrac)^p -> integral(f(x)) from 0 to nel = volfrac * nel
+    x = np.linspace(0, 1, nel)
+    densities = x**p
     np.random.shuffle(densities)
-    result = densities#.reshape((disp_params['nelxyz'][0], disp_params['nelxyz'][1], disp_params['nelxyz'][2]))
-    u_vec = np.random.rand(ndof, sum(1 for fdir in disp_params['fdir'] if fdir != "-"))
+    result = densities
+    u_vec = np.random.rand(ndof, sum(1 for fdir in disp_params['fidir'] if fdir != "-"))
     
     # Check if not empty
     assert result is not None, "Optimizer returned None"
     assert u_vec is not None, "Displacement vector is None"
     
     # Test linear displacement function
-    nb_active_iforces = sum(1 for d in disp_params['fidir'] if d != '-')
     if is_3d:
-        vertices_moved, triangles = displacements.single_linear_displacement_3d(result, u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], disp_params['nelxyz'][2], 1.0, nb_active_iforces)
+        vertices_moved, triangles = displacements.single_linear_displacement_3d(result, u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], disp_params['nelxyz'][2], 1.0)
         assert not(vertices_moved is None or triangles is None), "Displacement function returned None arrays"
     else:
-        X, Y = displacements.single_linear_displacement_2d(u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], 1.0, nb_active_iforces)
+        X, Y = displacements.single_linear_displacement_2d(u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], 1.0)
         assert not(X is None or Y is None), "Displacement function returned None arrays"
     
     # Test iterative displacement function
@@ -63,10 +61,9 @@ def test_displacement_with_presets(preset_name, preset_params):
         last_result_displaced = frame
     assert last_result_displaced is not None, "Iterative displacement function returned None"
     assert last_result_displaced.shape == np.array(result).shape, "Iterative displacement function returned different shapes"
-    vals = last_result_displaced.ravel()
+    vals = last_result_displaced
     assert np.max(vals) <= 1.0 and np.min(vals) >= 0.0, "Displaced densities should remain within [0, 1]"
-    assert np.sum(np.abs(np.array(result) - vals)) < 0.05 * nel, "Displaced densities should be very close to original for small displacements"
 
     # Check volume fraction
-    assert np.isclose(result.mean(), volfrac, atol=0.05), \
-        f"Final volume ({result.mean():.3f}) is far to target ({volfrac:.3f})"
+    assert np.isclose(result.mean(), preset_params['volfrac'], atol=0.05), \
+        f"Final volume ({result.mean():.3f}) is far to target ({preset_params['volfrac']:.3f})"

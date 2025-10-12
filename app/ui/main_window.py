@@ -768,13 +768,12 @@ class MainWindow(QMainWindow):
             # Run single-frame logic directly
             self.status_bar.showMessage("Calculating single displacement frame...")
             QApplication.processEvents() # Update UI
-            nb_active_iforces = sum(1 for d in params['fidir'] if d != '-')
             if is_3d_mode:
                 from app.core.displacements import single_linear_displacement_3d
-                self.last_displayed_frame_data = single_linear_displacement_3d(self.xPhys, self.u, *params['nelxyz'], params['disp_factor'], nb_active_iforces)
+                self.last_displayed_frame_data = single_linear_displacement_3d(self.xPhys, self.u, *params['nelxyz'], params['disp_factor'])
             else:
                 from app.core.displacements import single_linear_displacement_2d
-                self.last_displayed_frame_data = single_linear_displacement_2d(self.u, params['nelxyz'][0], params['nelxyz'][1], params['disp_factor'], nb_active_iforces)
+                self.last_displayed_frame_data = single_linear_displacement_2d(self.u, params['nelxyz'][0], params['nelxyz'][1], params['disp_factor'])
             self.replot()
             self.handle_displacement_finished("Single frame shown.")
             self.status_bar.showMessage("Single displacement plot shown.", 3000)

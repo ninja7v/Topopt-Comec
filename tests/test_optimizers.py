@@ -84,16 +84,20 @@ def test_optimizers_with_presets(preset_name, preset_params):
     nel = optimizer_params['nelxyz'][0] * optimizer_params['nelxyz'][1] * (optimizer_params['nelxyz'][2] if is_3d else 1)
     assert result.shape == (nel,), f"Result shape is wrong, expected ({nel},)"
     ndof = (3 if is_3d else 2) * (optimizer_params['nelxyz'][0] + 1) * (optimizer_params['nelxyz'][1] + 1) * ((optimizer_params['nelxyz'][2] + 1) if is_3d else 1)
-    assert u_vec.size == ndof*sum(1 for x in optimizer_params['fdir'] if x != "-"), "Displacement vector should be (ndof x nf)"
+    assert u_vec.size == ndof*sum(1 for x in optimizer_params['fidir'] if x != "-"), "Displacement vector should be (ndof x nb_active_iforces)"
     
-    # Check displacement direction at the input force
-    idx = (optimizer_params['fz'][0] * optimizer_params['nelxyz'][0] * optimizer_params['nelxyz'][1] if is_3d else 0) + optimizer_params['fx'][0] * optimizer_params['nelxyz'][1] + optimizer_params['fy'][0]
-    idx = idx * (3 if is_3d else 2) + (0 if optimizer_params['fdir'][0] == "X:\u2192" or optimizer_params['fdir'][0] == "X:\u2190" else
-                                       1 if optimizer_params['fdir'][0] == "Y:\u2193" or optimizer_params['fdir'][0] == "Y:\u2191" else 2)
-    direction_sign = 1 if optimizer_params['fdir'][0] == "X:\u2192" or\
-                          optimizer_params['fdir'][0] == "Y:\u2193" or\
-                          optimizer_params['fdir'][0] == "Z:<" else -1
-    assert u_vec[idx, 0] * direction_sign > 0
+    # Check displacement direction at the input forces
+    j = 0
+    active_iforces_indices = [i for i in range(len(optimizer_params['fidir'])) if optimizer_params['fidir'][i] != '-']
+    for i in active_iforces_indices:
+        idx = (optimizer_params['fiz'][i] * optimizer_params['nelxyz'][0] * optimizer_params['nelxyz'][1] if is_3d else 0) + optimizer_params['fix'][i] * optimizer_params['nelxyz'][1] + optimizer_params['fiy'][i]
+        idx = idx * (3 if is_3d else 2) + (0 if optimizer_params['fidir'][i] == "X:\u2192" or optimizer_params['fidir'][i] == "X:\u2190" else
+                                           1 if optimizer_params['fidir'][i] == "Y:\u2193" or optimizer_params['fidir'][i] == "Y:\u2191" else 2)
+        direction_sign = 1 if optimizer_params['fidir'][i] == "X:\u2192" or\
+                              optimizer_params['fidir'][i] == "Y:\u2193" or\
+                              optimizer_params['fidir'][i] == "Z:<" else -1
+        assert u_vec[idx, j] * direction_sign > 0
+        j += 1
 
     # Check volume fraction
     volfrac = preset_params['volfrac']

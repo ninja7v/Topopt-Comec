@@ -182,7 +182,7 @@
         "nelxyz": [
             20,
             20,
-            20
+            10
         ],
         "volfrac": 0.15,
         "vshape": [
@@ -229,7 +229,7 @@
             0
         ],
         "foz": [
-            20,
+            10,
             0
         ],
         "fodir": [
@@ -364,7 +364,7 @@
         "nelxyz": [
             10,
             10,
-            10
+            6
         ],
         "volfrac": 0.15,
         "vshape": [
@@ -411,7 +411,7 @@
             0
         ],
         "foz": [
-            10,
+            6,
             0
         ],
         "fodir": [
@@ -455,6 +455,6 @@
         "max_change": 0.05,
         "n_it": 30,
         "disp_factor": 1.0,
-        "disp_iterations": 1
+        "disp_iterations": 2
     }
 }
