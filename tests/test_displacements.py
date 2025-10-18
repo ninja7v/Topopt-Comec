@@ -22,10 +22,10 @@ def load_presets():
 @pytest.mark.parametrize("preset_name, preset_params", load_presets())
 def test_displacement_with_presets(preset_name, preset_params):
     """Unit Test: Runs the 2D/3D optimizer with a given preset."""
-    is_3d = preset_params['nelxyz'][2] > 0
-
     # Prepare the parameters for the optimizer function
     disp_params = preset_params.copy()
+    nelx, nely, nelz = disp_params['nelxyz']
+    is_3d = nelz > 0
     # To run the tests faster, we reduce the number of iterations
     disp_params['disp_iterations'] = 1
     # Remove all keys that are not part of the optimizer's function signature
@@ -35,8 +35,8 @@ def test_displacement_with_presets(preset_name, preset_params):
         disp_params.pop(key, None)
     
     # Generate a mock result and displacement vector
-    nel = disp_params['nelxyz'][0] * disp_params['nelxyz'][1] * (disp_params['nelxyz'][2] if is_3d else 1)
-    ndof = (3 if is_3d else 2) * (disp_params['nelxyz'][0] + 1) * (disp_params['nelxyz'][1] + 1) * ((disp_params['nelxyz'][2] + 1) if is_3d else 1)
+    nel = nelx * nely * (disp_params['nelxyz'][2] if is_3d else 1)
+    ndof = (3 if is_3d else 2) * (nelx + 1) * (nely + 1) * ((nelz + 1) if is_3d else 1)
     p = 1/preset_params['volfrac'] - 1 # f(x) = (x/volfrac)^p -> integral(f(x)) from 0 to nel = volfrac * nel
     x = np.linspace(0, 1, nel)
     densities = x**p
@@ -50,10 +50,10 @@ def test_displacement_with_presets(preset_name, preset_params):
     
     # Test linear displacement function
     if is_3d:
-        vertices_moved, triangles = displacements.single_linear_displacement_3d(result, u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], disp_params['nelxyz'][2], 1.0)
-        assert not(vertices_moved is None or triangles is None), "Displacement function returned None arrays"
+        X, Y, Z = displacements.single_linear_displacement(u_vec, nelx, nely, nelz, 1.0)
+        assert not(X is None or Y is None or Z is None), "Displacement function returned None arrays"
     else:
-        X, Y = displacements.single_linear_displacement_2d(u_vec, disp_params['nelxyz'][0], disp_params['nelxyz'][1], 1.0)
+        X, Y = displacements.single_linear_displacement(u_vec, nelx, nely, nelz, 1.0)
         assert not(X is None or Y is None), "Displacement function returned None arrays"
     
     # Test iterative displacement function
