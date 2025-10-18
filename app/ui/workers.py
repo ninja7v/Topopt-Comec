@@ -34,8 +34,6 @@ class OptimizerWorker(QThread):
             keys_to_remove = ['disp_factor', 'disp_iterations']
             for key in keys_to_remove:
                 optimizer_params.pop(key, None)
-                
-            is_3d = optimizer_params['nelxyz'][2] > 0
             
             def progress_callback(iteration, objective, change, xPhys_frame):
                 self.progress.emit(iteration, objective, change)

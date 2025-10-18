@@ -10,7 +10,7 @@ from cvxopt import matrix, spmatrix, cholmod # Convex optimization
 import mcubes # Generate isosurface
 
 def lk(E: float, nu: float, is_3d: bool) -> np.ndarray:
-    """Element stiffness matrix for a 3D 8-node brick element."""
+    """Get element stiffness matrix."""
     # Get K
     if is_3d:
         A = np.array([[ 32, 6, -8,  6, -6,  4,  3, -6,-10,  3, -3, -3, -4, -8],
@@ -74,80 +74,45 @@ def lk(E: float, nu: float, is_3d: bool) -> np.ndarray:
         ])
     return KE
 
-def single_linear_displacement_2d(u, nelx, nely, disp_factor):
+def single_linear_displacement(u, nelx, nely, nelz, disp_factor):
     """
     Computes the deformed mesh grid and a grid pattern for a single-frame plot.
-    Returns X, Y meshgrid arrays for plotting.
+    Returns X, Y, Z meshgrid arrays for plotting.
     """
-    nodes_flat = np.arange((nelx + 1) * (nely + 1))
-    i_coords = nodes_flat // (nely + 1)
-    j_coords = nodes_flat % (nely + 1)
+    is_3d = nelz > 0
+    nodes_flat = np.arange((nelx + 1) * (nely + 1) * (nelz + 1 if is_3d else 1))
+
+    if is_3d:
+        x_coords = (nodes_flat % ((nely + 1) * (nelx + 1))) // (nely + 1)
+        y_coords = (nodes_flat % ((nely + 1) * (nelx + 1))) % (nely + 1)
+        z_coords = nodes_flat // ((nely + 1) * (nelx + 1))
+    else:
+        x_coords = nodes_flat // (nely + 1)
+        y_coords = nodes_flat % (nely + 1)
 
     # Average displacement over all input forces
-    ux_avg = np.mean(u[2 * nodes_flat, :], axis=1)
-    uy_avg = np.mean(u[2 * nodes_flat + 1, :], axis=1)
+    elemndof = 3 if is_3d else 2 # Degrees of freedom per element
+    n = elemndof * nodes_flat
+    ux_avg = np.mean(u[n, :], axis=1)
+    uy_avg = np.mean(u[n + 1, :], axis=1)
+    if is_3d:
+        uz_avg = np.mean(u[n + 2, :], axis=1)
 
-    X_flat = i_coords + ux_avg * disp_factor
-    Y_flat = j_coords - uy_avg * disp_factor # Use '+' for origin='lower' and '-' for 'upper'
+    X_flat = x_coords + ux_avg * disp_factor
+    Y_flat = y_coords - uy_avg * disp_factor
+    if is_3d:
+        Z_flat = z_coords + uz_avg * disp_factor
 
-    X = X_flat.reshape((nelx + 1, nely + 1))
-    Y = Y_flat.reshape((nelx + 1, nely + 1))
-
-    return X, Y
-
-def single_linear_displacement_3d(xPhys, u, nelx, nely, nelz, disp_factor):
-    """
-    Computes the deformed 3D mesh using PyMCubes.
-    Returns the vertices and triangles of the deformed mesh.
-    """
-    # 1. Get the element-to-dof mapping
-    nel = nelx * nely * nelz
-    elz, elx, ely = np.meshgrid(np.arange(nelz), np.arange(nelx), np.arange(nely), indexing='ij')
-    n1 = (elz * (nelx + 1) * (nely + 1)) + (elx * (nely + 1)) + ely
-    n2 = n1 + (nely + 1)
-    n3 = n1 + 1
-    n4 = n2 + 1
-    n5 = n1 + (nelx + 1) * (nely + 1)
-    n6 = n5 + (nely + 1)
-    n7 = n5 + 1
-    n8 = n6 + 1
-    node_ids = np.stack([n1, n2, n3, n4, n5, n6, n7, n8], axis=-1)
-    dof_indices = 3 * np.repeat(node_ids, 3, axis=-1) + np.tile([0, 1, 2], 8)
-    # Reorder to match the stiffness matrix convention
-    # The order is: n1, n2, n4, n3, n5, n6, n8, n7
-    edofMat = dof_indices.reshape(nel, 8, 3)[:, [0, 1, 3, 2, 4, 5, 7, 6], :].reshape(nel, 24)
-    
-    # 2. Calculate the average displacement for each element
-    ux, uy, uz = np.mean(u[edofMat].reshape(-1, 8, 3), axis=1).T
-
-    # 3. Generate the initial mesh (vertices and triangles) from the density field
-    density = xPhys.reshape((nelz, nelx, nely))
-    # Marching cubes finds the 0.5 isosurface
-    vertices, triangles = mcubes.marching_cubes(density, 0.5)
-
-    # 4. Deform the vertices
-    # We find the closest element for each vertex and apply its displacement vector
-    vertices_moved = vertices.copy()
-    
-    # Get the integer coordinates of each vertex to find its host element
-    elx = vertices[:, 1].astype(int)
-    ely = vertices[:, 2].astype(int)
-    elz = vertices[:, 0].astype(int)
-    
-    # Clamp coordinates to be within the valid domain
-    np.clip(elx, 0, nelx - 1, out=elx)
-    np.clip(ely, 0, nely - 1, out=ely)
-    np.clip(elz, 0, nelz - 1, out=elz)
-    
-    # Calculate the 1D element index for each vertex
-    el_indices = elz * (nelx * nely) + elx * nely + ely
-    
-    # Apply the displacement in a single vectorized operation
-    vertices_moved[:, 1] += ux[el_indices] * disp_factor
-    vertices_moved[:, 2] += uy[el_indices] * disp_factor
-    vertices_moved[:, 0] += uz[el_indices] * disp_factor
-
-    return vertices_moved, triangles
+    if is_3d:
+        # reshape according to the original flat ordering (z, x, y) then permute to (x, y, z)
+        X = X_flat.reshape((nelz + 1, nelx + 1, nely + 1)).transpose(1, 2, 0)
+        Y = Y_flat.reshape((nelz + 1, nelx + 1, nely + 1)).transpose(1, 2, 0)
+        Z = Z_flat.reshape((nelz + 1, nelx + 1, nely + 1)).transpose(1, 2, 0)
+        return X, Y, Z
+    else:
+        X = X_flat.reshape((nelx + 1, nely + 1))
+        Y = Y_flat.reshape((nelx + 1, nely + 1))
+        return X, Y
 
 def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     """
