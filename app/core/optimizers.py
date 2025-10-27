@@ -110,7 +110,7 @@ def oc(nel: int, x: np.ndarray, max_change: float, dc: np.ndarray, dv: np.ndarra
     return xnew, gt
 
 def optimize(
-    nelxyz: List[int], volfrac: float, vx: List[int], vy: List[int], vz: List[int], vradius: float, vshape: str,
+    nelxyz: List[int], volfrac: float, rx: List[int], ry: List[int], rz: List[int], rradius: float, rshape: str, rstate: str,
     fix: List[int], fiy: List[int], fiz: List[int], fidir: List[str], finorm: List[float],
     fox: List[int], foy: List[int], foz: List[int], fodir: List[str], fonorm: List[float],
     sx: List[int], sy: List[int], sz: List[int], sdim: List[str],
@@ -239,8 +239,8 @@ def optimize(
         do.append(dof)
         fo[dof, i] = d_val
     
-    # Void regions
-    active_voids_indices = [i for i in range(len(vshape)) if vshape[i] != '-']
+    # Regions
+    active_regions_indices = [i for i in range(len(rshape)) if rshape[i] != '-']
     
     # Material
     sx_active = np.array(sx)[active_supports_indices]
@@ -269,24 +269,24 @@ def optimize(
         loop += 1
         xold[:] = x
 
-        # Void regions
-        for i in active_voids_indices:
-            r = vradius[i]
-            if vshape[i] == '□':  # cube/square
-                for ez in range(max(0, int(vz[i] - r)), min(nelz, int(vz[i] + r)) if is_3d else 1):
-                    for ex in range(max(0, int(vx[i] - r)), min(nelx, int(vx[i] + r))):
-                        for ey in range(max(0, int(vy[i] - r)), min(nely, int(vy[i] + r))):
-                            if vshape[i] == '□':  # cube/square
+        # Regions
+        for i in active_regions_indices:
+            r = rradius[i]
+            if rshape[i] == '□':  # Cube/Square
+                for ez in range(max(0, int(rz[i] - r)), min(nelz, int(rz[i] + r)) if is_3d else 1):
+                    for ex in range(max(0, int(rx[i] - r)), min(nelx, int(rx[i] + r))):
+                        for ey in range(max(0, int(ry[i] - r)), min(nely, int(ry[i] + r))):
+                            if rshape[i] == '□':  # Cube/Square
                                 idx = (ez * nelx * nely if is_3d else 0) + ex * nely + ey
-                                xPhys[idx] = 1e-6
-            elif vshape[i] == '○':  # sphere/circle
-                for ez in range(max(0, int(vz[i] - r)), min(nelz, int(vz[i] + r)) if is_3d else 1):
-                    for ex in range(max(0, int(vx[i] - r)), min(nelx, int(vx[i] + r))):
-                        for ey in range(max(0, int(vy[i] - r)), min(nely, int(vy[i] + r))):
-                            dist2 = (ex - vx[i]) ** 2 + (ey - vy[i]) ** 2 + ((ez - vz[i]) ** 2 if is_3d else 0)
+                                xPhys[idx] = 1e-6 if rstate[i] == 'Void' else 1.0
+            elif rshape[i] == '◯':  # Sphere/Circle
+                for ez in range(max(0, int(rz[i] - r)), min(nelz, int(rz[i] + r)) if is_3d else 1):
+                    for ex in range(max(0, int(rx[i] - r)), min(nelx, int(rx[i] + r))):
+                        for ey in range(max(0, int(ry[i] - r)), min(nely, int(ry[i] + r))):
+                            dist2 = (ex - rx[i]) ** 2 + (ey - ry[i]) ** 2 + ((ez - rz[i]) ** 2 if is_3d else 0)
                             if dist2 <= r ** 2:
                                 idx = (ez * nelx * nely if is_3d else 0) + ex * nely + ey
-                                xPhys[idx] = 1e-6
+                                xPhys[idx] = 1e-6 if rstate[i] == 'Void' else 1.0
 
         # FE analysis
         sK = (KE.flatten()[np.newaxis]).T * (Emin + xPhys**penal * (Emax - Emin))

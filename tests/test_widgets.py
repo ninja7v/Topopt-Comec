@@ -3,7 +3,7 @@
 # Tests for the widgets.
 
 from PySide6.QtWidgets import QWidget, QSpinBox, QDoubleSpinBox, QComboBox, QPushButton
-from app.ui.widgets import (CollapsibleSection, DimensionsWidget, VoidWidget, ForcesWidget,
+from app.ui.widgets import (CollapsibleSection, DimensionsWidget, RegionsWidget, ForcesWidget,
                             SupportWidget, MaterialWidget, OptimizerWidget,
                             DisplacementWidget, HeaderWidget, PresetWidget, FooterWidget)
 
@@ -48,29 +48,24 @@ def test_dimensions_widget_initialization(qt_app):
     assert widget.volfrac.value() == 0.3
     assert widget.scale.value() == 1.0
 
-def test_void_widget_initialization(qt_app):
-    """Unit Test: Verifies the VoidWidget initializes correctly."""
-    widget = VoidWidget()
+def test_regions_widget_initialization(qt_app):
+    """Unit Test: Verifies the RegionsWidget initializes correctly."""
+    widget = RegionsWidget()
     
-    first_void = widget.inputs[0]
+    first_region = widget.inputs[0]
     # Check instances
-    assert 'vshape' in first_void and isinstance(first_void['vshape'], QComboBox)
-    assert 'vradius' in first_void and isinstance(first_void['vradius'], QSpinBox)
-    assert 'vx' in first_void and isinstance(first_void['vx'], QSpinBox)
-    assert 'vy' in first_void and isinstance(first_void['vy'], QSpinBox)
+    assert 'rshape' in first_region and isinstance(first_region['rshape'], QComboBox)
+    assert 'rstate' in first_region and isinstance(first_region['rstate'], QComboBox)
+    assert 'rradius' in first_region and isinstance(first_region['rradius'], QSpinBox)
+    assert 'rx' in first_region and isinstance(first_region['rx'], QSpinBox)
+    assert 'ry' in first_region and isinstance(first_region['ry'], QSpinBox)
     
     # Check default values
-    assert first_void['vshape'].currentText() == '-'
-    assert first_void['vradius'].value() == 1
-    assert first_void['vx'].value() == 0
-    assert first_void['vy'].value() == 0
-    
-    # Check that the 2D labels are present by default
-    assert first_void['vshape'].itemText(1) == "□ (Square)"
-    
-    # Test the mode-switching logic
-    widget.update_for_mode(is_3d=True)
-    assert first_void['vshape'].itemText(1) == "□ (Cube)"
+    assert first_region['rshape'].currentText() == '-'
+    assert first_region['rstate'].currentText() == 'Void'
+    assert first_region['rradius'].value() == 1
+    assert first_region['rx'].value() == 0
+    assert first_region['ry'].value() == 0
 
 def test_forces_widget_initialization(qt_app):
     """Unit Test: Verifies the ForcesWidget initializes with exactly 3 force rows."""

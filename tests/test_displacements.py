@@ -30,7 +30,7 @@ def test_displacement_with_presets(preset_name, preset_params):
     disp_params['disp_iterations'] = 1
     # Remove all keys that are not part of the optimizer's function signature
     keys_to_remove = ['filter_type', 'filter_radius_min', 'max_change', 'n_it']
-    if not is_3d: keys_to_remove = keys_to_remove + ['vz', 'fz', 'sz']
+    if not is_3d: keys_to_remove = keys_to_remove + ['rz', 'fz', 'sz']
     for key in keys_to_remove:
         disp_params.pop(key, None)
     

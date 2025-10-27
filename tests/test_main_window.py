@@ -32,24 +32,24 @@ p_different_force = {"nelxyz": [60, 40, 0],
                      "sdim": ["Y", "X", "-"], "sx": [0, 60], "sy": [20, 20],
                      "fix": [0, 100, 0], "fiy": [30, 40, 0], "fiz": [0, 0, 0], "fidir": ["X:\u2192", "Y:\u2193", "Y:\u2193"], "finorm": [0.01, 0.01, 0.0],
                      "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01]}
-# A 2D preset with an inactive void
-p_inactive_void = {"nelxyz": [60, 40, 0],
-                   "sdim": ["Y", "X", "-"], "sx": [0, 60], "sy": [20, 20],
-                   "fix": [0, 100], "fiy": [30, 40], "fiz": [0, 0], "fidir": ["X:\u2192", "Y:\u2193"], "finorm": [0.01, 0.01],
-                   "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01],
-                   "vshape": ["-"], "vradius": [5], "vx": [30], "vy": [20], "vz": [0]}
-# A 2D preset with an different void
-p_different_void = {"nelxyz": [60, 40, 0],
-                    "sdim": ["Y", "X", "-"], "sx": [0, 60], "sy": [20, 20],
-                    "fix": [0, 100], "fiy": [30, 40], "fiz": [0, 0], "fidir": ["X:\u2192", "Y:\u2193"], "finorm": [0.01, 0.01],
-                    "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01],
-                    "vshape": ["□"], "vradius": [5], "vx": [30], "vy": [20], "vz": [0]}
+# A 2D preset with an inactive region
+p_inactive_region = {"nelxyz": [60, 40, 0],
+                     "sdim": ["Y", "X", "-"], "sx": [0, 60], "sy": [20, 20],
+                     "fix": [0, 100], "fiy": [30, 40], "fiz": [0, 0], "fidir": ["X:\u2192", "Y:\u2193"], "finorm": [0.01, 0.01],
+                     "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01],
+                     "rshape": ["-"], "rstate": ["Void"], "rradius": [5], "rx": [30], "ry": [20], "rz": [0]}
+# A 2D preset with an different region
+p_different_region = {"nelxyz": [60, 40, 0],
+                      "sdim": ["Y", "X", "-"], "sx": [0, 60], "sy": [20, 20],
+                      "fix": [0, 100], "fiy": [30, 40], "fiz": [0, 0], "fidir": ["X:\u2192", "Y:\u2193"], "finorm": [0.01, 0.01],
+                      "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01],
+                      "rshape": ["□"], "rstate": ["Filled"], "rradius": [5], "rx": [25], "ry": [20], "rz": [0]}
 # A preset that is truly different
 p_different = {"nelxyz": [80, 50, 0],
                "sdim": ["X", "Y"], "sx": [0, 60], "sy": [20, 20],
                "fix": [0, 100, 0], "fiy": [30, 40, 0], "fiz": [0, 0, 0], "fidir": ["X:\u2192", "Y:\u2193", "-"], "finorm": [0.01, 0.01, 0.0],
                "fox": [20], "foy": [20], "foz": [0], "fodir": ["X:\u2192"], "fonorm": [0.01],
-               "vshape": ["□"], "vradius": [7], "vx": [20], "vy": [30], "vy": [0]}
+               "rshape": ["□"], "rstate": ["Filled"], "rradius": [7], "rx": [20], "ry": [30], "ry": [0]}
 
 @pytest.mark.parametrize("p1, p2, expected", [
     (p_base_2d, p_base_2d,           True),  # Should equal itself
@@ -57,8 +57,8 @@ p_different = {"nelxyz": [80, 50, 0],
     (p_base_2d, p_different_support, False), # Should be different
     (p_base_2d, p_inactive_force,    True),  # Should be equivalent despite extra inactive force
     (p_base_2d, p_different_force,   False), # Should be different
-    (p_base_2d, p_inactive_void,     True),  # Should be equivalent despite extra inactive void
-    (p_base_2d, p_different_void,    False), # Should be different
+    (p_base_2d, p_inactive_region,   True),  # Should be equivalent despite extra inactive region
+    (p_base_2d, p_different_region,  False), # Should be different
     (p_base_2d, p_different,         False), # Should be different
 ])
 def test_are_parameters_equivalent(qt_app, p1, p2, expected):
