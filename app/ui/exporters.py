@@ -13,11 +13,10 @@ from vtk.util.numpy_support import get_vtk_array_type, numpy_to_vtk
 def save_as_vti(xPhys: np.ndarray, nelxyz: list, filename: str):
     """Saves the density field as a .vti file for ParaView."""
     try:
-        if len(nelxyz) == 3 and nelxyz[2] > 0:
-            nx, ny, nz = nelxyz
-            density_field = xPhys.reshape((nz, nx, ny))
+        nx, ny, nz = nelxyz
+        if nz > 0:
+            density_field = xPhys.reshape((nz, nx, ny)).transpose(1, 2, 0)
         else:
-            nx, ny = nelxyz[:2]
             nz = 1  # Extrude to a single layer
             # Reshape 2D data and add a new axis for the Z dimension
             density_field = xPhys.reshape((nx, ny))[np.newaxis, :, :]
@@ -48,11 +47,10 @@ def save_as_vti(xPhys: np.ndarray, nelxyz: list, filename: str):
 def save_as_stl(xPhys: np.ndarray, nelxyz: list, filename: str):
     """Saves the result as a solid .stl file."""
     try:
-        if len(nelxyz) == 3 and nelxyz[2] > 0:
-            nx, ny, nz = nelxyz
-            density_field = xPhys.reshape((nz, nx, ny))
+        nx, ny, nz = nelxyz
+        if nz > 0:
+            density_field = xPhys.reshape((nz, nx, ny)).transpose(1, 2, 0)
         else:
-            nx, ny = nelxyz[:2]
             nz = 1  # Extrude to a single layer
             # Reshape 2D data and add a new axis for the Z dimension
             density_field = xPhys.reshape((nx, ny)).T[np.newaxis, :, :]
