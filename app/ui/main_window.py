@@ -1260,7 +1260,6 @@ class MainWindow(QMainWindow):
             # Multi-iteration displacement handled in update_animation_frame
         else:
             if self.sections["material"].visibility_button.isChecked():
-                to_be_initialized = self.xPhys is None
                 if self.xPhys is None:
                     p = self.last_params
                     # Initialize xPhys
@@ -1367,33 +1366,34 @@ class MainWindow(QMainWindow):
                             1e-6 if p["rstate"][i] == "Void" else 1.0
                         )
                 self.plot_material(ax, is_3d=is_3d)
-                if to_be_initialized:
-                    init_message = 'Configure parameters and press "Create"'
-                    if is_3d:
-                        ax.text(
-                            0.5,
-                            0.5,
-                            0.5,
-                            s=init_message,
-                            transform=ax.transAxes,
-                            ha="center",
-                            va="center",
-                            fontsize=16,
-                            alpha=0.5,
-                            color="black",
-                        )
-                    else:
-                        ax.text(
-                            0.5,
-                            0.5,
-                            s=init_message,
-                            transform=ax.transAxes,
-                            ha="center",
-                            va="center",
-                            fontsize=16,
-                            alpha=0.5,
-                            color="black",
-                        )
+            # Show initial message if xPhys is not a result (even partial) of optimization
+            if self.footer.create_button.graphicsEffect() is not None:
+                init_message = 'Configure parameters and press "Create"'
+                if is_3d:
+                    ax.text(
+                        0.5,
+                        0.5,
+                        0.5,
+                        s=init_message,
+                        transform=ax.transAxes,
+                        ha="center",
+                        va="center",
+                        fontsize=16,
+                        alpha=0.5,
+                        color="black",
+                    )
+                else:
+                    ax.text(
+                        0.5,
+                        0.5,
+                        s=init_message,
+                        transform=ax.transAxes,
+                        ha="center",
+                        va="center",
+                        fontsize=16,
+                        alpha=0.5,
+                        color="black",
+                    )
 
         self.redraw_non_material_layers(ax, is_3d)
         if not is_3d:
