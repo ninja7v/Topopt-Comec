@@ -2,13 +2,14 @@
 # MIT License - Copyright (c) 2025 Luc Prevost
 # Export result to various file formats.
 
+import mcubes
 import numpy as np
 import vtk
-from vtk.util.numpy_support import numpy_to_vtk, get_vtk_array_type
-import mcubes
 from stl import mesh
+from vtk.util.numpy_support import get_vtk_array_type, numpy_to_vtk
 
-#class Exporters:
+
+# class Exporters:
 def save_as_vti(xPhys: np.ndarray, nelxyz: list, filename: str):
     """Saves the density field as a .vti file for ParaView."""
     try:
@@ -17,14 +18,17 @@ def save_as_vti(xPhys: np.ndarray, nelxyz: list, filename: str):
             density_field = xPhys.reshape((nz, nx, ny))
         else:
             nx, ny = nelxyz[:2]
-            nz = 1 # Extrude to a single layer
+            nz = 1  # Extrude to a single layer
             # Reshape 2D data and add a new axis for the Z dimension
             density_field = xPhys.reshape((nx, ny))[np.newaxis, :, :]
-        
+
         # VTK requires data to be flattened in Fortran order ('F')
-        vtk_array = numpy_to_vtk(num_array=density_field.flatten('F'), deep=True,
-                                 array_type=get_vtk_array_type(density_field.dtype))
-        
+        vtk_array = numpy_to_vtk(
+            num_array=density_field.flatten("F"),
+            deep=True,
+            array_type=get_vtk_array_type(density_field.dtype),
+        )
+
         image_data = vtk.vtkImageData()
         image_data.SetOrigin([0, 0, 0])
         image_data.SetSpacing([1, 1, 1])
@@ -36,9 +40,10 @@ def save_as_vti(xPhys: np.ndarray, nelxyz: list, filename: str):
         writer.SetFileName(filename)
         writer.SetInputData(image_data)
         writer.Write()
-        return True, None # Success, no error
+        return True, None  # Success, no error
     except Exception as e:
-        return False, str(e) # Failure, error message
+        return False, str(e)  # Failure, error message
+
 
 def save_as_stl(xPhys: np.ndarray, nelxyz: list, filename: str):
     """Saves the result as a solid .stl file."""
@@ -48,7 +53,7 @@ def save_as_stl(xPhys: np.ndarray, nelxyz: list, filename: str):
             density_field = xPhys.reshape((nz, nx, ny))
         else:
             nx, ny = nelxyz[:2]
-            nz = 1 # Extrude to a single layer
+            nz = 1  # Extrude to a single layer
             # Reshape 2D data and add a new axis for the Z dimension
             density_field = xPhys.reshape((nx, ny)).T[np.newaxis, :, :]
 

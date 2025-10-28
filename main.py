@@ -4,15 +4,16 @@
 
 import sys
 from pathlib import Path
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QStyle
-from PySide6.QtGui import QIcon
+
 import darkdetect
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication, QStyle
+
 
 def main():
     """Initializes and runs the Qt application."""
     app = QApplication(sys.argv)
-    
+
     theme = "dark" if darkdetect.isDark() else "light"
     file_name = f"window_icon_{theme}.svg"
     icon_path = Path(__file__).parent / "icons" / file_name
@@ -26,11 +27,12 @@ def main():
 
     # Now that the app exists, import the main window
     from app.ui.main_window import MainWindow
-    
+
     window = MainWindow()
     window.show()
-    
+
     sys.exit(app.exec())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

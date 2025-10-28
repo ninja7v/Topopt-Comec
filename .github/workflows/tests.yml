@@ -24,8 +24,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest
+          pip install pytest black ruff
+
+      - name: Lint with Ruff
+        run: |
+          echo "Running ruff (linter & analyzer) check..."
+          ruff check .
+
+      - name: Check formatting with Black
+        run: |
+          echo "Running black (code formater) check..."
+          black --check .
 
       - name: Run tests
         run: |
+          echo "Running tests..."
           pytest -v
