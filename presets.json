@@ -186,9 +186,9 @@
     },
     "ForceInverter_3D": {
         "nelxyz": [
-            20,
-            20,
-            10
+            12,
+            12,
+            8
         ],
         "volfrac": 0.15,
         "rshape": [
@@ -210,11 +210,11 @@
             0
         ],
         "fix": [
-            10,
+            6,
             0
         ],
         "fiy": [
-            10,
+            6,
             0
         ],
         "fiz": [
@@ -230,15 +230,15 @@
             0.0
         ],
         "fox": [
-            10,
+            6,
             0
         ],
         "foy": [
-            10,
+            6,
             0
         ],
         "foz": [
-            10,
+            8,
             0
         ],
         "fodir": [
@@ -252,14 +252,14 @@
         "sx": [
             0,
             0,
-            20,
-            20
+            12,
+            12
         ],
         "sy": [
             0,
-            20,
+            12,
             0,
-            20
+            12
         ],
         "sz": [
             0,
@@ -371,205 +371,5 @@
         "n_it": 50,
         "disp_factor": 1.0,
         "disp_iterations": 1
-    },
-    "ForceInverter_3D_Small": {
-        "nelxyz": [
-            10,
-            10,
-            6
-        ],
-        "volfrac": 0.15,
-        "rshape": [
-            "-"
-        ],
-        "rstate": [
-            "Void"
-        ],
-        "rradius": [
-            0
-        ],
-        "rx": [
-            0
-        ],
-        "ry": [
-            0
-        ],
-        "rz": [
-            0
-        ],
-        "fix": [
-            5,
-            0
-        ],
-        "fiy": [
-            5,
-            0
-        ],
-        "fiz": [
-            0,
-            0
-        ],
-        "fidir": [
-            "Z:<",
-            "-"
-        ],
-        "finorm": [
-            0.01,
-            0.0
-        ],
-        "fox": [
-            5,
-            0
-        ],
-        "foy": [
-            5,
-            0
-        ],
-        "foz": [
-            6,
-            0
-        ],
-        "fodir": [
-            "Z:>",
-            "-"
-        ],
-        "fonorm": [
-            0.01,
-            0.0
-        ],
-        "sx": [
-            0,
-            0,
-            10,
-            10
-        ],
-        "sy": [
-            0,
-            10,
-            0,
-            10
-        ],
-        "sz": [
-            0,
-            0,
-            0,
-            0
-        ],
-        "sdim": [
-            "XYZ",
-            "XYZ",
-            "XYZ",
-            "XYZ"
-        ],
-        "E": 1.0,
-        "nu": 0.25,
-        "init_type": 0,
-        "filter_type": "Sensitivity",
-        "filter_radius_min": 1.3,
-        "penal": 3.0,
-        "max_change": 0.05,
-        "n_it": 30,
-        "disp_factor": 1.0,
-        "disp_iterations": 2
-    },
-    "3D_FI_mini": {
-        "nelxyz": [
-            6,
-            6,
-            2
-        ],
-        "volfrac": 0.15,
-        "rshape": [
-            "-"
-        ],
-        "rstate": [
-            "Void"
-        ],
-        "rradius": [
-            1
-        ],
-        "rx": [
-            0
-        ],
-        "ry": [
-            0
-        ],
-        "rz": [
-            0
-        ],
-        "fix": [
-            3,
-            0
-        ],
-        "fiy": [
-            3,
-            0
-        ],
-        "fiz": [
-            0,
-            0
-        ],
-        "fidir": [
-            "Z:<",
-            "-"
-        ],
-        "finorm": [
-            0.01,
-            0.0
-        ],
-        "fox": [
-            3,
-            0
-        ],
-        "foy": [
-            3,
-            0
-        ],
-        "foz": [
-            2,
-            0
-        ],
-        "fodir": [
-            "Z:>",
-            "-"
-        ],
-        "fonorm": [
-            0.01,
-            0.0
-        ],
-        "sx": [
-            0,
-            0,
-            6,
-            6
-        ],
-        "sy": [
-            0,
-            6,
-            0,
-            6
-        ],
-        "sz": [
-            0,
-            0,
-            0,
-            0
-        ],
-        "sdim": [
-            "XYZ",
-            "XYZ",
-            "XYZ",
-            "XYZ"
-        ],
-        "E": 1.0,
-        "nu": 0.25,
-        "init_type": 0,
-        "filter_type": "Sensitivity",
-        "filter_radius_min": 1.3,
-        "penal": 3.0,
-        "max_change": 0.05,
-        "n_it": 30,
-        "disp_factor": 1.0,
-        "disp_iterations": 2
     }
 }
