@@ -518,7 +518,7 @@ class MainWindow(QMainWindow):
                         list(sz),
                         list(sdim),
                     )
-                else:  # Should not happen as at least one support is required
+                else:
                     p["sx"], p["sy"], p["sz"], p["sdim"] = [], [], [], []
                 if is_2d and "sz" in p:
                     p.pop("sz")
@@ -608,9 +608,6 @@ class MainWindow(QMainWindow):
             print("At least one input force must be active")
         if not any(d != "-" for d in p["fodir"]):
             print("At least one output force must be active")
-        has_support = any(d != "-" for d in p["sdim"])
-        if not has_support:
-            return "At least one support must be defined."
         return None
 
     def update_position_ranges(self):
