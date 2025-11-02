@@ -249,7 +249,6 @@ class DimensionsWidget(QWidget):
         self.scale.setSingleStep(0.5)
         self.scale.setToolTip("Scale every component by this factor")
         scale_layout.addWidget(self.scale)
-        layout.addLayout(scale_layout)
         self.scale_button = QPushButton("Scale")
         self.scale_button.setIcon(icons.get("scale"))
         self.scale_button.setToolTip("Scale elements")
