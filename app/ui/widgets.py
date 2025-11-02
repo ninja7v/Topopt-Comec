@@ -540,7 +540,9 @@ class MaterialWidget(QWidget):
         # Poisson's Ratio
         layout.addWidget(QLabel("Poisson's Ratio (ν):"), 1, 0)
         self.mat_nu = QDoubleSpinBox()
-        self.mat_nu.setRange(0.0, 0.5)
+        self.mat_nu.setRange(
+            0.05, 0.45
+        )  # Restrict Poisson's Ratio range to prevent crashes in the optimizer when computing KE = (E / ((nu + 1) * (1 - 2 * nu)) * ...)
         self.mat_nu.setValue(0.25)
         self.mat_nu.setSingleStep(0.05)
         self.mat_nu.setToolTip(
