@@ -30,13 +30,17 @@ class IconProvider:
         for ext in extensions:
             themed_path = icon_dir / f"{icon_name}_{self.theme}.{ext}"
             if themed_path.is_file():
-                return QIcon(str(themed_path))
+                icon = QIcon(str(themed_path))
+                if not icon.isNull():
+                    return icon
 
         # 2. If not found, try to find a generic (non-themed) icon file
         for ext in extensions:
             generic_path = icon_dir / f"{icon_name}.{ext}"
             if generic_path.is_file():
-                return QIcon(str(generic_path))
+                icon = QIcon(str(generic_path))
+                if not icon.isNull():
+                    return icon
 
         # 3. If no file is found, fall back to built-in Qt icons
         if self.style is None:
