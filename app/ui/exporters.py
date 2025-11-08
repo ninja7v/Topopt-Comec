@@ -39,9 +39,9 @@ def save_as_vti(xPhys: np.ndarray, nelxyz: list, filename: str):
         writer.SetFileName(filename)
         writer.SetInputData(image_data)
         writer.Write()
-        return True, None  # Success, no error
+        return True, None
     except Exception as e:
-        return False, str(e)  # Failure, error message
+        return False, str(e)
 
 
 def save_as_stl(xPhys: np.ndarray, nelxyz: list, filename: str):
@@ -56,7 +56,9 @@ def save_as_stl(xPhys: np.ndarray, nelxyz: list, filename: str):
             density_field = xPhys.reshape((nx, ny)).T[np.newaxis, :, :]
 
         # Add 1-voxel padding to avoid border loss in marching cubes
-        density_field = np.pad(density_field, pad_width=1, mode='constant', constant_values=0)
+        density_field = np.pad(
+            density_field, pad_width=1, mode="constant", constant_values=0
+        )
         # Run marching cubes
         vertices, triangles = mcubes.marching_cubes(density_field, 0.5)
         # Build STL mesh
