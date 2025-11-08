@@ -595,8 +595,19 @@ class OptimizerWidget(QWidget):
             "Exponent in the SIMP method to penalize intermediate densities"
         )
         layout.addWidget(self.opt_p, 2, 1)
+        # Eta
+        layout.addWidget(QLabel("Eta:"), 3, 0)
+        self.opt_eta = QDoubleSpinBox()
+        self.opt_eta.setRange(0.05, 1.0)
+        self.opt_eta.setValue(0.3)
+        self.opt_eta.setSingleStep(0.05)
+        self.opt_eta.setToolTip(
+            "Damping factor in OC update rule to controls aggressiveness of density updates.\n"
+            "Lower eta: slower, more stable convergence; Higher eta: faster, but risk"
+        )
+        layout.addWidget(self.opt_eta, 3, 1)
         # Max change
-        layout.addWidget(QLabel("Max change:"), 3, 0)
+        layout.addWidget(QLabel("Max change:"), 4, 0)
         self.opt_max_change = QDoubleSpinBox()
         self.opt_max_change.setRange(0.01, 0.5)
         self.opt_max_change.setValue(0.05)
@@ -604,14 +615,14 @@ class OptimizerWidget(QWidget):
         self.opt_max_change.setToolTip(
             "Bound the density change between two iterations to a maximum value"
         )
-        layout.addWidget(self.opt_max_change, 3, 1)
+        layout.addWidget(self.opt_max_change, 4, 1)
         # Iterations
-        layout.addWidget(QLabel("Iterations:"), 4, 0)
+        layout.addWidget(QLabel("Iterations:"), 5, 0)
         self.opt_n_it = QSpinBox()
         self.opt_n_it.setRange(1, 100)
         self.opt_n_it.setValue(30)
         self.opt_n_it.setToolTip("Number of optimization iterations")
-        layout.addWidget(self.opt_n_it, 4, 1)
+        layout.addWidget(self.opt_n_it, 5, 1)
 
 
 class DisplacementWidget(QWidget):

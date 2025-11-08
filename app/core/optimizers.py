@@ -131,7 +131,13 @@ def lk(E: float, nu: float, is_3d: bool) -> np.ndarray:
 
 
 def oc(
-    nel: int, x: np.ndarray, max_change: float, dc: np.ndarray, dv: np.ndarray, g: float
+    nel: int,
+    x: np.ndarray,
+    eta: float,
+    max_change: float,
+    dc: np.ndarray,
+    dv: np.ndarray,
+    g: float,
 ) -> Tuple[np.ndarray, float]:
     """
     Optimality Criterion (OC) update scheme.
@@ -155,7 +161,7 @@ def oc(
         lmid = 0.5 * (l2 + l1)
         # Bisection method to find the Lagrange multiplier
         # This is the OC update rule with move limits
-        x_update = x * np.maximum(1e-10, -dc / dv / lmid) ** 0.3
+        x_update = x * np.maximum(0.1, -dc / dv / lmid) ** eta
         xnew[:] = np.maximum(
             rhomin,
             np.maximum(
@@ -204,6 +210,7 @@ def optimize(
     filter_type: int,
     filter_radius_min: float,
     penal: float,
+    eta: float,
     max_change: float,
     n_it: int,
     progress_callback: Optional[Callable[[int, float, float], None]] = None,
@@ -494,13 +501,17 @@ def optimize(
         # Objective
         obj_val = 0
         if nb_act_of == 0:  # Rigid mechanism
-            obj_val = ((Emin+xPhys**penal*(Emax-Emin))*ce_total).sum()
+            obj_val = ((Emin + xPhys**penal * (Emax - Emin)) * ce_total).sum()
         else:  # Compliant mechanism
-            for i in range(len(di)): # Objective (average displacement in the output forces directions)
-                obj_val += (sum(abs(uo[do[i], i]) for i in range(len(do)))) / (nb_act_of)
+            for i in range(
+                len(di)
+            ):  # Objective (average displacement in the output forces directions)
+                obj_val += (sum(abs(uo[do[i], i]) for i in range(len(do)))) / (
+                    nb_act_of
+                )
 
         # OC update
-        x, g = oc(nel, x, max_change, dc, dv, g)
+        x, g = oc(nel, x, eta, max_change, dc, dv, g)
 
         # xPhys update
         if filter_type == "Sensitivity":

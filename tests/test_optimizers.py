@@ -30,13 +30,14 @@ def test_oc_update_rule():
     """Unit Test: Checks the Optimality Criteria function."""
     nel = 4
     x = np.array([0.5, 0.5, 0.5, 0.5])
-    volfrac = 0.5
+    eta = 0.3
+    max_change = 0.05
     dc = np.array([-1.0, -0.5, 0.0, 0.5])
     dv = np.array([1.0, 1.0, 1.0, 1.0])
     g = 0.0
 
     # Run OC update
-    xnew, gt = optimizers.oc(nel, x, volfrac, dc, dv, g)
+    xnew, gt = optimizers.oc(nel, x, eta, max_change, dc, dv, g)
 
     # Check shape
     assert isinstance(xnew, np.ndarray), "oc should return a NumPy array"
@@ -69,7 +70,7 @@ def load_presets():
 
 @pytest.mark.parametrize("preset_name, preset_params", load_presets())
 def test_optimizers_with_presets(preset_name, preset_params):
-    """Unit Test: Runs the 2D/3D optimizer with a given preset."""
+    """Unit Test: Runs the optimizer with a given preset."""
     is_3d = preset_params["nelxyz"][2] > 0
 
     # Prepare the parameters for the optimizer function

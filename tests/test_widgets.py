@@ -158,6 +158,7 @@ def test_optimizer_widget_initialization(qt_app):
     assert isinstance(widget.opt_ft, QComboBox)
     assert isinstance(widget.opt_fr, QDoubleSpinBox)
     assert isinstance(widget.opt_p, QDoubleSpinBox)
+    assert isinstance(widget.opt_eta, QDoubleSpinBox)
     assert isinstance(widget.opt_max_change, QDoubleSpinBox)
     assert isinstance(widget.opt_n_it, QSpinBox)
 

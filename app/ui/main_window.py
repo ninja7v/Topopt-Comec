@@ -279,6 +279,7 @@ class MainWindow(QMainWindow):
         )
         self.optimizer_widget.opt_fr.valueChanged.connect(self.on_parameter_changed)
         self.optimizer_widget.opt_p.valueChanged.connect(self.on_parameter_changed)
+        self.optimizer_widget.opt_eta.valueChanged.connect(self.on_parameter_changed)
         self.optimizer_widget.opt_max_change.valueChanged.connect(
             self.on_parameter_changed
         )
@@ -408,6 +409,7 @@ class MainWindow(QMainWindow):
         )
         params["filter_radius_min"] = self.optimizer_widget.opt_fr.value()
         params["penal"] = self.optimizer_widget.opt_p.value()
+        params["eta"] = self.optimizer_widget.opt_eta.value()
         params["max_change"] = self.optimizer_widget.opt_max_change.value()
         params["n_it"] = self.optimizer_widget.opt_n_it.value()
 
@@ -802,6 +804,7 @@ class MainWindow(QMainWindow):
             self.optimizer_widget.opt_ft,
             self.optimizer_widget.opt_fr,
             self.optimizer_widget.opt_p,
+            self.optimizer_widget.opt_eta,
             self.optimizer_widget.opt_max_change,
             self.optimizer_widget.opt_n_it,
         ]
@@ -2080,6 +2083,7 @@ class MainWindow(QMainWindow):
         )
         self.optimizer_widget.opt_fr.setValue(params["filter_radius_min"])
         self.optimizer_widget.opt_p.setValue(params["penal"])
+        self.optimizer_widget.opt_eta.setValue(params["eta"])
         self.optimizer_widget.opt_max_change.setValue(params["max_change"])
         self.optimizer_widget.opt_n_it.setValue(params["n_it"])
 
