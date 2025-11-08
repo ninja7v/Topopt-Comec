@@ -453,30 +453,32 @@ def optimize(
             if np.any(fo[free, i]):
                 uo[free, i] = spsolve(K_free, fo[free, i])
 
-        # Objective (average displacement in the output forces directions)
-        obj_val = 0
-        for i in range(len(di)):
-            obj_val += (sum(abs(uo[do[i], i]) for i in range(len(do)))) / (nb_act_of)
-
         # Filtering
-        if is_3d:
-            dc = np.zeros(nel)
-            for el in range(nel):
-                ce_total = 0
-                for i_in in active_iforces_indices:
-                    Ue_in = ui[edofMat[el, :], [i_in]]
-                    for i_out in active_oforces_indices:
-                        Ue_out = uo[edofMat[el, :], [i_out]]
-                        ce_total += (Ue_in.T @ KE @ Ue_out).item()
-                dc[el] = penal * (xPhys[el] ** (penal - 1)) * ce_total
-        else:
+        if nb_act_of == 0:  # Rigid mechanism
             ce_total = np.zeros(nel)
             for i_in in active_iforces_indices:
-                Ue_in = ui[edofMat, i_in]  # Shape: (nel, 8)
-                for i_out in active_oforces_indices:
-                    Ue_out = uo[edofMat, i_out]  # Shape: (nel, 8)
-                    ce_total += np.einsum("ij,jk,ik->i", Ue_in, KE, Ue_out)
-            dc = penal * (xPhys ** (penal - 1)) * ce_total
+                Ue = ui[edofMat, i_in]
+                ce_total += np.einsum("ij,jk,ik->i", Ue, KE, Ue)
+            dc = -penal * (xPhys ** (penal - 1)) * ce_total
+        else:  # Compliant mechanism
+            if is_3d:
+                dc = np.zeros(nel)
+                for el in range(nel):
+                    ce_total = 0
+                    for i_in in active_iforces_indices:
+                        Ue_in = ui[edofMat[el, :], [i_in]]
+                        for i_out in active_oforces_indices:
+                            Ue_out = uo[edofMat[el, :], [i_out]]
+                            ce_total += (Ue_in.T @ KE @ Ue_out).item()
+                    dc[el] = penal * (xPhys[el] ** (penal - 1)) * ce_total
+            else:
+                ce_total = np.zeros(nel)
+                for i_in in active_iforces_indices:
+                    Ue_in = ui[edofMat, i_in]  # Shape: (nel, 8)
+                    for i_out in active_oforces_indices:
+                        Ue_out = uo[edofMat, i_out]  # Shape: (nel, 8)
+                        ce_total += np.einsum("ij,jk,ik->i", Ue_in, KE, Ue_out)
+                dc = penal * (xPhys ** (penal - 1)) * ce_total
         dv = np.ones(nel)
         if filter_type == "Sensitivity":
             if is_3d:
@@ -488,6 +490,14 @@ def optimize(
         elif filter_type == "Density":
             dc[:] = np.asarray(H * (dc[np.newaxis].T / Hs))[:, 0]
             dv[:] = np.asarray(H * (dv[np.newaxis].T / Hs))[:, 0]
+
+        # Objective
+        obj_val = 0
+        if nb_act_of == 0:  # Rigid mechanism
+            obj_val = ((Emin+xPhys**penal*(Emax-Emin))*ce_total).sum()
+        else:  # Compliant mechanism
+            for i in range(len(di)): # Objective (average displacement in the output forces directions)
+                obj_val += (sum(abs(uo[do[i], i]) for i in range(len(do)))) / (nb_act_of)
 
         # OC update
         x, g = oc(nel, x, max_change, dc, dv, g)

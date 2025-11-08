@@ -606,8 +606,12 @@ class MainWindow(QMainWindow):
             return "Nx, Ny, Nz must be positive."
         if not any(d != "-" for d in p["fidir"]):
             print("At least one input force must be active")
-        if not any(d != "-" for d in p["fodir"]):
-            print("At least one output force must be active")
+        if not any(d != "-" for d in p["fodir"]) and not any(
+            d != "-" for d in p["sdim"]
+        ):
+            print(
+                "At least one output force (for compliant mechanisms) or support (for rigid mechanisms) must be active"
+            )
         return None
 
     def update_position_ranges(self):
