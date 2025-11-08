@@ -1,14 +1,15 @@
 Topopt Comec
 ============
 
-**Interactive topology optimization for compliant mechanisms — unleash your creativity.**
+**Interactive topology optimization for compliant mechanisms — unleash your creativity!**
 
 ![topopt-comec_demo](https://github.com/user-attachments/assets/1c8494ac-3dc0-49fd-8fac-8e6aace7c6b9)
 
 ## What is Topopt Comec?
 
-Topopt Comec helps you create and optimize flexible mechanical structures called compliant mechanisms.
-Just shape your domain, set your forces, supports, choose your material and optimizer, then watch it sculpt the best design for your needs — in 2D or 3D.
+Topopt Comec helps you design compliant mechanisms — flexible structures that achieve motion through material deformation rather than joints.
+
+Simply draw your domain, set forces and supports, choose your material and optimizer, then watch the algorithm sculpt the optimal shape — in 2D or 3D.
 
 ## 🚀Quick Start
 ### Clone/Download the repo
@@ -28,21 +29,21 @@ python main.py
 Tweak the parameters or choose a preset and hit "Create"!
 
 ### Export
-Now that you are happy with your mechanism, you can export it in Paraview or a CAD software
+Once you’re happy with your mechanism, export it for visualization in ParaView or for refinement in your favorite CAD software.
 
 ## 📖Wiki
-The usage should be intuitive, but full docs are in the [Wiki](https://github.com/ninja7v/Topopt-Comec/wiki). Check it for detailed and visual explanations!
+The interface should feel intuitive, but you’ll find detailed visual explanations in the [Wiki](https://github.com/ninja7v/Topopt-Comec/wiki).
 
 ![topopt-comec_intro](https://github.com/user-attachments/assets/acf02733-3189-4daf-a9a9-79dfb7207615)
 
 ## ✍️Contribute
-Ideas, bug reports, or pull requests? All welcome. Let’s build something awesome together!
+Ideas, bug reports, or pull requests — all are welcome. Let’s build something awesome together!
 
-Now it's your turn to create cool mechanisms !
+Now it's your turn to create cool mechanisms.
 
 Thank you for using Topopt Comec 🙂
 
-> Just optimize !
+> Just optimize!
 
 ## Licensing
 
