@@ -55,8 +55,11 @@ def save_as_stl(xPhys: np.ndarray, nelxyz: list, filename: str):
             # Reshape 2D data and add a new axis for the Z dimension
             density_field = xPhys.reshape((nx, ny)).T[np.newaxis, :, :]
 
-        # Common Marching Cubes and STL Logic
+        # Add 1-voxel padding to avoid border loss in marching cubes
+        density_field = np.pad(density_field, pad_width=1, mode='constant', constant_values=0)
+        # Run marching cubes
         vertices, triangles = mcubes.marching_cubes(density_field, 0.5)
+        # Build STL mesh
         stl_mesh = mesh.Mesh(np.zeros(triangles.shape[0], dtype=mesh.Mesh.dtype))
         stl_mesh.vectors = vertices[triangles]
         stl_mesh.save(filename)
