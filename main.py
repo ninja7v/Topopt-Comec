@@ -8,6 +8,9 @@ from pathlib import Path
 import darkdetect
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QStyle
+from PySide6.QtSvg import (
+    QSvgRenderer,
+)  # make sure SVG support is available # noqa: F401
 
 
 def main():
@@ -19,7 +22,8 @@ def main():
     icon_path = Path(__file__).parent / "icons" / file_name
     if icon_path.exists():
         app_icon = QIcon(str(icon_path))
-        app.setWindowIcon(app_icon)
+        if not app_icon.isNull():
+            app.setWindowIcon(app_icon)
     else:
         print(f"Warning: Window icon not found at {icon_path}. Using a built-in icon.")
         fallback_icon = app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
