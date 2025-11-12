@@ -111,28 +111,31 @@ def test_forces_widget_initialization(qt_app):
 
 
 def test_support_widget_initialization(qt_app):
-    """Unit Test: Verifies that the static SupportWidget initializes with 4 rows."""
+    """Unit Test: Verifies that the static SupportWidget works well."""
     widget = SupportWidget()
 
-    assert (
-        len(widget.inputs) >= 1
-    ), "SupportWidget should always create at least 1 support row."
-
-    first_support = widget.inputs[0]
     # Check instances
-    assert "sx" in first_support and isinstance(first_support["sx"], QSpinBox)
-    assert "sy" in first_support and isinstance(first_support["sy"], QSpinBox)
-    assert "sdim" in first_support and isinstance(first_support["sdim"], QComboBox)
+    assert hasattr(widget, "add_btn") and isinstance(widget.add_btn, QPushButton)
 
-    # Check default values
-    assert widget.inputs[0]["sx"].value() == 0
-    assert widget.inputs[0]["sy"].value() == 0
-    assert widget.inputs[0]["sdim"].currentText() == "XYZ"
+    # Test add button
+    widget.add_btn.click()
+    qt_app.processEvents()
+    assert len(widget.inputs) == 1, "Clicking on add support should add a support."
+    new_support = widget.inputs[-1]
+    assert "remove_btn" in new_support and isinstance(
+        widget.inputs[0]["remove_btn"], QPushButton
+    )
+    assert "sx" in new_support and isinstance(widget.inputs[0]["sx"], QSpinBox)
+    assert "sy" in new_support and isinstance(widget.inputs[0]["sy"], QSpinBox)
+    assert "sz" in new_support and isinstance(widget.inputs[0]["sz"], QSpinBox)
+    assert "sdim" in new_support and isinstance(widget.inputs[0]["sdim"], QComboBox)
 
-    assert widget.inputs[1]["sx"].value() == 60
-    assert widget.inputs[1]["sdim"].currentText() == "XYZ"
-
-    assert widget.inputs[3]["sdim"].currentText() == "-"
+    # Test remove button
+    new_support["remove_btn"].click()
+    qt_app.processEvents()
+    assert (
+        len(widget.inputs) == 0
+    ), "Clicking on remove support should delete a support."
 
 
 def test_material_widget_initialization(qt_app):
