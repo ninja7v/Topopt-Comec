@@ -245,14 +245,9 @@ class MainWindow(QMainWindow):
         section = CollapsibleSection("🔺 Supports", self.supports_widget)
         section.set_visibility_toggle(True)
         section.visibility_button.toggled.connect(self.on_visibility_toggled)
-
-        for support_input_group in self.supports_widget.inputs:
-            support_input_group["sx"].valueChanged.connect(self.on_parameter_changed)
-            support_input_group["sy"].valueChanged.connect(self.on_parameter_changed)
-            support_input_group["sz"].valueChanged.connect(self.on_parameter_changed)
-            support_input_group["sdim"].currentIndexChanged.connect(
-                self.on_parameter_changed
-            )
+        self.supports_widget.add_btn.clicked.connect(self.connect_support_signals)
+        self.supports_widget.add_btn.clicked.connect(self.update_position_ranges)
+        self.supports_widget.nbSupportsChanged.connect(self.on_parameter_changed)
 
         return section
 
@@ -607,13 +602,48 @@ class MainWindow(QMainWindow):
         if nelx <= 0 or nely <= 0 or nelz < 0:
             return "Nx, Ny, Nz must be positive."
         if not any(d != "-" for d in p["fidir"]):
-            print("At least one input force must be active")
+            return "At least one input force must be active"
         if not any(d != "-" for d in p["fodir"]) and not any(
             d != "-" for d in p["sdim"]
         ):
-            print(
-                "At least one output force (for compliant mechanisms) or support (for rigid mechanisms) must be active"
-            )
+            return "At least one output force (for compliant mechanisms) or support (for rigid mechanisms) must be active"
+
+        # Check for duplicate supports
+        active_supports_indices = [i for i in range(len(p["sdim"])) if p["sdim"][i] != "-"]
+        for i in active_supports_indices:
+            for j in active_supports_indices:
+                if j > i:
+                    if (
+                        p["sx"][i] == p["sx"][j]
+                        and p["sy"][i] == p["sy"][j]
+                        and p["sz"][i] == p["sz"][j]
+                        and p["sdim"][i] == p["sdim"][j]
+                    ):
+                        return f"Supports {i+1} and {j+1} are identical."
+
+        # Check for duplicate forces
+        active_input_force_indices = [i for i in range(len(p["fidir"])) if p["fidir"][i] != "-"]
+        for i in active_input_force_indices:
+            for j in active_input_force_indices:
+                if j > i:
+                    if (
+                        p["fix"][i] == p["fix"][j]
+                        and p["fiy"][i] == p["fiy"][j]
+                        and p["fiz"][i] == p["fiz"][j]
+                        and p["fidir"][i] == p["fidir"][j]
+                    ):
+                        return f"input forces {i+1} and {j+1} are identical."
+        active_output_force_indices = [i for i in range(len(p["fodir"])) if p["fodir"][i] != "-"]
+        for i in active_output_force_indices:
+            for j in active_output_force_indices:
+                if j > i:
+                    if (
+                        p["fox"][i] == p["fox"][j]
+                        and p["foy"][i] == p["foy"][j]
+                        and p["foz"][i] == p["foz"][j]
+                        and p["fodir"][i] == p["fodir"][j]
+                    ):
+                        return f"Output forces {i+1} and {j+1} are identical."
         return None
 
     def update_position_ranges(self):
@@ -2058,19 +2088,25 @@ class MainWindow(QMainWindow):
 
         # Supports
         num_supports_in_preset = len(params.get("sx", []))
-        for i, support_group in enumerate(self.supports_widget.inputs):
-            if i < num_supports_in_preset:
-                # If data exists for this support, apply it
-                support_group["sx"].setValue(params["sx"][i])
-                support_group["sy"].setValue(params["sy"][i])
-                support_group["sz"].setValue(params["sz"][i])
-                support_group["sdim"].setCurrentText(params["sdim"][i])
-            else:
-                # If no data exists, reset this row to default empty values
-                support_group["sx"].setValue(0)
-                support_group["sy"].setValue(0)
-                support_group["sz"].setValue(0)
-                support_group["sdim"].setCurrentIndex(0)  # Set to '-'
+        current_num = len(self.supports_widget.inputs)
+        while current_num > num_supports_in_preset:  # Remove extras
+            last_btn = self.supports_widget.inputs[-1]["remove_btn"]
+            try:
+                last_btn.clicked.disconnect(self.on_parameter_changed)
+            except TypeError:
+                pass  # Was not connected; ignore
+            self.supports_widget.remove_support(current_num - 1, False)  # Remove last row
+            current_num -= 1
+        while current_num < num_supports_in_preset:  # Add missings
+            self.supports_widget.add_support(None, "XYZ", False)
+            current_num += 1
+        for i in range(num_supports_in_preset):  # Set values
+            support_group = self.supports_widget.inputs[i]
+            support_group["sx"].setValue(params["sx"][i])
+            support_group["sy"].setValue(params["sy"][i])
+            support_group["sz"].setValue(params["sz"][i])
+            support_group["sdim"].setCurrentText(params["sdim"][i])
+        self.connect_support_signals()
 
         # Material
         self.material_widget.mat_E.setValue(params["E"])
@@ -2100,6 +2136,15 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(
             f"Loaded preset: {self.preset.presets_combo.currentText()}", 3000
         )
+
+    def connect_support_signals(self):
+        """(Re)connects on_parameter_changed signals to all current support widgets."""
+        for support_group in self.supports_widget.inputs:
+            support_group["sx"].valueChanged.connect(self.on_parameter_changed)
+            support_group["sy"].valueChanged.connect(self.on_parameter_changed)
+            support_group["sz"].valueChanged.connect(self.on_parameter_changed)
+            support_group["sdim"].currentIndexChanged.connect(self.on_parameter_changed)
+            # there is a special "nbSupportsChanged" signal for the remove button
 
     ############
     # BINARIZE #

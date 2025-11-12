@@ -2,7 +2,7 @@
 # MIT License - Copyright (c) 2025 Luc Prevost
 # Custom PySide6 widgets for the TopOpt-Comec UI.
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, Signal
 from PySide6.QtGui import QAction, QColor, QFont
 from PySide6.QtWidgets import (
     QColorDialog,
@@ -330,7 +330,6 @@ class ForcesWidget(QWidget):
         self.inputs = (
             []
         )  # This list will hold the input widgets so the MainWindow can access them
-        # The main layout for this widget stacks the force sections vertically
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(10)
 
@@ -476,52 +475,131 @@ class ForcesWidget(QWidget):
 class SupportWidget(QWidget):
     """Custom widget for defining up to four supports."""
 
+    nbSupportsChanged = Signal()  # Signal to update the parameters when the number of supports changes
+    
     def __init__(self):
         super().__init__()
         self.inputs = (
             []
         )  # This list will hold the input widgets so the MainWindow can access them
-        # The main layout for this widget
-        layout = QGridLayout(self)
-        layout.setColumnStretch(1, 1)  # Allow the position inputs to stretch
 
-        dims = ["-", "X", "Y", "Z", "XY", "XZ", "YZ", "XYZ"]
-        default_pos = [[0, 0, 0], [60, 0, 0], [0, 0, 0], [0, 0, 0]]
-        default_dims = [7, 7, 0, 0]
+        self.main_layout = QVBoxLayout(self)
+        self.grid = QGridLayout()
+        self.grid.setColumnStretch(1, 1)
+        self.main_layout.addLayout(self.grid)
 
-        for i in range(len(default_dims)):
+        # Add button
+        self.add_btn = QPushButton("+ Add Support")
+        self.add_btn.clicked.connect(lambda: self.add_support())
+        self.add_btn.setToolTip("Add a support")
+        self.main_layout.addWidget(self.add_btn, alignment=Qt.AlignLeft)
+
+        self.dims = ["-", "X", "Y", "Z", "XY", "XZ", "YZ", "XYZ"]
+
+    def add_support(self, pos=None, dim="XYZ", emit_signal=True):
+        row = len(self.inputs)
+        if row >= 10:  # safety
+            return
+
+        if pos is None:
+            pos = [0, 0, 0]
+
+        # Remove button
+        remove_btn = QPushButton("−")
+        remove_btn.setFixedWidth(30)
+        remove_btn.setToolTip("Remove this support")
+        remove_btn.clicked.connect(lambda checked=False, r=row: self.remove_support(r))
+        self.grid.addWidget(remove_btn, row, 0)
+        
+        # Position
+        pos_layout = QHBoxLayout()
+        sx = QSpinBox()
+        sx.setRange(0, 1000)
+        sx.setValue(pos[0])
+        sx.setMaximumWidth(65)
+        sx.setToolTip("X")
+        sy = QSpinBox()
+        sy.setRange(0, 1000)
+        sy.setValue(pos[1])
+        sy.setMaximumWidth(65)
+        sy.setToolTip("Y")
+        sz = QSpinBox()
+        sz.setRange(0, 1000)
+        sz.setValue(pos[2])
+        sz.setMaximumWidth(65)
+        sz.setToolTip("Z")
+        pos_layout.addWidget(sx)
+        pos_layout.addWidget(sy)
+        pos_layout.addWidget(sz)
+        self.grid.addLayout(pos_layout, row, 1)
+        
+        # Fixed directions
+        sdim = QComboBox()
+        sdim.addItems(self.dims)
+        sdim.setCurrentText(dim)
+        sdim.setToolTip("Fixed direction(s)")
+        self.grid.addWidget(sdim, row, 2)
+
+        # Store the widgets in the public 'inputs' list
+        data = {"sx": sx, "sy": sy, "sz": sz, "sdim": sdim, "remove_btn": remove_btn}
+        self.inputs.append(data)
+        if emit_signal:
+            self.nbSupportsChanged.emit()
+        self.update_remove_buttons()
+
+    def remove_support(self, row, emit_signal=True):
+        if row < 0 or row >= len(self.inputs):
+            return
+        
+        # Remove widgets
+        support = self.inputs.pop(row)
+        for w in [
+            support["remove_btn"],
+            support["sx"],
+            support["sy"],
+            support["sz"],
+            support["sdim"],
+        ]:
+            w.deleteLater()
+            w.setParent(None)
+
+        # Rebuild grid to fix row indices
+        self.rebuild_grid()
+        if emit_signal:
+            self.nbSupportsChanged.emit()
+        self.update_remove_buttons()
+
+    def rebuild_grid(self):
+        # Clear grid
+        while self.grid.count():
+            item = self.grid.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+            elif item.layout():
+                layout = item.layout()
+                while layout.count():
+                    child = layout.takeAt(0)
+                    if child.widget():
+                        child.widget().setParent(None)
+                layout.setParent(None)
+                layout.deleteLater()
+
+        # Re-add all
+        for i, support in enumerate(self.inputs):
+            support["remove_btn"].clicked.disconnect()
+            support["remove_btn"].clicked.connect(lambda _, r=i: self.remove_support(r))
+            self.grid.addWidget(support["remove_btn"], i, 0)
             pos_layout = QHBoxLayout()
-            # Force position
-            label = QLabel(f"<b>▲ {i+1}</b>")
-            layout.addWidget(label, i, 0)
-            sx = QSpinBox()
-            sx.setRange(0, 1000)
-            sx.setValue(default_pos[i][0])
-            sx.setMaximumWidth(65)
-            sx.setToolTip("X")
-            pos_layout.addWidget(sx)
-            sy = QSpinBox()
-            sy.setRange(0, 1000)
-            sy.setValue(default_pos[i][1])
-            sy.setMaximumWidth(65)
-            sy.setToolTip("Y")
-            pos_layout.addWidget(sy)
-            sz = QSpinBox()
-            sz.setRange(0, 1000)
-            sz.setValue(default_pos[i][2])
-            sz.setMaximumWidth(65)
-            sz.setToolTip("Z")
-            pos_layout.addWidget(sz)
-            sdim = QComboBox()
-            sdim.addItems(dims)
-            sdim.setCurrentIndex(default_dims[i])
-            # Force direction
-            sdim.setToolTip("Fixed direction(s)")
-            layout.addLayout(pos_layout, i, 1)
-            layout.addWidget(sdim, i, 2)
+            pos_layout.addWidget(support["sx"])
+            pos_layout.addWidget(support["sy"])
+            pos_layout.addWidget(support["sz"])
+            self.grid.addLayout(pos_layout, i, 1)
+            self.grid.addWidget(support["sdim"], i, 2)
 
-            # Store the widgets in the public 'inputs' list
-            self.inputs.append({"sx": sx, "sy": sy, "sz": sz, "sdim": sdim})
+    def update_remove_buttons(self):
+        enabled = len(self.inputs) > 0
+        for support in self.inputs:
+            support["remove_btn"].setEnabled(enabled)
 
 
 class MaterialWidget(QWidget):

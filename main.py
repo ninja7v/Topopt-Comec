@@ -8,9 +8,9 @@ from pathlib import Path
 import darkdetect
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QStyle
-from PySide6.QtSvg import (
+from PySide6.QtSvg import (  # noqa: F401
     QSvgRenderer,
-)  # make sure SVG support is available # noqa: F401
+)  # make sure SVG support is available
 
 
 def main():
