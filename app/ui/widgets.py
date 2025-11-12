@@ -475,8 +475,10 @@ class ForcesWidget(QWidget):
 class SupportWidget(QWidget):
     """Custom widget for defining up to four supports."""
 
-    nbSupportsChanged = Signal()  # Signal to update the parameters when the number of supports changes
-    
+    nbSupportsChanged = (
+        Signal()
+    )  # Signal to update the parameters when the number of supports changes
+
     def __init__(self):
         super().__init__()
         self.inputs = (
@@ -510,7 +512,7 @@ class SupportWidget(QWidget):
         remove_btn.setToolTip("Remove this support")
         remove_btn.clicked.connect(lambda checked=False, r=row: self.remove_support(r))
         self.grid.addWidget(remove_btn, row, 0)
-        
+
         # Position
         pos_layout = QHBoxLayout()
         sx = QSpinBox()
@@ -532,7 +534,7 @@ class SupportWidget(QWidget):
         pos_layout.addWidget(sy)
         pos_layout.addWidget(sz)
         self.grid.addLayout(pos_layout, row, 1)
-        
+
         # Fixed directions
         sdim = QComboBox()
         sdim.addItems(self.dims)
@@ -550,7 +552,7 @@ class SupportWidget(QWidget):
     def remove_support(self, row, emit_signal=True):
         if row < 0 or row >= len(self.inputs):
             return
-        
+
         # Remove widgets
         support = self.inputs.pop(row)
         for w in [

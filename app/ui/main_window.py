@@ -609,7 +609,9 @@ class MainWindow(QMainWindow):
             return "At least one output force (for compliant mechanisms) or support (for rigid mechanisms) must be active"
 
         # Check for duplicate supports
-        active_supports_indices = [i for i in range(len(p["sdim"])) if p["sdim"][i] != "-"]
+        active_supports_indices = [
+            i for i in range(len(p["sdim"])) if p["sdim"][i] != "-"
+        ]
         for i in active_supports_indices:
             for j in active_supports_indices:
                 if j > i:
@@ -622,7 +624,9 @@ class MainWindow(QMainWindow):
                         return f"Supports {i+1} and {j+1} are identical."
 
         # Check for duplicate forces
-        active_input_force_indices = [i for i in range(len(p["fidir"])) if p["fidir"][i] != "-"]
+        active_input_force_indices = [
+            i for i in range(len(p["fidir"])) if p["fidir"][i] != "-"
+        ]
         for i in active_input_force_indices:
             for j in active_input_force_indices:
                 if j > i:
@@ -633,7 +637,9 @@ class MainWindow(QMainWindow):
                         and p["fidir"][i] == p["fidir"][j]
                     ):
                         return f"input forces {i+1} and {j+1} are identical."
-        active_output_force_indices = [i for i in range(len(p["fodir"])) if p["fodir"][i] != "-"]
+        active_output_force_indices = [
+            i for i in range(len(p["fodir"])) if p["fodir"][i] != "-"
+        ]
         for i in active_output_force_indices:
             for j in active_output_force_indices:
                 if j > i:
@@ -2095,7 +2101,9 @@ class MainWindow(QMainWindow):
                 last_btn.clicked.disconnect(self.on_parameter_changed)
             except TypeError:
                 pass  # Was not connected; ignore
-            self.supports_widget.remove_support(current_num - 1, False)  # Remove last row
+            self.supports_widget.remove_support(
+                current_num - 1, False
+            )  # Remove last row
             current_num -= 1
         while current_num < num_supports_in_preset:  # Add missings
             self.supports_widget.add_support(None, "XYZ", False)
