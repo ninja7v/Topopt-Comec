@@ -1,5 +1,8 @@
+# tests/test_optimizers.py
+# MIT License - Copyright (c) 2025 Luc Prevost
+# Tests for the optimizers.
+
 import numpy as np
-import pytest
 
 from app.ui.workers import OptimizerWorker, DisplacementWorker
 
@@ -17,7 +20,9 @@ def test_optimizer_worker(monkeypatch):
 
     worker = OptimizerWorker({"some_param": 1})
 
-    worker.progress.connect(lambda it, obj, ch: recorded["progress"].append((it, obj, ch)))
+    worker.progress.connect(
+        lambda it, obj, ch: recorded["progress"].append((it, obj, ch))
+    )
     worker.frameReady.connect(lambda frame: recorded.update({"frame": frame}))
     worker.finished.connect(lambda res: recorded.update({"finished": res}))
     worker.error.connect(lambda e: recorded.update({"error": e}))
@@ -54,7 +59,9 @@ def test_displacement_worker(monkeypatch):
 
     worker.progress.connect(lambda it: recorded["progress"].append(it))
     worker.frameReady.connect(lambda f: recorded["frames"].append(np.array(f)))
-    worker.finished.connect(lambda msg, flag: recorded.update({"finished": (msg, flag)}))
+    worker.finished.connect(
+        lambda msg, flag: recorded.update({"finished": (msg, flag)})
+    )
     worker.error.connect(lambda e: recorded.update({"error": e}))
 
     # Run synchronously in the test thread
