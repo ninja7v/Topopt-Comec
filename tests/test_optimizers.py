@@ -60,7 +60,7 @@ def test_oc_update_rule():
 def load_presets():
     """Finds and loads the presets.json file."""
     # Go up two directories from this test file to find the project root
-    presets_path = Path(__file__).parent.parent / "presets.json"
+    presets_path = Path(__file__).parent / "presets_test.json"
     with open(presets_path, "r") as f:
         presets_data = json.load(f)
 

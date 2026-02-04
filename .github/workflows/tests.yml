@@ -39,4 +39,4 @@ jobs:
       - name: Run tests
         run: |
           echo "Running tests..."
-          pytest -v
+          pytest -v --cov=app --cov-report=term-missing --cov-fail-under=70
