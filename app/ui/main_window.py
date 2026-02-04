@@ -1,5 +1,5 @@
 # app/ui/main_window.py
-# MIT License - Copyright (c) 2025 Luc Prevost
+# MIT License - Copyright (c) 2025-2026 Luc Prevost
 # Main window for the Topopt Comec application using PySide6.
 
 import copy

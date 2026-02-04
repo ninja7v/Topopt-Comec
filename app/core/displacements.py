@@ -1,5 +1,5 @@
 # app/core/displacements.py
-# MIT License - Copyright (c) 2025 Luc Prevost
+# MIT License - Copyright (c) 2025-2026 Luc Prevost
 # Linear displacement computation.
 
 import numpy as np

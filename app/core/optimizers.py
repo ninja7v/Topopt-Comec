@@ -1,5 +1,5 @@
 # app/core/optimizers.py
-# MIT License - Copyright (c) 2025 Luc Prevost
+# MIT License - Copyright (c) 2025-2026 Luc Prevost
 # Topology Optimizers.
 
 from typing import Callable, List, Optional, Tuple

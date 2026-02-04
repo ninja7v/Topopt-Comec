@@ -1,5 +1,5 @@
 # tests/test_exporters.py
-# MIT License - Copyright (c) 2025 Luc Prevost
+# MIT License - Copyright (c) 2025-2026 Luc Prevost
 # Tests for the exporters.
 
 from pathlib import Path
