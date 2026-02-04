@@ -1,5 +1,5 @@
 # main.py
-# MIT License - Copyright (c) 2025 Luc Prevost
+# MIT License - Copyright (c) 2025-2026 Luc Prevost
 # Entry point of TopOpt-Comec application.
 
 import sys

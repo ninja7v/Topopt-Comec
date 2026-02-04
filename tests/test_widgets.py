@@ -1,5 +1,5 @@
 # tests/test_widgets.py
-# MIT License - Copyright (c) 2025 Luc Prevost
+# MIT License - Copyright (c) 2025-2026 Luc Prevost
 # Tests for the widgets.
 
 from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QPushButton, QSpinBox, QWidget

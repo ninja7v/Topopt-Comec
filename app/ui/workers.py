@@ -1,5 +1,5 @@
 # app/ui/workers.py
-# MIT License - Copyright (c) 2025 Luc Prevost
+# MIT License - Copyright (c) 2025-2026 Luc Prevost
 # QThread worker for running optimizers and displacements in the background.
 
 import numpy as np

@@ -1,5 +1,5 @@
 # app/analysis/exporters.py
-# MIT License - Copyright (c) 2025 Luc Prevost
+# MIT License - Copyright (c) 2025-2026 Luc Prevost
 # Export result to various file formats.
 
 import mcubes

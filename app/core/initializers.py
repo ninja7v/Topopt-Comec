@@ -1,5 +1,5 @@
 # app/core/initializers.py
-# MIT License - Copyright (c) 2025 Luc Prevost
+# MIT License - Copyright (c) 2025-2026 Luc Prevost
 # Material initializators.
 
 from typing import List
