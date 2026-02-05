@@ -1,0 +1,10 @@
+# Python compiled files
+__pycache__/
+*.py[cod]
+
+# Results
+/results/
+
+# Tests
+/Tests/test_output*
+.coverage
