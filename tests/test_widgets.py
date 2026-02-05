@@ -164,6 +164,7 @@ def test_optimizer_widget_initialization(qt_app):
     assert isinstance(widget.opt_eta, QDoubleSpinBox)
     assert isinstance(widget.opt_max_change, QDoubleSpinBox)
     assert isinstance(widget.opt_n_it, QSpinBox)
+    assert isinstance(widget.opt_solver, QComboBox)
 
     # Check default values
     assert widget.opt_ft.currentText() == "Sensitivity"
@@ -171,6 +172,7 @@ def test_optimizer_widget_initialization(qt_app):
     assert widget.opt_p.value() == 3.0
     assert widget.opt_max_change.value() == 0.05
     assert widget.opt_n_it.value() == 30
+    assert widget.opt_solver.currentText() == "Auto"
 
 
 def test_displacement_widget_initialization(qt_app):

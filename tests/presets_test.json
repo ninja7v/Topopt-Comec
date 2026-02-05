@@ -89,7 +89,8 @@
         "penal": 3.0,
         "eta": 0.3,
         "max_change": 0.05,
-        "n_it": 30,
+        "n_it": 5,
+        "solver": "Auto",
         "disp_factor": 1.0,
         "disp_iterations": 1
     },
@@ -182,7 +183,8 @@
         "penal": 3.0,
         "eta": 0.3,
         "max_change": 0.05,
-        "n_it": 30,
+        "n_it": 5,
+        "solver": "Direct",
         "disp_factor": 1.0,
         "disp_iterations": 1
     },
@@ -283,7 +285,8 @@
         "penal": 3.0,
         "eta": 0.3,
         "max_change": 0.05,
-        "n_it": 30,
+        "n_it": 5,
+        "solver": "Iterative",
         "disp_factor": 1.0,
         "disp_iterations": 1
     },
@@ -372,7 +375,8 @@
         "penal": 3.0,
         "eta": 0.3,
         "max_change": 0.05,
-        "n_it": 50,
+        "n_it": 5,
+        "solver": "Direct",
         "disp_factor": 1.0,
         "disp_iterations": 1
     },
@@ -457,7 +461,8 @@
         "penal": 3.0,
         "eta": 0.3,
         "max_change": 0.05,
-        "n_it": 30,
+        "n_it": 5,
+        "solver": "Auto",
         "disp_factor": 66.0,
         "disp_iterations": 3
     },
@@ -550,7 +555,8 @@
         "penal": 3.0,
         "eta": 0.6,
         "max_change": 0.05,
-        "n_it": 20,
+        "n_it": 5,
+        "solver": "Auto",
         "disp_factor": 1.0,
         "disp_iterations": 1
     },
@@ -643,7 +649,8 @@
         "penal": 3.0,
         "eta": 0.3,
         "max_change": 0.05,
-        "n_it": 40,
+        "n_it": 5,
+        "solver": "Auto",
         "disp_factor": 1.0,
         "disp_iterations": 1
     }

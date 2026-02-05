@@ -90,6 +90,7 @@
         "eta": 0.3,
         "max_change": 0.05,
         "n_it": 30,
+        "solver": "Auto",
         "disp_factor": 1.0,
         "disp_iterations": 1
     },
@@ -183,6 +184,7 @@
         "eta": 0.3,
         "max_change": 0.05,
         "n_it": 30,
+        "solver": "Auto",
         "disp_factor": 1.0,
         "disp_iterations": 1
     },
@@ -284,6 +286,7 @@
         "eta": 0.3,
         "max_change": 0.05,
         "n_it": 30,
+        "solver": "Auto",
         "disp_factor": 1.0,
         "disp_iterations": 1
     },
@@ -373,6 +376,7 @@
         "eta": 0.3,
         "max_change": 0.05,
         "n_it": 50,
+        "solver": "Auto",
         "disp_factor": 1.0,
         "disp_iterations": 1
     },
@@ -458,6 +462,7 @@
         "eta": 0.3,
         "max_change": 0.05,
         "n_it": 30,
+        "solver": "Auto",
         "disp_factor": 66.0,
         "disp_iterations": 3
     },
@@ -551,6 +556,7 @@
         "eta": 0.6,
         "max_change": 0.05,
         "n_it": 20,
+        "solver": "Auto",
         "disp_factor": 1.0,
         "disp_iterations": 1
     },
@@ -644,6 +650,7 @@
         "eta": 0.3,
         "max_change": 0.05,
         "n_it": 40,
+        "solver": "Auto",
         "disp_factor": 1.0,
         "disp_iterations": 1
     }
