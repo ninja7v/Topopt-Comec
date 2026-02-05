@@ -483,7 +483,7 @@ def optimize(
                         if info != 0:
                             if solver == "Auto":
                                 print(
-                                    f"CG did not converge -> Switching to direct solver"
+                                    "CG did not converge -> Switching to direct solver"
                                 )
                                 try:
                                     u[free, i] = spsolve(K_free, forces[free, i])
@@ -493,7 +493,7 @@ def optimize(
                                     )
                                     u[free, i] = u_sol
                             else:
-                                print(f"WARNING: CG did not converge!")
+                                print("WARNING: CG did not converge!")
                                 u[free, i] = u_sol  # Use partial solution
                         else:
                             u[free, i] = u_sol
