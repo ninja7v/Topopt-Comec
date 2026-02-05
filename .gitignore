@@ -2,9 +2,9 @@
 __pycache__/
 *.py[cod]
 
-# Results
+# Saved results
 /results/
 
-# Tests
+# Test outputs
 /Tests/test_output*
 .coverage
