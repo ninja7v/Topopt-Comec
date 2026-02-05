@@ -271,12 +271,14 @@ class RegionsWidget(QWidget):
         shape_layout.addWidget(QLabel("Shape:"))
         rshape = QComboBox()
         rshape.addItems(["-", "□", "◯"])
+        rshape.setCurrentIndex(0)
         rshape.setToolTip("Shape of the region")
         shape_layout.addWidget(rshape)
         shape_layout.addSpacing(10)
         # State
         rstate = QComboBox()
         rstate.addItems(["Void", "Filled"])
+        rstate.setCurrentIndex(0)
         rstate.setToolTip("State of the region")
         shape_layout.addWidget(rstate)
         shape_layout.addSpacing(10)
@@ -654,8 +656,9 @@ class OptimizerWidget(QWidget):
         self.opt_ft.addItems(["Sensitivity", "Density"])
         self.opt_ft.setCurrentIndex(0)
         self.opt_ft.setToolTip(
-            "Sensitivity filter: Averages sensitivities to ensure stable and physically meaningful optimization gradients.\n"
-            "Density filter: Smooths the material distribution to avoid checkerboard patterns and mesh dependency."
+            "Regularization to avoid checkerboards and mesh dependency\n"
+            "Sensitivity: Averages sensitivities to ensure stable and physically meaningful optimization gradients.\n"
+            "Density: Smooths the material distribution to avoid checkerboard patterns and mesh dependency."
         )
         layout.addWidget(QLabel("Filter Type:"), 0, 0)
         layout.addWidget(self.opt_ft, 0, 1)
@@ -703,6 +706,18 @@ class OptimizerWidget(QWidget):
         self.opt_n_it.setValue(30)
         self.opt_n_it.setToolTip("Number of optimization iterations")
         layout.addWidget(self.opt_n_it, 5, 1)
+        # Solver
+        layout.addWidget(QLabel("Solver:"), 6, 0)
+        self.opt_solver = QComboBox()
+        self.opt_solver.addItems(["Auto", "Direct", "Iterative"])
+        self.opt_solver.setCurrentIndex(0)
+        self.opt_solver.setToolTip(
+            "Solver type for the linear system\n"
+            "Auto: Chooses the best solver based on the problem size\n"
+            "Direct: Uses LU factorization (spsolve)\n"
+            "Iterative: Uses Conjugate Gradient (cg) with preconditioning\n"
+        )
+        layout.addWidget(self.opt_solver, 6, 1)
 
 
 class DisplacementWidget(QWidget):

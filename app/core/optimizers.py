@@ -6,7 +6,7 @@ from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 from scipy.sparse import coo_matrix
-from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import spsolve, cg, LinearOperator
 
 from app.core import initializers
 
@@ -213,6 +213,7 @@ def optimize(
     eta: float,
     max_change: float,
     n_it: int,
+    solver: str,
     progress_callback: Optional[Callable[[int, float, float], None]] = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -221,6 +222,7 @@ def optimize(
     Args:
         progress_callback: A function to call with (iteration, objective, change) for UI updates.
     """
+    print("Optimizer starting...")
     # Initializations
     nelx, nely, nelz = nelxyz  # Number of elements in x, y and z directions
     is_3d = nelz > 0
@@ -400,8 +402,8 @@ def optimize(
     KE = lk(E, nu, is_3d)
     ui = np.zeros((ndof, nb_act_if))
     uo = np.zeros((ndof, nb_act_of))
-    print("3D Optimizer starting...")
     loop, change = 0, 1.0
+    print("   Preparation done -> Optimization loop starting...")
     while change > 0.01 and loop < n_it:
         loop += 1
         xold[:] = x
@@ -452,13 +454,54 @@ def optimize(
             if fonorm[i] > 0:
                 K[do[i], do[i]] += fonorm[active_oforces_indices[i]]
 
-        K_free = K[free, :][:, free]
-        for i in active_iforces_indices:
-            if np.any(fi[free, i]):
-                ui[free, i] = spsolve(K_free, fi[free, i])
-        for i in active_oforces_indices:
-            if np.any(fo[free, i]):
-                uo[free, i] = spsolve(K_free, fo[free, i])
+        K_free = K[
+            np.ix_(free, free)
+        ]  # faster than K[free, :][:, free] for sparse matrices
+        use_direct_solver = solver == "Direct" or (
+            solver == "Auto" and K_free.shape[0] < 10000
+        )
+
+        def solve_systems(K_free, forces, active_indices, u, solver, use_direct_solver):
+            if use_direct_solver:
+                for i in active_indices:
+                    if np.any(forces[free, i]):
+                        u[free, i] = spsolve(K_free, forces[free, i])
+            else:
+                # Diagonal preconditioner (Jacobi) for CG; assumes K_free is SPD (not checked for performance)
+                D_inv = 1.0 / K_free.diagonal()
+                M = LinearOperator(K_free.shape, lambda x: D_inv * x)
+
+                for i in active_indices:
+                    if np.any(forces[free, i]):
+                        u_sol, info = cg(
+                            K_free,
+                            forces[free, i],
+                            M=M,
+                            rtol=1e-6,
+                            maxiter=K_free.shape[0],
+                        )
+                        if info != 0:
+                            if solver == "Auto":
+                                print(
+                                    "CG did not converge -> Switching to direct solver"
+                                )
+                                try:
+                                    u[free, i] = spsolve(K_free, forces[free, i])
+                                except Exception as e:
+                                    print(
+                                        f"Direct solver failed: {e}. Using partial CG solution."
+                                    )
+                                    u[free, i] = u_sol
+                            else:
+                                print("WARNING: CG did not converge!")
+                                u[free, i] = u_sol  # Use partial solution
+                        else:
+                            u[free, i] = u_sol
+
+        # Solve for input forces
+        solve_systems(K_free, fi, active_iforces_indices, ui, solver, use_direct_solver)
+        # Solve for output forces
+        solve_systems(K_free, fo, active_oforces_indices, uo, solver, use_direct_solver)
 
         # Filtering
         if nb_act_of == 0:  # Rigid mechanism
