@@ -57,9 +57,7 @@ class OptimizerWorker(QThread):
 
 
 class DisplacementWorker(QThread):
-    """
-    Runs the displacement analysis in a separate thread.
-    """
+    """Runs the displacement analysis in a separate thread."""
 
     # Signal arguments: (current_iteration)
     progress = Signal(int)
@@ -102,7 +100,6 @@ class DisplacementWorker(QThread):
                     break
 
             self.finished.emit("Displacement finished or stopped.", True)
-
         except Exception as e:
             import traceback
 

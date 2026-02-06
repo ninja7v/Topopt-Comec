@@ -30,8 +30,6 @@ def test_displacement_with_presets(preset_name, preset_params):
     disp_params = preset_params.copy()
     nelx, nely, nelz = disp_params["nelxyz"]
     is_3d = nelz > 0
-    # To run the tests faster, we reduce the number of iterations
-    disp_params["disp_iterations"] = 1
     # Remove all keys that are not part of the optimizer's function signature
     keys_to_remove = ["filter_type", "filter_radius_min", "max_change", "n_it"]
     if not is_3d:

@@ -6,6 +6,8 @@ import pytest
 
 from app.ui.main_window import MainWindow
 
+from unittest.mock import patch
+
 # --- Test Cases for the Intelligent Comparison ---
 # A base 2D preset
 p_base_2d = {
@@ -216,3 +218,19 @@ def test_gather_and_apply_parameters(qt_app):
     # 5. Assert that the UI state now matches the modified parameters
     assert new_params_from_ui["nelxyz"] == [100, 80, 10]
     assert new_params_from_ui["sx"][0] == 50
+
+
+def test_save_result(qt_app):
+    """Unit Test: Checks if the save result function works without error."""
+    window = MainWindow()
+
+    # Mock result data
+    window.xPhys = [0.5] * 100
+    window.last_params = {"nelxyz": (10, 10, 0)}
+    window.figure = type("Fig", (), {"savefig": lambda *a, **k: None})()
+
+    with patch("PySide6.QtWidgets.QFileDialog.getSaveFileName") as mock_dialog:
+        mock_dialog.return_value = ("results/test.png", "PNG")
+
+        # Should not raise
+        window.save_result_as("png")

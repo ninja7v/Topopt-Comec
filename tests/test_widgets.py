@@ -206,6 +206,16 @@ def test_header_widget_structure(qt_app):
         widget.theme_button, QPushButton
     )
 
+    # Test info button
+    widget.info_button.click()
+    qt_app.processEvents()
+
+    # Test change theme
+    icon_before = widget.theme_button.icon()
+    widget.theme_button.click()
+    qt_app.processEvents()
+    assert icon_before != widget.theme_button.icon()
+
 
 def test_preset_widget_structure(qt_app):
     """Unit Test: Ensures the PresetWidget contains the correct child widgets."""
