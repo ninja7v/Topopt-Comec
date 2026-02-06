@@ -75,8 +75,6 @@ def test_optimizers_with_presets(preset_name, preset_params):
 
     # Prepare the parameters for the optimizer function
     optimizer_params = preset_params.copy()
-    # To run the tests faster, we reduce the number of iterations
-    optimizer_params["n_it"] = 2
     # Remove all keys that are not part of the optimizer's function signature
     keys_to_remove = ["disp_factor", "disp_iterations"]
     for key in keys_to_remove:

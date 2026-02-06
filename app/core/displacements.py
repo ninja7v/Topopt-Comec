@@ -395,9 +395,10 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         # Move the points
         for el in range(nel):
             if is_3d:
-                (points_interp[el, 0], points_interp[el, 1], points_interp[el, 2]) = (
-                    get3DCoordinates(el, True, nelx, nely, nelz)
-                )
+                # Center of the element
+                points_interp[el, 0] = (el % (nely * nelx)) // nely + 0.5
+                points_interp[el, 1] = (el % (nely * nelx)) % nely + 0.5
+                points_interp[el, 2] = el // (nely * nelx) + 0.5
             else:
                 points_interp[el, 0], points_interp[el, 1] = el // nely, el % nely
             points[el, 0] = points_interp[el, 0] + ux[el] * delta_disp
@@ -424,15 +425,3 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
 
         if progress_callback:
             progress_callback(it + 2)
-
-
-def get3DCoordinates(c, center, nelx, nely, nelz):
-    if center:  # center of the element
-        x = (c % (nely * nelx)) // nely + 0.5
-        y = (c % (nely * nelx)) % nely + 0.5
-        z = c // (nely * nelx) + 0.5
-    else:  # element index
-        x = int((c % (nely * nelx)) // nely)
-        y = int((c % (nely * nelx)) % nely)
-        z = int(c // (nely * nelx))
-    return (x, y, z)
