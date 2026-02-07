@@ -198,17 +198,8 @@ class MainWindow(QMainWindow):
         section = CollapsibleSection("⚫ Regions", self.regions_widget)
         section.set_visibility_toggle(True)
         section.visibility_button.toggled.connect(self.on_visibility_toggled)
-        for region_group in self.regions_widget.inputs:
-            region_group["rshape"].currentIndexChanged.connect(
-                self.on_parameter_changed
-            )
-            region_group["rstate"].currentIndexChanged.connect(
-                self.on_parameter_changed
-            )
-            region_group["rradius"].valueChanged.connect(self.on_parameter_changed)
-            region_group["rx"].valueChanged.connect(self.on_parameter_changed)
-            region_group["ry"].valueChanged.connect(self.on_parameter_changed)
-            region_group["rz"].valueChanged.connect(self.on_parameter_changed)
+        self.regions_widget.add_btn.clicked.connect(self.connect_region_signals)
+        self.regions_widget.nbRegionsChanged.connect(self.on_parameter_changed)
         return section
 
     def create_forces_section(self):
@@ -1785,8 +1776,7 @@ class MainWindow(QMainWindow):
         p = self.last_params
         if not p:
             return
-        for i, d in enumerate(p["rshape"]):
-            shape = p["rshape"][i]
+        for i, shape in enumerate(p["rshape"]):
             if shape == "-":
                 continue
 
@@ -2061,19 +2051,25 @@ class MainWindow(QMainWindow):
         self.update_position_ranges()
 
         # Regions
-        for i, region_group in enumerate(self.regions_widget.inputs):
-            region_group["rshape"].blockSignals(
-                True
-            )  # Reblock to avoid triggering on change
-            region_group["rstate"].blockSignals(
-                True
-            )  # Reblock to avoid triggering on change
-            region_group["rshape"].setCurrentText(params["rshape"][0])
-            region_group["rstate"].setCurrentText(params["rstate"][0])
-            region_group["rradius"].setValue(params["rradius"][0])
-            region_group["rx"].setValue(params["rx"][0])
-            region_group["ry"].setValue(params["ry"][0])
-            region_group["rz"].setValue(params["rz"][0])
+        num_regions_in_preset = len(params.get("rshape", []))
+        current_num_regions = len(self.regions_widget.inputs)
+        while current_num_regions > num_regions_in_preset:
+            self.regions_widget.remove_region(current_num_regions - 1, False)
+            current_num_regions -= 1
+        while current_num_regions < num_regions_in_preset:
+            self.regions_widget.add_region(emit_signal=False)
+            current_num_regions += 1
+        for i in range(num_regions_in_preset):
+            region_group = self.regions_widget.inputs[i]
+            region_group["rshape"].blockSignals(True)
+            region_group["rstate"].blockSignals(True)
+            region_group["rshape"].setCurrentText(params["rshape"][i])
+            region_group["rstate"].setCurrentText(params["rstate"][i])
+            region_group["rradius"].setValue(params["rradius"][i])
+            region_group["rx"].setValue(params["rx"][i])
+            region_group["ry"].setValue(params["ry"][i])
+            region_group["rz"].setValue(params["rz"][i])
+        self.connect_region_signals()
 
         # Forces
         nb_input_forces = 0
@@ -2156,6 +2152,21 @@ class MainWindow(QMainWindow):
             support_group["sz"].valueChanged.connect(self.on_parameter_changed)
             support_group["sdim"].currentIndexChanged.connect(self.on_parameter_changed)
             # there is a special "nbSupportsChanged" signal for the remove button
+
+    def connect_region_signals(self):
+        """(Re)connects on_parameter_changed signals to all current region widgets."""
+        for region_group in self.regions_widget.inputs:
+            region_group["rshape"].currentIndexChanged.connect(
+                self.on_parameter_changed
+            )
+            region_group["rstate"].currentIndexChanged.connect(
+                self.on_parameter_changed
+            )
+            region_group["rradius"].valueChanged.connect(self.on_parameter_changed)
+            region_group["rx"].valueChanged.connect(self.on_parameter_changed)
+            region_group["ry"].valueChanged.connect(self.on_parameter_changed)
+            region_group["rz"].valueChanged.connect(self.on_parameter_changed)
+            # there is a special "nbRegionsChanged" signal for the remove button
 
     ############
     # BINARIZE #

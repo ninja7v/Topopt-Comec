@@ -209,15 +209,26 @@ def test_gather_and_apply_parameters(qt_app):
     modified_params["nelxyz"] = [100, 80, 10]
     modified_params["sx"][0] = 50
 
-    # 3. Apply these modified parameters back to the UI
+    # 3. Add regions (simulate a preset with multiple regions)
+    modified_params["rshape"] = ["□", "◯"]
+    modified_params["rstate"] = ["Void", "Filled"]
+    modified_params["rradius"] = [5, 10]
+    modified_params["rx"] = [10, 20]
+    modified_params["ry"] = [10, 20]
+    modified_params["rz"] = [0, 0]
+
+    # 4. Apply these modified parameters back to the UI
     window.apply_parameters(modified_params)
 
-    # 4. Gather the parameters from the UI again
+    # 5. Gather the parameters from the UI again
     new_params_from_ui = window.gather_parameters()
 
-    # 5. Assert that the UI state now matches the modified parameters
+    # 6. Assert that the UI state now matches the modified parameters
     assert new_params_from_ui["nelxyz"] == [100, 80, 10]
     assert new_params_from_ui["sx"][0] == 50
+    assert len(new_params_from_ui["rshape"]) == 2
+    assert new_params_from_ui["rshape"][1] == "◯"
+    assert new_params_from_ui["rradius"][1] == 10
 
 
 def test_save_result(qt_app):

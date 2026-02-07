@@ -67,20 +67,36 @@ def test_regions_widget_initialization(qt_app):
     """Unit Test: Verifies the RegionsWidget initializes correctly."""
     widget = RegionsWidget()
 
-    first_region = widget.inputs[0]
     # Check instances
+    assert hasattr(widget, "add_btn") and isinstance(widget.add_btn, QPushButton)
+
+    # Should be empty by default
+    assert len(widget.inputs) == 0
+
+    # Test add button
+    widget.add_btn.click()
+    qt_app.processEvents()
+    assert len(widget.inputs) == 1
+    first_region = widget.inputs[0]
     assert "rshape" in first_region and isinstance(first_region["rshape"], QComboBox)
     assert "rstate" in first_region and isinstance(first_region["rstate"], QComboBox)
     assert "rradius" in first_region and isinstance(first_region["rradius"], QSpinBox)
     assert "rx" in first_region and isinstance(first_region["rx"], QSpinBox)
     assert "ry" in first_region and isinstance(first_region["ry"], QSpinBox)
+    assert "remove_btn" in first_region and isinstance(
+        first_region["remove_btn"], QPushButton
+    )
 
-    # Check default values
-    assert first_region["rshape"].currentText() == "-"
-    assert first_region["rstate"].currentText() == "Void"
-    assert first_region["rradius"].value() == 1
-    assert first_region["rx"].value() == 0
-    assert first_region["ry"].value() == 0
+    # Test remove region
+    first_region["remove_btn"].click()
+    qt_app.processEvents()
+    widget.remove_region(0)
+    assert len(widget.inputs) == 0
+
+    # Test max regions
+    for _ in range(15):
+        widget.add_region()
+    assert len(widget.inputs) == 10
 
 
 def test_forces_widget_initialization(qt_app):
@@ -116,6 +132,9 @@ def test_support_widget_initialization(qt_app):
 
     # Check instances
     assert hasattr(widget, "add_btn") and isinstance(widget.add_btn, QPushButton)
+
+    # Should be empty by default
+    assert len(widget.inputs) == 0
 
     # Test add button
     widget.add_btn.click()
