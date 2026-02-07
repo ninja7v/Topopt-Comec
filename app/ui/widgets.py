@@ -291,7 +291,7 @@ class RegionsWidget(QWidget):
             return
 
         if pos is None:
-            pos = [30, 20, 0]
+            pos = [0, 0, 0]
 
         # Container Widget for this region
         container = QWidget()
@@ -312,19 +312,19 @@ class RegionsWidget(QWidget):
         line1_layout.addWidget(QLabel("Shape:"))
         rshape = QComboBox()
         rshape.addItems(["-", "□", "◯"])
-        rshape.setCurrentText(rshape)
+        rshape.setCurrentIndex(0)
         rshape.setToolTip("Shape of the region")
         line1_layout.addWidget(rshape)
         rstate = QComboBox()
         rstate.addItems(["Void", "Filled"])
-        rstate.setCurrentText(rstate)
+        rstate.setCurrentIndex(0)
         rstate.setToolTip("State of the region")
         line1_layout.addWidget(rstate)
         # Radius
         line1_layout.addWidget(QLabel("Radius:"))
         rradius = QSpinBox()
         rradius.setRange(1, 100)
-        rradius.setValue(rradius)
+        rradius.setValue(3)
         rradius.setMaximumWidth(60)
         rradius.setToolTip("Radius")
         line1_layout.addWidget(rradius)
