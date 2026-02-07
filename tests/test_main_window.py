@@ -208,7 +208,7 @@ def test_gather_and_apply_parameters(qt_app):
     modified_params = initial_params.copy()
     modified_params["nelxyz"] = [100, 80, 10]
     modified_params["sx"][0] = 50
-    
+
     # 3. Add regions (simulate a preset with multiple regions)
     modified_params["rshape"] = ["□", "◯"]
     modified_params["rstate"] = ["Void", "Filled"]

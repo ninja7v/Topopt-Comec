@@ -69,7 +69,7 @@ def test_regions_widget_initialization(qt_app):
 
     # Check instances
     assert hasattr(widget, "add_btn") and isinstance(widget.add_btn, QPushButton)
-    
+
     # Should be empty by default
     assert len(widget.inputs) == 0
 
@@ -83,7 +83,9 @@ def test_regions_widget_initialization(qt_app):
     assert "rradius" in first_region and isinstance(first_region["rradius"], QSpinBox)
     assert "rx" in first_region and isinstance(first_region["rx"], QSpinBox)
     assert "ry" in first_region and isinstance(first_region["ry"], QSpinBox)
-    assert "remove_btn" in first_region and isinstance(first_region["remove_btn"], QPushButton)
+    assert "remove_btn" in first_region and isinstance(
+        first_region["remove_btn"], QPushButton
+    )
 
     # Test remove region
     first_region["remove_btn"].click()

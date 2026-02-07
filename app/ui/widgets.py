@@ -270,7 +270,7 @@ class RegionsWidget(QWidget):
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setSpacing(10)
-        
+
         # Layout to hold the region containers
         self.regions_layout = QVBoxLayout()
         self.regions_layout.setSpacing(10)
@@ -283,7 +283,9 @@ class RegionsWidget(QWidget):
         self.main_layout.addWidget(self.add_btn, alignment=Qt.AlignLeft)
         self.main_layout.addStretch()
 
-    def add_region(self, rshape="□", rstate="Void", rradius=5, pos=None, emit_signal=True):
+    def add_region(
+        self, rshape="□", rstate="Void", rradius=5, pos=None, emit_signal=True
+    ):
         row = len(self.inputs)
         if row >= 10:  # safety
             return
@@ -298,7 +300,7 @@ class RegionsWidget(QWidget):
 
         # --- Line 1: [Minus] "Shape" [Combos] "Radius" [Spin] ---
         line1_layout = QHBoxLayout()
-        
+
         # Remove button
         remove_btn = QPushButton("−")
         remove_btn.setFixedWidth(30)
@@ -306,19 +308,19 @@ class RegionsWidget(QWidget):
         remove_btn.clicked.connect(lambda: self.remove_region_by_widget(container))
         line1_layout.addWidget(remove_btn)
 
+        # Shape
         line1_layout.addWidget(QLabel("Shape:"))
         rshape = QComboBox()
         rshape.addItems(["-", "□", "◯"])
         rshape.setCurrentText(rshape)
         rshape.setToolTip("Shape of the region")
         line1_layout.addWidget(rshape)
-        
         rstate = QComboBox()
         rstate.addItems(["Void", "Filled"])
         rstate.setCurrentText(rstate)
         rstate.setToolTip("State of the region")
         line1_layout.addWidget(rstate)
-        
+        # Radius
         line1_layout.addWidget(QLabel("Radius:"))
         rradius = QSpinBox()
         rradius.setRange(1, 100)
@@ -331,7 +333,7 @@ class RegionsWidget(QWidget):
 
         # --- Line 2: "Center" [X] [Y] [Z] ---
         line2_layout = QHBoxLayout()
-        line2_layout.addSpacing(40) # Align with line above
+        line2_layout.addSpacing(40)  # Align with line above
         line2_layout.addWidget(QLabel("Center:"))
         rx = QSpinBox()
         rx.setRange(0, 1000)
@@ -358,11 +360,8 @@ class RegionsWidget(QWidget):
         # self.main_layout has: grid (now empty/unused?), add_btn
         # We should insert the container into a specific layout for regions.
         # To avoid index mess, let's create a 'regions_layout' VBox
-        if not hasattr(self, 'regions_layout'):
-             # This is a bit hacky to check here, better in init. 
-             # But init is already defined. We should modify __init__ too.
-             # Or we can insert into self.main_layout at index 'count()-1'
-             pass
+        if not hasattr(self, "regions_layout"):
+            pass
         self.regions_layout.addWidget(container)
 
         self.inputs.append(
@@ -374,10 +373,10 @@ class RegionsWidget(QWidget):
                 "ry": ry,
                 "rz": rz,
                 "remove_btn": remove_btn,
-                "container": container
+                "container": container,
             }
         )
-        
+
         if emit_signal:
             self.nbRegionsChanged.emit()
         self.update_remove_buttons()
@@ -389,7 +388,7 @@ class RegionsWidget(QWidget):
             if region["container"] == container_widget:
                 idx = i
                 break
-        
+
         if idx != -1:
             self.remove_region(idx)
 
@@ -403,14 +402,14 @@ class RegionsWidget(QWidget):
         region["container"].deleteLater()
         region["container"].setParent(None)
 
-        # No need to rebuild grid! 
+        # No need to rebuild grid!
         if emit_signal:
             self.nbRegionsChanged.emit()
         self.update_remove_buttons()
 
     def rebuild_grid(self):
-         pass # No longer needed, but keeping for compatibility if tests call it?
-         # Actually tests don't call it directly.
+        pass  # No longer needed, but keeping for compatibility if tests call it?
+        # Actually tests don't call it directly.
 
     def update_remove_buttons(self):
         enabled = len(self.inputs) > 0
