@@ -204,8 +204,8 @@ def optimize(
     sy: List[int],
     sz: List[int],
     sdim: List[str],
-    E: float,
-    nu: float,
+    E: List[float],
+    nu: List[float],
     init_type: int,
     filter_type: int,
     filter_radius_min: float,
@@ -231,7 +231,7 @@ def optimize(
     ndof = (
         elemndof * (nelx + 1) * (nely + 1) * ((nelz + 1) if is_3d else 1)
     )  # Total number of degrees of freedom
-    Emin, Emax = 1e-9, E  # Minimum and maximum Young's modulus
+    Emin, Emax = 1e-9, E[0]  # Minimum and maximum Young's modulus
     g = 0.0  # Lagrangian multiplier for volume constraint
 
     # Element stiffness matrix and DOF mapping
@@ -399,7 +399,7 @@ def optimize(
     xPhys = x.copy()
 
     # Optimization loop
-    KE = lk(E, nu, is_3d)
+    KE = lk(E[0], nu[0], is_3d)
     ui = np.zeros((ndof, nb_act_if))
     uo = np.zeros((ndof, nb_act_of))
     loop, change = 0, 1.0

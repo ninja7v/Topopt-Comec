@@ -6,12 +6,13 @@ from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QPushButton, QSpinBox, 
 
 from app.ui.widgets import (
     CollapsibleSection,
+    ColorPickerButton,
     DimensionsWidget,
     DisplacementWidget,
     FooterWidget,
     ForcesWidget,
     HeaderWidget,
-    MaterialWidget,
+    MaterialsWidget,
     OptimizerWidget,
     PresetWidget,
     RegionsWidget,
@@ -134,7 +135,7 @@ def test_support_widget_initialization(qt_app):
     assert hasattr(widget, "add_btn") and isinstance(widget.add_btn, QPushButton)
 
     # Should be empty by default
-    assert len(widget.inputs) == 0
+    assert len(widget.inputs) == 0, "SupportWidget should start with no supports."
 
     # Test add button
     widget.add_btn.click()
@@ -158,18 +159,57 @@ def test_support_widget_initialization(qt_app):
 
 
 def test_material_widget_initialization(qt_app):
-    """Unit Test: Verifies the MaterialWidget initializes correctly."""
-    widget = MaterialWidget()
+    """Unit Test: Verifies the MaterialsWidget initializes correctly."""
+    widget = MaterialsWidget()
 
     # Check instances
-    assert isinstance(widget.mat_E, QDoubleSpinBox)
-    assert isinstance(widget.mat_nu, QDoubleSpinBox)
-    assert isinstance(widget.mat_init_type, QComboBox)
+    assert isinstance(
+        widget.mat_init_type, QComboBox
+    ), "MaterialsWidget should have a mat_init_type QComboBox."
 
-    # Check default values
-    assert widget.mat_E.value() == 1.0
-    assert widget.mat_nu.value() == 0.25
-    assert widget.mat_init_type.currentText() == "Uniform"
+    # Should contain exactly 1 material by default
+    assert (
+        len(widget.inputs) == 1
+    ), "MaterialsWidget should start with exactly 1 material input set."
+
+    # Check instances
+    existing_material = widget.inputs[0]
+    assert "E" in existing_material and isinstance(
+        existing_material["E"], QDoubleSpinBox
+    )
+    assert "nu" in existing_material and isinstance(
+        existing_material["nu"], QDoubleSpinBox
+    )
+    assert "color" in existing_material and isinstance(
+        existing_material["color"], ColorPickerButton
+    )
+    assert "percent" in existing_material and isinstance(
+        existing_material["percent"], QSpinBox
+    )
+
+    # Test add button
+    widget.add_btn.click()
+    qt_app.processEvents()
+    assert len(widget.inputs) == 2, "Clicking on add material should add a material."
+    new_support = widget.inputs[-1]
+    assert "remove_btn" in new_support and isinstance(
+        widget.inputs[0]["remove_btn"], QPushButton
+    )
+    assert "E" in new_support and isinstance(widget.inputs[1]["E"], QDoubleSpinBox)
+    assert "nu" in new_support and isinstance(widget.inputs[1]["nu"], QDoubleSpinBox)
+    assert "color" in new_support and isinstance(
+        widget.inputs[1]["color"], ColorPickerButton
+    )
+    assert "percent" in new_support and isinstance(
+        widget.inputs[1]["percent"], QSpinBox
+    )
+
+    # Test remove button
+    new_support["remove_btn"].click()
+    qt_app.processEvents()
+    assert (
+        len(widget.inputs) == 1
+    ), "Clicking on remove material should delete a material."
 
 
 def test_optimizer_widget_initialization(qt_app):

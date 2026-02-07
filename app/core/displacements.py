@@ -190,7 +190,7 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     ndof = elemndof * (nelx + 1) * (nely + 1) * ((nelz + 1) if is_3d else 1)
     nel = nelx * nely * (nelz if is_3d else 1)
     Emin, Emax = 1e-9, 100.0
-    KE = lk(params["E"], params["nu"], is_3d)
+    KE = lk(params["E"][0], params["nu"][0], is_3d)
     size = 8 * (elemndof if is_3d else 1)
     edofMat = np.zeros((nel, size), dtype=int)
     for ex in range(nelx):
