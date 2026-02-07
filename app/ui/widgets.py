@@ -260,57 +260,110 @@ class DimensionsWidget(QWidget):
 class RegionsWidget(QWidget):
     """Custom widget for regions inputs."""
 
+    nbRegionsChanged = Signal()
+
     def __init__(self):
         super().__init__()
         self.inputs = (
             []
         )  # This list will hold the input widgets so the MainWindow can access them
-        layout = QGridLayout(self)
-        # Shape
-        shape_layout = QHBoxLayout()
-        shape_layout.addWidget(QLabel("Shape:"))
+
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setSpacing(10)
+        
+        # Layout to hold the region containers
+        self.regions_layout = QVBoxLayout()
+        self.regions_layout.setSpacing(10)
+        self.main_layout.addLayout(self.regions_layout)
+
+        # Add button
+        self.add_btn = QPushButton("+ Add Region")
+        self.add_btn.clicked.connect(lambda: self.add_region())
+        self.add_btn.setToolTip("Add a region")
+        self.main_layout.addWidget(self.add_btn, alignment=Qt.AlignLeft)
+        self.main_layout.addStretch()
+
+    def add_region(self, rshape="□", rstate="Void", rradius=5, pos=None, emit_signal=True):
+        row = len(self.inputs)
+        if row >= 10:  # safety
+            return
+
+        if pos is None:
+            pos = [30, 20, 0]
+
+        # Container Widget for this region
+        container = QWidget()
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 5, 0, 5)
+
+        # --- Line 1: [Minus] "Shape" [Combos] "Radius" [Spin] ---
+        line1_layout = QHBoxLayout()
+        
+        # Remove button
+        remove_btn = QPushButton("−")
+        remove_btn.setFixedWidth(30)
+        remove_btn.setToolTip("Remove this region")
+        remove_btn.clicked.connect(lambda: self.remove_region_by_widget(container))
+        line1_layout.addWidget(remove_btn)
+
+        line1_layout.addWidget(QLabel("Shape:"))
         rshape = QComboBox()
         rshape.addItems(["-", "□", "◯"])
-        rshape.setCurrentIndex(0)
+        rshape.setCurrentText(rshape)
         rshape.setToolTip("Shape of the region")
-        shape_layout.addWidget(rshape)
-        shape_layout.addSpacing(10)
-        # State
+        line1_layout.addWidget(rshape)
+        
         rstate = QComboBox()
         rstate.addItems(["Void", "Filled"])
-        rstate.setCurrentIndex(0)
+        rstate.setCurrentText(rstate)
         rstate.setToolTip("State of the region")
-        shape_layout.addWidget(rstate)
-        shape_layout.addSpacing(10)
-        # Radius
-        shape_layout.addWidget(QLabel("Radius:"))
+        line1_layout.addWidget(rstate)
+        
+        line1_layout.addWidget(QLabel("Radius:"))
         rradius = QSpinBox()
         rradius.setRange(1, 100)
-        rradius.setMaximumWidth(70)
-        rradius.setToolTip("Radius of the shape")
-        shape_layout.addWidget(rradius)
-        shape_layout.addStretch()
-        layout.addLayout(shape_layout, 0, 0, 1, 2)
-        # Center
-        center_layout = QHBoxLayout()
-        center_layout.addWidget(QLabel("Center:"))
+        rradius.setValue(rradius)
+        rradius.setMaximumWidth(60)
+        rradius.setToolTip("Radius")
+        line1_layout.addWidget(rradius)
+        line1_layout.addStretch()
+        container_layout.addLayout(line1_layout)
+
+        # --- Line 2: "Center" [X] [Y] [Z] ---
+        line2_layout = QHBoxLayout()
+        line2_layout.addSpacing(40) # Align with line above
+        line2_layout.addWidget(QLabel("Center:"))
         rx = QSpinBox()
         rx.setRange(0, 1000)
-        rx.setMaximumWidth(70)
+        rx.setValue(pos[0])
+        rx.setMaximumWidth(60)
         rx.setToolTip("X")
-        center_layout.addWidget(rx)
+        line2_layout.addWidget(rx)
         ry = QSpinBox()
         ry.setRange(0, 1000)
-        ry.setMaximumWidth(70)
+        ry.setValue(pos[1])
+        ry.setMaximumWidth(60)
         ry.setToolTip("Y")
-        center_layout.addWidget(ry)
+        line2_layout.addWidget(ry)
         rz = QSpinBox()
         rz.setRange(0, 1000)
-        rz.setMaximumWidth(70)
+        rz.setValue(pos[2])
+        rz.setMaximumWidth(60)
         rz.setToolTip("Z")
-        center_layout.addWidget(rz)
-        center_layout.addStretch()
-        layout.addLayout(center_layout, 1, 0, 1, 2)
+        line2_layout.addWidget(rz)
+        line2_layout.addStretch()
+        container_layout.addLayout(line2_layout)
+
+        # Add to main layout (before the Add button)
+        # self.main_layout has: grid (now empty/unused?), add_btn
+        # We should insert the container into a specific layout for regions.
+        # To avoid index mess, let's create a 'regions_layout' VBox
+        if not hasattr(self, 'regions_layout'):
+             # This is a bit hacky to check here, better in init. 
+             # But init is already defined. We should modify __init__ too.
+             # Or we can insert into self.main_layout at index 'count()-1'
+             pass
+        self.regions_layout.addWidget(container)
 
         self.inputs.append(
             {
@@ -320,8 +373,49 @@ class RegionsWidget(QWidget):
                 "rx": rx,
                 "ry": ry,
                 "rz": rz,
+                "remove_btn": remove_btn,
+                "container": container
             }
         )
+        
+        if emit_signal:
+            self.nbRegionsChanged.emit()
+        self.update_remove_buttons()
+
+    def remove_region_by_widget(self, container_widget):
+        # Find index
+        idx = -1
+        for i, region in enumerate(self.inputs):
+            if region["container"] == container_widget:
+                idx = i
+                break
+        
+        if idx != -1:
+            self.remove_region(idx)
+
+    def remove_region(self, row, emit_signal=True):
+        if row < 0 or row >= len(self.inputs):
+            return
+
+        # Remove widgets
+        region = self.inputs.pop(row)
+        # We just need to delete the container
+        region["container"].deleteLater()
+        region["container"].setParent(None)
+
+        # No need to rebuild grid! 
+        if emit_signal:
+            self.nbRegionsChanged.emit()
+        self.update_remove_buttons()
+
+    def rebuild_grid(self):
+         pass # No longer needed, but keeping for compatibility if tests call it?
+         # Actually tests don't call it directly.
+
+    def update_remove_buttons(self):
+        enabled = len(self.inputs) > 0
+        for region in self.inputs:
+            region["remove_btn"].setEnabled(enabled)
 
 
 class ForcesWidget(QWidget):
