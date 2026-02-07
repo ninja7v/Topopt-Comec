@@ -1,6 +1,6 @@
 # main.py
 # MIT License - Copyright (c) 2025-2026 Luc Prevost
-# Entry point of TopOpt-Comec application.
+# Entry point of Topopt-Comec.
 
 import sys
 from pathlib import Path
@@ -15,27 +15,38 @@ from PySide6.QtSvg import (  # noqa: F401
 
 def main():
     """Initializes and runs the Qt application."""
-    app = QApplication(sys.argv)
+    if len(sys.argv) > 1:
+        # CLI mode
+        from app.cli import run_cli
 
-    theme = "dark" if darkdetect.isDark() else "light"
-    file_name = f"window_icon_{theme}.svg"
-    icon_path = Path(__file__).parent / "icons" / file_name
-    if icon_path.exists():
-        app_icon = QIcon(str(icon_path))
-        if not app_icon.isNull():
-            app.setWindowIcon(app_icon)
+        run_cli()
     else:
-        print(f"Warning: Window icon not found at {icon_path}. Using a built-in icon.")
-        fallback_icon = app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
-        app.setWindowIcon(fallback_icon)
+        # GUI mode
+        app = QApplication(sys.argv)
 
-    # Now that the app exists, import the main window
-    from app.ui.main_window import MainWindow
+        theme = "dark" if darkdetect.isDark() else "light"
+        file_name = f"window_icon_{theme}.svg"
+        icon_path = Path(__file__).parent / "icons" / file_name
+        if icon_path.exists():
+            app_icon = QIcon(str(icon_path))
+            if not app_icon.isNull():
+                app.setWindowIcon(app_icon)
+        else:
+            print(
+                f"Warning: Window icon not found at {icon_path}. Using a built-in icon."
+            )
+            fallback_icon = app.style().standardIcon(
+                QStyle.StandardPixmap.SP_ComputerIcon
+            )
+            app.setWindowIcon(fallback_icon)
 
-    window = MainWindow()
-    window.show()
+        # Now that the app exists, import the main window
+        from app.ui.main_window import MainWindow
 
-    sys.exit(app.exec())
+        window = MainWindow()
+        window.show()
+
+        sys.exit(app.exec())
 
 
 if __name__ == "__main__":
