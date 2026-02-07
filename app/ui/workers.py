@@ -34,7 +34,7 @@ class OptimizerWorker(QThread):
         """Executes the optimization based on the provided parameters."""
         try:
             optimizer_params = self.params.copy()
-            keys_to_remove = ["disp_factor", "disp_iterations"]
+            keys_to_remove = ["disp_factor", "disp_iterations", "percent", "color"]
             for key in keys_to_remove:
                 optimizer_params.pop(key, None)
 

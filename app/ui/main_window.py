@@ -42,7 +42,7 @@ from .widgets import (
     FooterWidget,
     ForcesWidget,
     HeaderWidget,
-    MaterialWidget,
+    MaterialsWidget,
     OptimizerWidget,
     PresetWidget,
     RegionsWidget,
@@ -143,7 +143,7 @@ class MainWindow(QMainWindow):
         self.sections["regions"] = self.create_regions_section()
         self.sections["forces"] = self.create_forces_section()
         self.sections["supports"] = self.create_supports_section()
-        self.sections["material"] = self.create_material_section()
+        self.sections["materials"] = self.create_materials_section()
         self.sections["optimizer"] = self.create_optimizer_section()
         self.sections["displacement"] = self.create_displacement_section()
 
@@ -242,19 +242,24 @@ class MainWindow(QMainWindow):
 
         return section
 
-    def create_material_section(self):
+    def create_materials_section(self):
         """Creates the fifth section for material properties."""
-        self.material_widget = MaterialWidget()
-        section = CollapsibleSection("🧱 Material", self.material_widget)
+        self.materials_widget = MaterialsWidget()
+        section = CollapsibleSection("🧱 Material", self.materials_widget)
         section.set_visibility_toggle(True)
         section.visibility_button.toggled.connect(self.on_visibility_toggled)
-        self.material_widget.mat_E.valueChanged.connect(self.on_parameter_changed)
-        self.material_widget.mat_nu.valueChanged.connect(self.on_parameter_changed)
-        self.material_widget.mat_color.clicked.connect(self.replot)
-        self.material_widget.mat_init_type.currentIndexChanged.connect(
+        self.materials_widget.add_btn.clicked.connect(self.connect_material_signals)
+        self.materials_widget.mat_init_type.currentIndexChanged.connect(
             self.on_parameter_changed
         )
         return section
+
+    def connect_material_signals(self):
+        """(Re)connects on_parameter_changed signals to all current material widgets."""
+        for mat in self.materials_widget.inputs:
+            mat["E"].valueChanged.connect(self.on_parameter_changed)
+            mat["nu"].valueChanged.connect(self.on_parameter_changed)
+            mat["percent"].valueChanged.connect(self.on_parameter_changed)
 
     def create_optimizer_section(self):
         """Creates the sixth section for optimization parameters."""
@@ -383,9 +388,13 @@ class MainWindow(QMainWindow):
             params["sdim"].append(sw["sdim"].currentText())
 
         # Material
-        params["E"] = self.material_widget.mat_E.value()
-        params["nu"] = self.material_widget.mat_nu.value()
-        params["init_type"] = self.material_widget.mat_init_type.currentIndex()
+        params["E"], params["nu"], params["percent"], params["color"] = [], [], [], []
+        for mat in self.materials_widget.inputs:
+            params["E"].append(mat["E"].value())
+            params["nu"].append(mat["nu"].value())
+            params["percent"].append(mat["percent"].value())
+            params["color"].append(mat["color"].text())
+        params["init_type"] = self.materials_widget.mat_init_type.currentIndex()
 
         # Optimizer
         params["filter_type"] = (
@@ -600,6 +609,22 @@ class MainWindow(QMainWindow):
         ):
             return "At least one output force (for compliant mechanisms) or support (for rigid mechanisms) must be active"
 
+        # Check for duplicate regions
+        active_region_indices = [
+            i for i in range(len(p["rshape"])) if p["rshape"][i] != "-"
+        ]
+        for i in active_region_indices:
+            for j in active_region_indices:
+                if j > i:
+                    if (
+                        p["rshape"][i] == p["rshape"][j]
+                        and p["rradius"][i] == p["rradius"][j]
+                        and p["rx"][i] == p["rx"][j]
+                        and p["ry"][i] == p["ry"][j]
+                        and p["rz"][i] == p["rz"][j]
+                    ):
+                        return f"Regions {i+1} and {j+1} are identical/overlapping."
+
         # Check for duplicate supports
         active_supports_indices = [
             i for i in range(len(p["sdim"])) if p["sdim"][i] != "-"
@@ -642,6 +667,18 @@ class MainWindow(QMainWindow):
                         and p["fodir"][i] == p["fodir"][j]
                     ):
                         return f"Output forces {i+1} and {j+1} are identical."
+
+        # Check for duplicate materials
+        for i in range(len(p["E"])):
+            for j in range(i + 1, len(p["E"])):
+                if (
+                    p["E"][i] == p["E"][j]
+                    and p["nu"][i] == p["nu"][j]
+                    and p["percent"][i] == p["percent"][j]
+                ):
+                    return f"Materials {i+1} and {j+1} are identical."
+        if sum(p["percent"]) != 100:
+            return "Material percentages don't sum to 100%."
         return None
 
     def update_position_ranges(self):
@@ -820,15 +857,12 @@ class MainWindow(QMainWindow):
 
     def block_all_parameter_signals(self, block: bool):
         """Helper to block or unblock signals for all parameter widgets."""
-        # A helper to make the code cleaner. Add all your widgets to this list.
         all_widgets = [
             self.dim_widget.nx,
             self.dim_widget.ny,
             self.dim_widget.nz,
             self.dim_widget.volfrac,
-            self.material_widget.mat_E,
-            self.material_widget.mat_nu,
-            self.material_widget.mat_init_type,
+            self.materials_widget.mat_init_type,
             self.optimizer_widget.opt_ft,
             self.optimizer_widget.opt_fr,
             self.optimizer_widget.opt_p,
@@ -843,6 +877,7 @@ class MainWindow(QMainWindow):
             self.regions_widget.inputs
             + self.forces_widget.inputs
             + self.supports_widget.inputs
+            + self.materials_widget.inputs
         ):
             for w in group.values():
                 w.blockSignals(block)
@@ -1056,7 +1091,9 @@ class MainWindow(QMainWindow):
 
             # Create the RGBA color array where alpha = density
             colors = np.zeros((len(densities), 4))
-            base_color_rgb = to_rgb(self.material_widget.mat_color.get_color())
+            base_color_rgb = to_rgb(
+                self.materials_widget.inputs[0]["color"].get_color()
+            )
             colors[:, :3] = base_color_rgb
             colors[:, 3] = densities
 
@@ -1266,7 +1303,9 @@ class MainWindow(QMainWindow):
 
                     # Colors with alpha = density
                     colors = np.zeros((nel, 4))
-                    colors[:, :3] = to_rgb(self.material_widget.mat_color.get_color())
+                    colors[:, :3] = to_rgb(
+                        self.materials_widget.inputs[0]["color"].get_color()
+                    )
                     colors[:, 3] = self.xPhys
 
                     # Scatter plot of displaced centers
@@ -1292,7 +1331,7 @@ class MainWindow(QMainWindow):
                     )
             # Multi-iteration displacement handled in update_animation_frame
         else:
-            if self.sections["material"].visibility_button.isChecked():
+            if self.sections["materials"].visibility_button.isChecked():
                 if self.xPhys is None:
                     p = self.last_params
                     # Initialize xPhys
@@ -1446,7 +1485,7 @@ class MainWindow(QMainWindow):
         if is_3d:
             # Plot using voxels -> only the exterior box is visible
             # x_phys_3d = data_to_plot.reshape((nelz, nelx, nely)).transpose(1, 2, 0) if xPhys_data is None else xPhys_data.reshape((nelz, nelx, nely)).transpose(1, 2, 0)
-            # base_color = np.array(to_rgb(self.material_widget.mat_color.get_color()))
+            # base_color = np.array(to_rgb(self.materials_widget.mat_color.get_color()))
             # color = np.zeros(x_phys_3d.shape + (4,))
             # color[..., :3] = base_color  # Set RGB
             # color[..., 3] = np.clip(x_phys_3d, 0.0, 1.0)
@@ -1467,7 +1506,9 @@ class MainWindow(QMainWindow):
             y = visible_indices % nely
 
             colors = np.zeros((len(densities), 4))
-            base_color_rgb = to_rgb(self.material_widget.mat_color.get_color())
+            base_color_rgb = to_rgb(
+                self.materials_widget.inputs[0]["color"].get_color()
+            )
             colors[:, :3] = base_color_rgb  # Set the RGB color for all points
             colors[:, 3] = densities  # Set the Alpha channel to the density
 
@@ -1483,7 +1524,7 @@ class MainWindow(QMainWindow):
 
             ax.set_box_aspect([nelx, nely, nelz])
         else:
-            mat_color = self.material_widget.mat_color.get_color()
+            mat_color = self.materials_widget.inputs[0]["color"].get_color()
             cmap = LinearSegmentedColormap.from_list(
                 "custom_cmap", ["white", mat_color]
             )
@@ -2115,9 +2156,15 @@ class MainWindow(QMainWindow):
         self.connect_support_signals()
 
         # Material
-        self.material_widget.mat_E.setValue(params["E"])
-        self.material_widget.mat_nu.setValue(params["nu"])
-        self.material_widget.mat_init_type.setCurrentIndex(params["init_type"])
+        num_material_in_preset = len(params.get("E", []))
+        for i in range(num_material_in_preset):  # Set values
+            material_group = self.materials_widget.inputs[i]
+            material_group["E"].setValue(params["E"][i])
+            material_group["nu"].setValue(params["nu"][i])
+            material_group["percent"].setValue(params["percent"][i])
+            material_group["color"].setText(params["color"][i])
+        self.materials_widget.mat_init_type.setCurrentIndex(params["init_type"])
+        self.connect_material_signals()
 
         # Optimizer
         self.optimizer_widget.opt_ft.setCurrentIndex(

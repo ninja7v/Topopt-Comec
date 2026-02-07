@@ -119,8 +119,14 @@ class CollapsibleSection(QWidget):
 class ColorPickerButton(QPushButton):
     """A button that opens a color dialog and shows the selected color."""
 
+    colorChanged = Signal(QColor)
+
     def __init__(self, initial_color=QColor("black")):
         super().__init__()
+
+        if isinstance(initial_color, str):
+            initial_color = QColor(initial_color)
+
         self.color = initial_color
         self.update_color()
         self.clicked.connect(self.pick_color)
@@ -131,6 +137,7 @@ class ColorPickerButton(QPushButton):
         if new_color.isValid():
             self.color = new_color
             self.update_color()
+            self.colorChanged.emit(self.color)
 
     def update_color(self):
         self.setStyleSheet(f"background-color: {self.color.name()};")
@@ -699,43 +706,150 @@ class SupportWidget(QWidget):
             support["remove_btn"].setEnabled(enabled)
 
 
-class MaterialWidget(QWidget):
-    """Custom widget for material inputs."""
+class MaterialsWidget(QWidget):
+    """Custom widget for defining the materials."""
+
+    nbMaterialsChanged = Signal()
 
     def __init__(self):
         super().__init__()
-        layout = QGridLayout(self)
-        # Young's Modulus
-        layout.addWidget(QLabel("Young's Modulus (E):"), 0, 0)
-        self.mat_E = QDoubleSpinBox()
-        self.mat_E.setRange(0.1, 100)
-        self.mat_E.setValue(1.0)
-        self.mat_E.setToolTip("Material’s stiffness")
-        layout.addWidget(self.mat_E, 0, 1)
-        # Poisson's Ratio
-        layout.addWidget(QLabel("Poisson's Ratio (ν):"), 1, 0)
-        self.mat_nu = QDoubleSpinBox()
-        self.mat_nu.setRange(
-            0.05, 0.45
-        )  # Restrict Poisson's Ratio range to prevent crashes in the optimizer when computing KE = (E / ((nu + 1) * (1 - 2 * nu)) * ...)
-        self.mat_nu.setValue(0.25)
-        self.mat_nu.setSingleStep(0.05)
-        self.mat_nu.setToolTip(
-            "Material’s lateral shrinkage relative to its elongation"
-        )
-        layout.addWidget(self.mat_nu, 1, 1)
-        # Color
-        layout.addWidget(QLabel("Color:"), 2, 0)
-        self.mat_color = ColorPickerButton()
-        self.mat_color.setToolTip("Color used in the plot for this material")
-        layout.addWidget(self.mat_color, 2, 1)
-        # Initialization
-        layout.addWidget(QLabel("Initialization:"), 3, 0)
+        self.inputs = []
+
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setSpacing(10)
+
+        # Initialization Type (Global for all materials)
+        init_layout = QHBoxLayout()
+        init_layout.addWidget(QLabel("Initialization:"))
         self.mat_init_type = QComboBox()
         self.mat_init_type.addItems(["Uniform", "Around activity points", "Random"])
         self.mat_init_type.setCurrentIndex(0)
         self.mat_init_type.setToolTip("Material distribution initialization type")
-        layout.addWidget(self.mat_init_type, 3, 1)
+        init_layout.addWidget(self.mat_init_type)
+        self.main_layout.addLayout(init_layout)
+
+        # Layout for material items
+        self.materials_layout = QVBoxLayout()
+        self.materials_layout.setSpacing(10)
+        self.main_layout.addLayout(self.materials_layout)
+
+        # Add button
+        self.add_btn = QPushButton("+ Add Material")
+        self.add_btn.clicked.connect(lambda: self.add_material())
+        self.add_btn.setToolTip("Add a material (max 2)")
+        self.main_layout.addWidget(self.add_btn, alignment=Qt.AlignLeft)
+
+        self.main_layout.addStretch()
+
+        # Add default material
+        self.add_material(E=1.0, nu=0.3, percent=100, color="#000000")
+
+    def add_material(self, E=1.0, nu=0.3, percent=0, color="#000000", emit_signal=True):
+        if len(self.inputs) > 1:
+            return
+
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 5, 0, 5)
+
+        # Line 1: [Minus] Color [Btn] % [Spin]
+        line1 = QHBoxLayout()
+        remove_btn = QPushButton("−")
+        remove_btn.setFixedWidth(30)
+        remove_btn.setToolTip("Remove this material")
+        remove_btn.clicked.connect(lambda: self.remove_material_by_widget(container))
+        line1.addWidget(remove_btn)
+        # Color
+        line1.addWidget(QLabel("Color:"))
+        if isinstance(color, str):
+            color = QColor(color)
+        color_btn = ColorPickerButton(color)
+        line1.addWidget(color_btn)
+        line1.addSpacing(30)
+        # Percentage
+        line1.addWidget(QLabel("%:"))
+        mat_percent = QSpinBox()
+        mat_percent.setRange(0, 100)
+        mat_percent.setValue(percent)
+        mat_percent.setMaximumWidth(70)
+        mat_percent.setSingleStep(5)
+        mat_percent.setToolTip("Volume Fraction percentage")
+        line1.addWidget(mat_percent)
+        line1.addStretch()
+        layout.addLayout(line1)
+
+        # Line 2: E [Spin] nu [Spin]
+        line2 = QHBoxLayout()
+        line2.addSpacing(40)  # Align with line above
+        # Young's Modulus
+        line2.addWidget(QLabel("E:"))
+        mat_E = QDoubleSpinBox()
+        mat_E.setRange(0.1, 100.0)
+        mat_E.setValue(E)
+        mat_E.setMaximumWidth(70)
+        mat_E.setToolTip("Young's Modulus, material’s stiffness")
+        line2.addWidget(mat_E)
+        line2.addSpacing(20)
+        # Poisson's Ratio
+        line2.addWidget(QLabel("ν:"))
+        mat_nu = QDoubleSpinBox()
+        mat_nu.setRange(0.0, 0.49)  # 0.5 causes issues in 3D?
+        mat_nu.setValue(nu)
+        mat_nu.setMaximumWidth(70)
+        mat_nu.setSingleStep(0.05)
+        mat_nu.setToolTip(
+            "Poisson's Ratio, material’s lateral shrinkage relative to its elongation"
+        )
+        line2.addWidget(mat_nu)
+        line2.addStretch()
+        layout.addLayout(line2)
+
+        self.materials_layout.addWidget(container)
+
+        self.inputs.append(
+            {
+                "E": mat_E,
+                "nu": mat_nu,
+                "percent": mat_percent,
+                "color": color_btn,
+                "remove_btn": remove_btn,
+                "container": container,
+            }
+        )
+
+        if emit_signal:
+            self.nbMaterialsChanged.emit()
+        self.update_ui_state()
+
+    def remove_material_by_widget(self, container):
+        idx = -1
+        for i, mat in enumerate(self.inputs):
+            if mat["container"] == container:
+                idx = i
+                break
+        if idx != -1:
+            self.remove_material(idx)
+
+    def remove_material(self, idx, emit_signal=True):
+        if idx < 0 or idx >= len(self.inputs):
+            return
+
+        mat = self.inputs.pop(idx)
+        mat["container"].deleteLater()
+        mat["container"].setParent(None)
+
+        if emit_signal:
+            self.nbMaterialsChanged.emit()
+        self.update_ui_state()
+
+    def update_ui_state(self):
+        # Update Add/Remove buttons state
+        can_add = len(self.inputs) < 3
+        can_remove = len(self.inputs) > 1
+
+        self.add_btn.setEnabled(can_add)
+        for mat in self.inputs:
+            mat["remove_btn"].setEnabled(can_remove)
 
 
 class OptimizerWidget(QWidget):

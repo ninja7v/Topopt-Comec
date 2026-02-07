@@ -62,7 +62,7 @@ def run_cli():
 
     # clean params for optimizer
     optimizer_params = params.copy()
-    keys_to_remove = ["disp_factor", "disp_iterations"]
+    keys_to_remove = ["disp_factor", "disp_iterations", "percent", "color"]
     for key in keys_to_remove:
         optimizer_params.pop(key, None)
 
