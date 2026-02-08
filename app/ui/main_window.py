@@ -678,7 +678,7 @@ class MainWindow(QMainWindow):
                 ):
                     return f"Materials {i+1} and {j+1} are identical."
         if sum(p["percent"]) != 100:
-            return "Material percentages don't sum to 100%."
+            return "Material percentages don't sum up to 100%."
         return None
 
     def update_position_ranges(self):
@@ -2161,7 +2161,7 @@ class MainWindow(QMainWindow):
             material_group["E"].setValue(params["E"][i])
             material_group["nu"].setValue(params["nu"][i])
             material_group["percent"].setValue(params["percent"][i])
-            material_group["color"].setText(params["color"][i])
+            material_group["color"].set_color(params["color"][i])
         self.materials_widget.mat_init_type.setCurrentIndex(params["init_type"])
         self.connect_material_signals()
 
