@@ -62,9 +62,11 @@ def run_cli():
 
     # clean params for optimizer
     optimizer_params = params.copy()
-    keys_to_remove = ["disp_factor", "disp_iterations", "percent", "color"]
-    for key in keys_to_remove:
-        optimizer_params.pop(key, None)
+    if "Displacement" in optimizer_params:
+        optimizer_params.pop("Displacement")
+    if "Material" in optimizer_params:
+        optimizer_params["Materials"].pop("percent", None)
+        optimizer_params["Materials"].pop("color", None)
 
     # Run optimization
     try:
@@ -87,16 +89,14 @@ def run_cli():
 
     base_filename = results_dir / args.preset
 
-    # Handle formats
+    # Export
+    nelxyz = params["Dimensions"]["nelxyz"]
+
     formats = []
     if args.format == "all":
         formats = ["png", "stl", "vti"]
     else:
         formats = [args.format]
-
-    # Export
-    nelxyz = params["nelxyz"]
-
     for fmt in formats:
         filename = str(base_filename.with_suffix(f".{fmt if fmt != 'stl' else 'stl'}"))
         print(f"Saving {fmt.upper()} to {filename}...")

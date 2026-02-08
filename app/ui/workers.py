@@ -34,9 +34,12 @@ class OptimizerWorker(QThread):
         """Executes the optimization based on the provided parameters."""
         try:
             optimizer_params = self.params.copy()
-            keys_to_remove = ["disp_factor", "disp_iterations", "percent", "color"]
-            for key in keys_to_remove:
-                optimizer_params.pop(key, None)
+            # Remove unneeded parameters for the optimizer
+            if "Displacement" in optimizer_params:
+                optimizer_params.pop("Displacement", None)
+            if "Materials" in optimizer_params:
+                optimizer_params["Materials"].pop("percent", None)
+                optimizer_params["Materials"].pop("color", None)
 
             def progress_callback(iteration, objective, change, xPhys_frame):
                 self.progress.emit(iteration, objective, change)

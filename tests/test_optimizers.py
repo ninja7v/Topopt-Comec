@@ -71,81 +71,69 @@ def load_presets():
 @pytest.mark.parametrize("preset_name, preset_params", load_presets())
 def test_optimizers_with_presets(preset_name, preset_params):
     """Unit Test: Runs the optimizer with a given preset."""
-    is_3d = preset_params["nelxyz"][2] > 0
+    is_3d = preset_params["Dimensions"]["nelxyz"][2] > 0
 
     # Prepare the parameters for the optimizer function
-    optimizer_params = preset_params.copy()
+    params = preset_params.copy()
     # Remove all keys that are not part of the optimizer's function signature
-    keys_to_remove = ["disp_factor", "disp_iterations", "percent", "color"]
-    for key in keys_to_remove:
-        optimizer_params.pop(key, None)  # Use .pop() to safely remove
+    if "Displacement" in params:
+        params.pop("Displacement", None)
+    if "Materials" in params:
+        params["Materials"].pop("percent", None)
+        params["Materials"].pop("color", None)
 
     # Run the entire optimization
-    result, u_vec = optimizers.optimize(**optimizer_params)
+    result, u_vec = optimizers.optimize(**params)
 
     # Check if not empty
     assert result is not None, "Optimizer returned None"
     assert u_vec is not None, "Displacement vector is None"
 
     # Check shape
-    nel = (
-        optimizer_params["nelxyz"][0]
-        * optimizer_params["nelxyz"][1]
-        * (optimizer_params["nelxyz"][2] if is_3d else 1)
-    )
+    pd = params["Dimensions"]
+    pf = params["Forces"]
+    nel = pd["nelxyz"][0] * pd["nelxyz"][1] * (pd["nelxyz"][2] if is_3d else 1)
     assert result.shape == (nel,), f"Result shape is wrong, expected ({nel},)"
     ndof = (
         (3 if is_3d else 2)
-        * (optimizer_params["nelxyz"][0] + 1)
-        * (optimizer_params["nelxyz"][1] + 1)
-        * ((optimizer_params["nelxyz"][2] + 1) if is_3d else 1)
+        * (pd["nelxyz"][0] + 1)
+        * (pd["nelxyz"][1] + 1)
+        * ((pd["nelxyz"][2] + 1) if is_3d else 1)
     )
     assert u_vec.size == ndof * sum(
-        1 for x in optimizer_params["fidir"] if x != "-"
+        1 for x in pf["fidir"] if x != "-"
     ), "Displacement vector should be (ndof x nb_active_iforces)"
 
     # Check displacement direction at the input forces
     j = 0
     active_iforces_indices = [
-        i
-        for i in range(len(optimizer_params["fidir"]))
-        if optimizer_params["fidir"][i] != "-"
+        i for i in range(len(pf["fidir"])) if pf["fidir"][i] != "-"
     ]
     for i in active_iforces_indices:
         idx = (
-            (
-                optimizer_params["fiz"][i]
-                * optimizer_params["nelxyz"][0]
-                * optimizer_params["nelxyz"][1]
-                if is_3d
-                else 0
-            )
-            + optimizer_params["fix"][i] * optimizer_params["nelxyz"][1]
-            + optimizer_params["fiy"][i]
+            (pf["fiz"][i] * pd["nelxyz"][0] * pd["nelxyz"][1] if is_3d else 0)
+            + pf["fix"][i] * pd["nelxyz"][1]
+            + pf["fiy"][i]
         )
         idx = idx * (3 if is_3d else 2) + (
             0
-            if optimizer_params["fidir"][i] == "X:\u2192"
-            or optimizer_params["fidir"][i] == "X:\u2190"
+            if pf["fidir"][i] == "X:\u2192" or pf["fidir"][i] == "X:\u2190"
             else (
-                1
-                if optimizer_params["fidir"][i] == "Y:\u2193"
-                or optimizer_params["fidir"][i] == "Y:\u2191"
-                else 2
+                1 if pf["fidir"][i] == "Y:\u2193" or pf["fidir"][i] == "Y:\u2191" else 2
             )
         )
         direction_sign = (
             1
-            if optimizer_params["fidir"][i] == "X:\u2192"
-            or optimizer_params["fidir"][i] == "Y:\u2193"
-            or optimizer_params["fidir"][i] == "Z:<"
+            if pf["fidir"][i] == "X:\u2192"
+            or pf["fidir"][i] == "Y:\u2193"
+            or pf["fidir"][i] == "Z:<"
             else -1
         )
         assert u_vec[idx, j] * direction_sign > 0
         j += 1
 
     # Check volume fraction
-    volfrac = preset_params["volfrac"]
+    volfrac = preset_params["Dimensions"]["volfrac"]
     assert np.isclose(
         result.mean(), volfrac, atol=0.05
     ), f"Final volume ({result.mean():.3f}) is far to target ({volfrac:.3f})"
