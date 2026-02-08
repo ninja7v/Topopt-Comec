@@ -1442,11 +1442,10 @@ class MainWindow(QMainWindow):
             if self.footer.create_button.graphicsEffect() is not None:
                 init_message = 'Configure parameters and press "Create"'
                 if is_3d:
-                    ax.text(
+                    ax.text2D(
                         0.5,
                         0.5,
-                        0.5,
-                        s=init_message,
+                        init_message,
                         transform=ax.transAxes,
                         ha="center",
                         va="center",
