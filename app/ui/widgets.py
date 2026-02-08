@@ -123,7 +123,7 @@ class ColorPickerButton(QPushButton):
 
     def __init__(self, initial_color=QColor("black")):
         super().__init__()
-
+        self.setObjectName("ColorPickerButton")
         if isinstance(initial_color, str):
             initial_color = QColor(initial_color)
 
@@ -140,10 +140,21 @@ class ColorPickerButton(QPushButton):
             self.colorChanged.emit(self.color)
 
     def update_color(self):
-        self.setStyleSheet(f"background-color: {self.color.name()};")
+        self.setStyleSheet(
+            f"QPushButton#ColorPickerButton {{ background-color: {self.color.name()}; }}"
+        )
 
     def get_color(self):
         return self.color.name()
+
+    def set_color(self, color: str | QColor):
+        if isinstance(color, str):
+            color = QColor(color)
+
+        if color != self.color:
+            self.color = color
+            self.update_color()
+            self.colorChanged.emit(color)
 
 
 class HeaderWidget(QWidget):
