@@ -9,7 +9,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.colors import LinearSegmentedColormap, to_rgb
+from matplotlib.colors import LinearSegmentedColormap, to_rgb, to_hex
 from matplotlib.patches import Rectangle
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -139,13 +139,13 @@ class MainWindow(QMainWindow):
         panel_layout.addWidget(scroll_area)
 
         self.sections = {}
-        self.sections["dimensions"] = self.create_dimensions_section()
-        self.sections["regions"] = self.create_regions_section()
-        self.sections["forces"] = self.create_forces_section()
-        self.sections["supports"] = self.create_supports_section()
-        self.sections["materials"] = self.create_materials_section()
-        self.sections["optimizer"] = self.create_optimizer_section()
-        self.sections["displacement"] = self.create_displacement_section()
+        self.sections["Dimensions"] = self.create_Dimensions_section()
+        self.sections["Regions"] = self.create_regions_section()
+        self.sections["Forces"] = self.create_forces_section()
+        self.sections["Supports"] = self.create_supports_section()
+        self.sections["Materials"] = self.create_materials_section()
+        self.sections["Optimizer"] = self.create_optimizer_section()
+        self.sections["Displacement"] = self.create_displacement_section()
 
         for section in self.sections.values():
             self.sections_layout.addWidget(section)
@@ -176,8 +176,8 @@ class MainWindow(QMainWindow):
         preset_widget.delete_preset_button.clicked.connect(self.delete_selected_preset)
         return preset_widget
 
-    def create_dimensions_section(self):
-        """Creates the first section for dimensions and volume fraction."""
+    def create_Dimensions_section(self):
+        """Creates the first section for Dimensions and volume fraction."""
         self.dim_widget = DimensionsWidget()
         section = CollapsibleSection("🔲 Dimensions", self.dim_widget)
         section.set_visibility_toggle(True)
@@ -335,83 +335,112 @@ class MainWindow(QMainWindow):
     ##############
     # PARAMETERS #
     ##############
-
     def gather_parameters(self):
-        """Collects all parameters from the UI controls into a dictionary."""
+        """Collects all parameters from the UI controls into a nested dictionary."""
         params = {}
-        # Dimensions
+
+        # --- Dimensions ---
         nelx, nely, nelz = (
             self.dim_widget.nx.value(),
             self.dim_widget.ny.value(),
             self.dim_widget.nz.value(),
         )
-        params["nelxyz"] = [nelx, nely, nelz]
-        params["volfrac"] = self.dim_widget.volfrac.value()
+        params["Dimensions"] = {
+            "nelxyz": [nelx, nely, nelz],
+            "volfrac": self.dim_widget.volfrac.value(),
+        }
 
-        # Regions
-        params["rshape"], params["rstate"], params["rradius"] = [], [], []
-        params["rx"], params["ry"], params["rz"] = [], [], []
+        # --- Regions (optional) ---
+        Regions = {
+            "rshape": [],
+            "rstate": [],
+            "rradius": [],
+            "rx": [],
+            "ry": [],
+            "rz": [],
+        }
         for rw in self.regions_widget.inputs:
-            params["rshape"].append(rw["rshape"].currentText())
-            params["rstate"].append(rw["rstate"].currentText())
-            params["rradius"].append(rw["rradius"].value())
-            params["rx"].append(rw["rx"].value())
-            params["ry"].append(rw["ry"].value())
-            params["rz"].append(rw["rz"].value())
+            Regions["rshape"].append(rw["rshape"].currentText())
+            Regions["rstate"].append(rw["rstate"].currentText())
+            Regions["rradius"].append(rw["rradius"].value())
+            Regions["rx"].append(rw["rx"].value())
+            Regions["ry"].append(rw["ry"].value())
+            Regions["rz"].append(rw["rz"].value())
+        if Regions["rshape"]:  # only add if there is at least one region
+            params["Regions"] = Regions
 
-        # Forces
-        params["fix"], params["fiy"], params["fiz"] = [], [], []
-        params["fidir"], params["finorm"] = [], []
-        params["fox"], params["foy"], params["foz"] = [], [], []
-        params["fodir"], params["fonorm"] = [], []
+        # --- Forces ---
+        Forces = {
+            "fix": [],
+            "fiy": [],
+            "fiz": [],
+            "fidir": [],
+            "finorm": [],
+            "fox": [],
+            "foy": [],
+            "foz": [],
+            "fodir": [],
+            "fonorm": [],
+        }
+        nb_input_forces = 0
         for fw in self.forces_widget.inputs:
             if "fix" in fw:  # Input force
-                params["fix"].append(fw["fix"].value())
-                params["fiy"].append(fw["fiy"].value())
-                params["fiz"].append(fw["fiz"].value())
-                params["fidir"].append(fw["fidir"].currentText())
-                params["finorm"].append(fw["finorm"].value())
+                Forces["fix"].append(fw["fix"].value())
+                Forces["fiy"].append(fw["fiy"].value())
+                Forces["fiz"].append(fw["fiz"].value())
+                Forces["fidir"].append(fw["fidir"].currentText())
+                Forces["finorm"].append(fw["finorm"].value())
+                nb_input_forces += 1
             elif "fox" in fw:  # Output force
-                params["fox"].append(fw["fox"].value())
-                params["foy"].append(fw["foy"].value())
-                params["foz"].append(fw["foz"].value())
-                params["fodir"].append(fw["fodir"].currentText())
-                params["fonorm"].append(fw["fonorm"].value())
+                Forces["fox"].append(fw["fox"].value())
+                Forces["foy"].append(fw["foy"].value())
+                Forces["foz"].append(fw["foz"].value())
+                Forces["fodir"].append(fw["fodir"].currentText())
+                Forces["fonorm"].append(fw["fonorm"].value())
+        params["Forces"] = Forces
 
-        # Supports
-        params["sx"], params["sy"], params["sz"] = [], [], []
-        params["sdim"] = []
+        # --- Supports (optional) ---
+        Supports = {"sx": [], "sy": [], "sz": [], "sdim": []}
         for sw in self.supports_widget.inputs:
-            params["sx"].append(sw["sx"].value())
-            params["sy"].append(sw["sy"].value())
-            params["sz"].append(sw["sz"].value())
-            params["sdim"].append(sw["sdim"].currentText())
+            Supports["sx"].append(sw["sx"].value())
+            Supports["sy"].append(sw["sy"].value())
+            Supports["sz"].append(sw["sz"].value())
+            Supports["sdim"].append(sw["sdim"].currentText())
+        if Supports["sx"]:
+            params["Supports"] = Supports
 
-        # Material
-        params["E"], params["nu"], params["percent"], params["color"] = [], [], [], []
+        # --- Materials ---
+        Materials = {"E": [], "nu": [], "percent": [], "color": []}
         for mat in self.materials_widget.inputs:
-            params["E"].append(mat["E"].value())
-            params["nu"].append(mat["nu"].value())
-            params["percent"].append(mat["percent"].value())
-            params["color"].append(mat["color"].text())
-        params["init_type"] = self.materials_widget.mat_init_type.currentIndex()
+            Materials["E"].append(mat["E"].value())
+            Materials["nu"].append(mat["nu"].value())
+            Materials["percent"].append(mat["percent"].value())
+            Materials["color"].append(mat["color"].text())
+        Materials["init_type"] = self.materials_widget.mat_init_type.currentIndex()
+        params["Materials"] = Materials
 
-        # Optimizer
-        params["filter_type"] = (
-            "Sensitivity"
-            if self.optimizer_widget.opt_ft.currentIndex() == 0
-            else "Density"
-        )
-        params["filter_radius_min"] = self.optimizer_widget.opt_fr.value()
-        params["penal"] = self.optimizer_widget.opt_p.value()
-        params["eta"] = self.optimizer_widget.opt_eta.value()
-        params["max_change"] = self.optimizer_widget.opt_max_change.value()
-        params["n_it"] = self.optimizer_widget.opt_n_it.value()
-        params["solver"] = self.optimizer_widget.opt_solver.currentText()
+        # --- Optimizer ---
+        Optimizer = {
+            "filter_type": (
+                "Sensitivity"
+                if self.optimizer_widget.opt_ft.currentIndex() == 0
+                else "Density"
+            ),
+            "filter_radius_min": self.optimizer_widget.opt_fr.value(),
+            "penal": self.optimizer_widget.opt_p.value(),
+            "eta": self.optimizer_widget.opt_eta.value(),
+            "max_change": self.optimizer_widget.opt_max_change.value(),
+            "n_it": self.optimizer_widget.opt_n_it.value(),
+            "solver": self.optimizer_widget.opt_solver.currentText(),
+        }
+        params["Optimizer"] = Optimizer
 
-        # Movement
-        params["disp_factor"] = self.displacement_widget.mov_disp.value()
-        params["disp_iterations"] = self.displacement_widget.mov_iter.value()
+        # --- Displacement (optional) ---
+        Displacement = {
+            "disp_factor": self.displacement_widget.mov_disp.value(),
+            "disp_iterations": self.displacement_widget.mov_iter.value(),
+        }
+        params["Displacement"] = Displacement
 
         return params
 
@@ -430,7 +459,7 @@ class MainWindow(QMainWindow):
             self.footer.binarize_button.setEnabled(False)
             self.footer.save_button.setEnabled(False)
             self.displacement_widget.run_disp_button.setEnabled(False)
-            self.sections["displacement"].visibility_button.setEnabled(False)
+            self.sections["Displacement"].visibility_button.setEnabled(False)
 
             # Inform the user what happened
             self.status_bar.showMessage(
@@ -461,73 +490,79 @@ class MainWindow(QMainWindow):
         p2_norm = copy.deepcopy(params2)
 
         def normalize_params(p):
-            if "nelxyz" in p:
-                is_2d = len(p["nelxyz"]) < 3 or p["nelxyz"][2] == 0.0
+            pd = p["Dimensions"]
+            if "nelxyz" in pd:
+                is_2d = len(pd["nelxyz"]) < 3 or pd["nelxyz"][2] == 0.0
                 if is_2d:
-                    p["nelxyz"] = p["nelxyz"][:2]
+                    pd["nelxyz"] = pd["nelxyz"][:2]
             # --- Normalize Regions ---
-            if "rshape" in p:
-                zipped_regions = zip(
-                    p.get("rshape", []),
-                    p.get("rstate", []),
-                    p.get("rradius", []),
-                    p.get("rx", []),
-                    p.get("ry", []),
-                    p.get("rz", []) if not is_2d else [0] * len(p.get("rx", [])),
-                )
-                region_list = list(zipped_regions)
-                active_regions = [r for r in region_list if r[0] != "-"]
-                if active_regions:
-                    rshape, rstate, rradius, rx, ry, rz = list(zip(*active_regions))
-                    (
-                        p["rshape"],
-                        p["rstate"],
-                        p["rradius"],
-                        p["rx"],
-                        p["ry"],
-                        p["rz"],
-                    ) = (
-                        list(rshape),
-                        list(rstate),
-                        list(rradius),
-                        list(rx),
-                        list(ry),
-                        list(rz),
+            if "Region" in p:
+                pr = p["Region"]
+                if "rshape" in pr:
+                    zipped_regions = zip(
+                        pr.get("rshape", []),
+                        pr.get("rstate", []),
+                        pr.get("rradius", []),
+                        pr.get("rx", []),
+                        pr.get("ry", []),
+                        pr.get("rz", []) if not is_2d else [0] * len(pr.get("rx", [])),
                     )
-                else:
-                    for key in ["rshape", "rstate", "rradius", "rx", "ry", "rz"]:
-                        p.pop(key, None)  # pop them, not just empty them
-                if is_2d and "rz" in p:
-                    p.pop("rz")
+                    region_list = list(zipped_regions)
+                    active_regions = [r for r in region_list if r[0] != "-"]
+                    if active_regions:
+                        rshape, rstate, rradius, rx, ry, rz = list(zip(*active_regions))
+                        (
+                            pr["rshape"],
+                            pr["rstate"],
+                            pr["rradius"],
+                            pr["rx"],
+                            pr["ry"],
+                            pr["rz"],
+                        ) = (
+                            list(rshape),
+                            list(rstate),
+                            list(rradius),
+                            list(rx),
+                            list(ry),
+                            list(rz),
+                        )
+                    else:
+                        for key in ["rshape", "rstate", "rradius", "rx", "ry", "rz"]:
+                            pr.pop(key, None)  # pop them, not just empty them
+                    if is_2d and "rz" in p:
+                        pr.pop("rz")
             # --- Normalize Supports ---
-            if "sdim" in p:
-                zipped_supports = zip(
-                    p.get("sx", []),
-                    p.get("sy", []),
-                    p.get("sz", []) if not is_2d else [0] * len(p.get("sx", [])),
-                    p.get("sdim", []),
-                )
-                active_supports = [s for s in zipped_supports if s[3] != "-"]
-                if active_supports:
-                    sx, sy, sz, sdim = list(zip(*active_supports))
-                    p["sx"], p["sy"], p["sz"], p["sdim"] = (
-                        list(sx),
-                        list(sy),
-                        list(sz),
-                        list(sdim),
+            if "Supports" in p:
+                ps = p["Supports"]
+                if "sdim" in ps:
+                    zipped_supports = zip(
+                        ps.get("sx", []),
+                        ps.get("sy", []),
+                        ps.get("sz", []) if not is_2d else [0] * len(ps.get("sx", [])),
+                        ps.get("sdim", []),
                     )
-                else:
-                    p["sx"], p["sy"], p["sz"], p["sdim"] = [], [], [], []
-                if is_2d and "sz" in p:
-                    p.pop("sz")
+                    active_supports = [s for s in zipped_supports if s[3] != "-"]
+                    if active_supports:
+                        sx, sy, sz, sdim = list(zip(*active_supports))
+                        ps["sx"], ps["sy"], ps["sz"], ps["sdim"] = (
+                            list(sx),
+                            list(sy),
+                            list(sz),
+                            list(sdim),
+                        )
+                    else:
+                        ps["sx"], ps["sy"], ps["sz"], ps["sdim"] = [], [], [], []
+                    if is_2d and "sz" in ps:
+                        ps.pop("sz")
             # --- Normalize Forces ---
-            if "fidir" in p:
+            pf = p["Forces"]
+            if "fidir" in pf:
                 zipped_forces = zip(
-                    p.get("fix", []),
-                    p.get("fiy", []),
-                    p.get("fiz", []) if not is_2d else [0] * len(p.get("fix", [])),
-                    p.get("fidir", []),
-                    p.get("finorm", []),
+                    pf.get("fix", []),
+                    pf.get("fiy", []),
+                    pf.get("fiz", []) if not is_2d else [0] * len(pf.get("fix", [])),
+                    pf.get("fidir", []),
+                    pf.get("finorm", []),
                 )
                 force_list = list(zipped_forces)
                 # Keep the input force, and any output forces that are active.
@@ -536,7 +571,7 @@ class MainWindow(QMainWindow):
                 ]
                 if active_forces:
                     fx, fy, fz, fdir, fnorm = list(zip(*active_forces))
-                    p["fix"], p["fiy"], p["fiz"], p["fidir"], p["finorm"] = (
+                    pf["fix"], pf["fiy"], pf["fiz"], pf["fidir"], pf["finorm"] = (
                         list(fx),
                         list(fy),
                         list(fz),
@@ -544,22 +579,22 @@ class MainWindow(QMainWindow):
                         list(fnorm),
                     )
                 else:  # Should not happen as one input force is required
-                    p["fix"], p["fiy"], p["fiz"], p["fidir"], p["finorm"] = (
+                    pf["fix"], pf["fiy"], pf["fiz"], pf["fidir"], pf["finorm"] = (
                         [],
                         [],
                         [],
                         [],
                         [],
                     )
-                if is_2d and "fiz" in p:
-                    p.pop("fiz")
-            if "fodir" in p:
+                if is_2d and "fiz" in pf:
+                    pf.pop("fiz")
+            if "fodir" in pf:
                 zipped_forces = zip(
-                    p.get("fox", []),
-                    p.get("foy", []),
-                    p.get("foz", []) if not is_2d else [0] * len(p.get("fox", [])),
-                    p.get("fodir", []),
-                    p.get("fonorm", []),
+                    pf.get("fox", []),
+                    pf.get("foy", []),
+                    pf.get("foz", []) if not is_2d else [0] * len(pf.get("fox", [])),
+                    pf.get("fodir", []),
+                    pf.get("fonorm", []),
                 )
                 force_list = list(zipped_forces)
                 # Keep the input force, and any output forces that are active.
@@ -568,7 +603,7 @@ class MainWindow(QMainWindow):
                 ]
                 if active_forces:
                     fx, fy, fz, fdir, fnorm = list(zip(*active_forces))
-                    p["fox"], p["foy"], p["foz"], p["fodir"], p["fonorm"] = (
+                    pf["fox"], pf["foy"], pf["foz"], pf["fodir"], pf["fonorm"] = (
                         list(fx),
                         list(fy),
                         list(fz),
@@ -576,15 +611,25 @@ class MainWindow(QMainWindow):
                         list(fnorm),
                     )
                 else:  # Should not happen as one input force is required
-                    p["fox"], p["foy"], p["foz"], p["fodir"], p["fonorm"] = (
+                    pf["fox"], pf["foy"], pf["foz"], pf["fodir"], pf["fonorm"] = (
                         [],
                         [],
                         [],
                         [],
                         [],
                     )
-                if is_2d and "foz" in p:
-                    p.pop("foz")
+                if is_2d and "foz" in pf:
+                    pf.pop("foz")
+            # --- Normalize Materials ---
+            if "Materials" in p:
+                pm = p["Materials"]
+                if len(pm["E"]) == 1:
+                    # If only one material, ignore the percentage
+                    pm["percent"] = [100]
+                    if "color" not in pm or pm["color"] == [""]:
+                        pm["color"] = ["#000000"]  # Default black color
+                    if "init_type" not in pm:
+                        pm["init_type"] = 0
 
             return p
 
@@ -597,87 +642,93 @@ class MainWindow(QMainWindow):
             p2_norm, sort_keys=True
         )
 
-    def validate_parameters(self, p):
+    def validate_parameters(self, params):
         """Checks for common input errors."""
-        nelx, nely, nelz = p["nelxyz"]
+        nelx, nely, nelz = params["Dimensions"]["nelxyz"]
         if nelx <= 0 or nely <= 0 or nelz < 0:
             return "Nx, Ny, Nz must be positive."
-        if not any(d != "-" for d in p["fidir"]):
+        pf = params["Forces"]
+        if not any(d != "-" for d in pf["fidir"]):
             return "At least one input force must be active"
-        if not any(d != "-" for d in p["fodir"]) and not any(
-            d != "-" for d in p["sdim"]
+        ps = params.get("Supports", {})
+        if not any(d != "-" for d in pf["fodir"]) and not any(
+            d != "-" for d in ps["sdim"]
         ):
             return "At least one output force (for compliant mechanisms) or support (for rigid mechanisms) must be active"
 
         # Check for duplicate regions
-        active_region_indices = [
-            i for i in range(len(p["rshape"])) if p["rshape"][i] != "-"
-        ]
-        for i in active_region_indices:
-            for j in active_region_indices:
-                if j > i:
-                    if (
-                        p["rshape"][i] == p["rshape"][j]
-                        and p["rradius"][i] == p["rradius"][j]
-                        and p["rx"][i] == p["rx"][j]
-                        and p["ry"][i] == p["ry"][j]
-                        and p["rz"][i] == p["rz"][j]
-                    ):
-                        return f"Regions {i+1} and {j+1} are identical/overlapping."
+        if "Region" in params:
+            pr = params["Region"]
+            active_region_indices = [
+                i for i in range(len(pr["rshape"])) if pr["rshape"][i] != "-"
+            ]
+            for i in active_region_indices:
+                for j in active_region_indices:
+                    if j > i:
+                        if (
+                            pr["rshape"][i] == pr["rshape"][j]
+                            and pr["rradius"][i] == pr["rradius"][j]
+                            and pr["rx"][i] == pr["rx"][j]
+                            and pr["ry"][i] == pr["ry"][j]
+                            and pr["rz"][i] == pr["rz"][j]
+                        ):
+                            return f"Regions {i+1} and {j+1} are identical/overlapping."
 
         # Check for duplicate supports
-        active_supports_indices = [
-            i for i in range(len(p["sdim"])) if p["sdim"][i] != "-"
-        ]
-        for i in active_supports_indices:
-            for j in active_supports_indices:
-                if j > i:
-                    if (
-                        p["sx"][i] == p["sx"][j]
-                        and p["sy"][i] == p["sy"][j]
-                        and p["sz"][i] == p["sz"][j]
-                        and p["sdim"][i] == p["sdim"][j]
-                    ):
-                        return f"Supports {i+1} and {j+1} are identical."
+        if ps:
+            active_supports_indices = [
+                i for i in range(len(ps["sdim"])) if ps["sdim"][i] != "-"
+            ]
+            for i in active_supports_indices:
+                for j in active_supports_indices:
+                    if j > i:
+                        if (
+                            ps["sx"][i] == ps["sx"][j]
+                            and ps["sy"][i] == ps["sy"][j]
+                            and ps["sz"][i] == ps["sz"][j]
+                            and ps["sdim"][i] == ps["sdim"][j]
+                        ):
+                            return f"Supports {i+1} and {j+1} are identical."
 
         # Check for duplicate forces
         active_input_force_indices = [
-            i for i in range(len(p["fidir"])) if p["fidir"][i] != "-"
+            i for i in range(len(pf["fidir"])) if pf["fidir"][i] != "-"
         ]
         for i in active_input_force_indices:
             for j in active_input_force_indices:
                 if j > i:
                     if (
-                        p["fix"][i] == p["fix"][j]
-                        and p["fiy"][i] == p["fiy"][j]
-                        and p["fiz"][i] == p["fiz"][j]
-                        and p["fidir"][i] == p["fidir"][j]
+                        pf["fix"][i] == pf["fix"][j]
+                        and pf["fiy"][i] == pf["fiy"][j]
+                        and pf["fiz"][i] == pf["fiz"][j]
+                        and pf["fidir"][i] == pf["fidir"][j]
                     ):
                         return f"input forces {i+1} and {j+1} are identical."
         active_output_force_indices = [
-            i for i in range(len(p["fodir"])) if p["fodir"][i] != "-"
+            i for i in range(len(pf["fodir"])) if pf["fodir"][i] != "-"
         ]
         for i in active_output_force_indices:
             for j in active_output_force_indices:
                 if j > i:
                     if (
-                        p["fox"][i] == p["fox"][j]
-                        and p["foy"][i] == p["foy"][j]
-                        and p["foz"][i] == p["foz"][j]
-                        and p["fodir"][i] == p["fodir"][j]
+                        pf["fox"][i] == pf["fox"][j]
+                        and pf["foy"][i] == pf["foy"][j]
+                        and pf["foz"][i] == pf["foz"][j]
+                        and pf["fodir"][i] == pf["fodir"][j]
                     ):
                         return f"Output forces {i+1} and {j+1} are identical."
 
         # Check for duplicate materials
-        for i in range(len(p["E"])):
-            for j in range(i + 1, len(p["E"])):
+        pm = params["Materials"]
+        for i in range(len(pm["E"])):
+            for j in range(i + 1, len(pm["E"])):
                 if (
-                    p["E"][i] == p["E"][j]
-                    and p["nu"][i] == p["nu"][j]
-                    and p["percent"][i] == p["percent"][j]
+                    pm["E"][i] == pm["E"][j]
+                    and pm["nu"][i] == pm["nu"][j]
+                    and pm["percent"][i] == pm["percent"][j]
                 ):
                     return f"Materials {i+1} and {j+1} are identical."
-        if sum(p["percent"]) != 100:
+        if len(pm["E"]) > 1 and sum(pm["percent"]) != 100:
             return "Material percentages don't sum up to 100%."
         return None
 
@@ -912,7 +963,7 @@ class MainWindow(QMainWindow):
         self.footer.binarize_button.setEnabled(False)
         self.footer.save_button.setEnabled(False)
         self.status_bar.showMessage("Starting optimization...")
-        self.progress_bar.setRange(0, self.last_params["n_it"])
+        self.progress_bar.setRange(0, self.last_params["Optimizer"]["n_it"])
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(True)
 
@@ -947,7 +998,11 @@ class MainWindow(QMainWindow):
         ax = self.figure.get_axes()[0]
 
         # Get dimensions and update the image data
-        is_3d = self.last_params["nelxyz"][2] > 0 if self.last_params else False
+        is_3d = (
+            self.last_params["Dimensions"]["nelxyz"][2] > 0
+            if self.last_params
+            else False
+        )
         if is_3d:
             self.plot_material(ax, is_3d=is_3d, xPhys_data=xPhys_frame)
             self.redraw_non_material_layers(ax, is_3d=True)
@@ -955,7 +1010,7 @@ class MainWindow(QMainWindow):
             if not ax.images:
                 return
             im = ax.images[0]  # The imshow object is the first image on the axes
-            nelx, nely = self.last_params["nelxyz"][:2]
+            nelx, nely = self.last_params["Dimensions"]["nelxyz"][:2]
             im.set_array(xPhys_frame.reshape((nelx, nely)).T)
 
         self.canvas.draw()
@@ -972,7 +1027,7 @@ class MainWindow(QMainWindow):
         self.footer.binarize_button.setEnabled(True)
         self.footer.save_button.setEnabled(True)
         self.displacement_widget.run_disp_button.setEnabled(True)
-        self.sections["displacement"].visibility_button.setEnabled(True)
+        self.sections["Displacement"].visibility_button.setEnabled(True)
         self.replot()
 
     def handle_optimization_error(self, error_msg):
@@ -1011,15 +1066,19 @@ class MainWindow(QMainWindow):
         QApplication.processEvents()
 
         self.last_params = self.gather_parameters()
-        if self.last_params["disp_iterations"] == 1:
+        if self.last_params["Displacement"]["disp_iterations"] == 1:
             # Run single-frame logic directly
             self.status_bar.showMessage("Calculating single displacement frame...")
             QApplication.processEvents()  # Update UI
             from app.core.displacements import single_linear_displacement
 
-            nelx, nely, nelz = self.last_params["nelxyz"]
+            nelx, nely, nelz = self.last_params["Dimensions"]["nelxyz"]
             self.last_displayed_frame_data = single_linear_displacement(
-                self.u, nelx, nely, nelz, self.last_params["disp_factor"]
+                self.u,
+                nelx,
+                nely,
+                nelz,
+                self.last_params["Displacement"]["disp_factor"],
             )
             self.replot()
             self.handle_displacement_finished("Single frame shown.")
@@ -1029,7 +1088,9 @@ class MainWindow(QMainWindow):
             self.displacement_widget.run_disp_button.setEnabled(False)
             self.status_bar.showMessage("Starting displacement computation...")
 
-            self.progress_bar.setRange(0, self.last_params["disp_iterations"] + 1)
+            self.progress_bar.setRange(
+                0, self.last_params["Displacement"]["disp_iterations"] + 1
+            )
             self.progress_bar.setValue(0)
             self.progress_bar.setVisible(True)
 
@@ -1073,7 +1134,7 @@ class MainWindow(QMainWindow):
         if not self.figure.get_axes() or not self.last_params:
             return
         ax = self.figure.get_axes()[0]
-        nelx, nely, nelz = self.last_params["nelxyz"]
+        nelx, nely, nelz = self.last_params["Dimensions"]["nelxyz"]
         is_3d = nelz > 0
 
         if is_3d:
@@ -1120,7 +1181,7 @@ class MainWindow(QMainWindow):
 
     def on_displacement_preview_changed(self):
         """Triggers a replot if the preview is active when displacement factor changes."""
-        if self.sections["displacement"].visibility_button.isChecked():
+        if self.sections["Displacement"].visibility_button.isChecked():
             self.replot()
 
     def handle_displacement_finished(self, message):
@@ -1165,7 +1226,9 @@ class MainWindow(QMainWindow):
             base_name = self.preset.presets_combo.currentText()
         else:
             base_name = (
-                "result_3d" if self.last_params["nelxyz"][2] > 0 else "result_2d"
+                "result_3d"
+                if self.last_params["Dimensions"]["nelxyz"][2] > 0
+                else "result_2d"
             )
 
         # File dialog config
@@ -1190,14 +1253,14 @@ class MainWindow(QMainWindow):
 
             elif file_type == "vti":
                 success, error_msg = exporters.save_as_vti(
-                    self.xPhys, self.last_params["nelxyz"], filepath
+                    self.xPhys, self.last_params["Dimensions"]["nelxyz"], filepath
                 )
                 if not success:
                     raise Exception(error_msg)
 
             elif file_type == "stl":
                 success, error_msg = exporters.save_as_stl(
-                    self.xPhys, self.last_params["nelxyz"], filepath
+                    self.xPhys, self.last_params["Dimensions"]["nelxyz"], filepath
                 )
                 if not success:
                     raise Exception(error_msg)
@@ -1243,7 +1306,7 @@ class MainWindow(QMainWindow):
             return  # Do nothing if triggerd in sections initialization
         self.figure.clear()
         self.figure.patch.set_facecolor("white")
-        nelx, nely, nelz = self.last_params["nelxyz"]
+        nelx, nely, nelz = self.last_params["Dimensions"]["nelxyz"]
         is_3d = nelz > 0
         if is_3d:
             ax = self.figure.add_subplot(111, projection="3d", facecolor="white")
@@ -1255,7 +1318,9 @@ class MainWindow(QMainWindow):
             self.is_displaying_deformation
             and self.last_displayed_frame_data is not None
         ):
-            if self.last_params["disp_iterations"] == 1:  # Single-frame grid plot
+            if (
+                self.last_params["Displacement"]["disp_iterations"] == 1
+            ):  # Single-frame grid plot
                 if is_3d:
                     # Compute original element centers
                     nel = nelx * nely * nelz
@@ -1321,55 +1386,81 @@ class MainWindow(QMainWindow):
 
                     ax.set_box_aspect([nelx, nely, nelz])
                 else:
+                    hex_color = to_hex(
+                        self.materials_widget.inputs[0]["color"].get_color()
+                    )
+                    color_cmap = LinearSegmentedColormap.from_list(
+                        "material_shades",
+                        [hex_color, "#ffffff"],  # selected material color → white
+                    )
                     X, Y = self.last_displayed_frame_data
                     ax.pcolormesh(
                         X,
                         Y,
                         -self.xPhys.reshape((nelx, nely)),
-                        cmap="gray",
+                        cmap=color_cmap,
                         shading="auto",
                     )
             # Multi-iteration displacement handled in update_animation_frame
         else:
-            if self.sections["materials"].visibility_button.isChecked():
+            if self.sections["Materials"].visibility_button.isChecked():
                 if self.xPhys is None:
-                    p = self.last_params
+                    pm = self.last_params["Materials"]
+                    pd = self.last_params["Dimensions"]
+                    pf = self.last_params["Forces"]
+                    ps = (
+                        self.last_params["Supports"]
+                        if "Supports" in self.last_params
+                        else None
+                    )
                     # Initialize xPhys
                     active_iforces_indices = [
                         i
-                        for i in range(len(p["fidir"]))
-                        if np.array(p["fidir"])[i] != "-"
+                        for i in range(len(pf["fidir"]))
+                        if np.array(pf["fidir"])[i] != "-"
                     ]
                     active_oforces_indices = [
                         i
-                        for i in range(len(p["fodir"]))
-                        if np.array(p["fodir"])[i] != "-"
+                        for i in range(len(pf["fodir"]))
+                        if np.array(pf["fodir"])[i] != "-"
                     ]
-                    active_supports_indices = [
-                        i
-                        for i in range(len(p["sdim"]))
-                        if np.array(p["sdim"])[i] != "-"
-                    ]
-                    fix_active = np.array(p["fix"])[active_iforces_indices]
-                    fiy_active = np.array(p["fiy"])[active_iforces_indices]
-                    fox_active = np.array(p["fox"])[active_oforces_indices]
-                    foy_active = np.array(p["foy"])[active_oforces_indices]
-                    sx_active = np.array(p["sx"])[active_supports_indices]
-                    sy_active = np.array(p["sy"])[active_supports_indices]
+                    active_supports_indices = (
+                        [
+                            i
+                            for i in range(len(ps["sdim"]))
+                            if np.array(ps["sdim"])[i] != "-"
+                        ]
+                        if ps is not None
+                        else []
+                    )
+                    fix_active = np.array(pf["fix"])[active_iforces_indices]
+                    fiy_active = np.array(pf["fiy"])[active_iforces_indices]
+                    fox_active = np.array(pf["fox"])[active_oforces_indices]
+                    foy_active = np.array(pf["foy"])[active_oforces_indices]
+                    sx_active = (
+                        np.array(ps["sx"])[active_supports_indices]
+                        if ps is not None
+                        else np.array([])
+                    )
+                    sy_active = (
+                        np.array(ps["sy"])[active_supports_indices]
+                        if ps is not None
+                        else np.array([])
+                    )
                     all_x = np.concatenate([fix_active, fox_active, sx_active])
                     all_y = np.concatenate([fiy_active, foy_active, sy_active])
                     if is_3d:
-                        fiz_active = np.array(p["fiz"])[active_iforces_indices]
-                        foz_active = np.array(p["foz"])[active_oforces_indices]
-                        sz_active = np.array(p["sz"])[active_supports_indices]
+                        fiz_active = np.array(pf["fiz"])[active_iforces_indices]
+                        foz_active = np.array(pf["foz"])[active_oforces_indices]
+                        sz_active = np.array(ps["sz"])[active_supports_indices]
                     all_z = (
                         np.concatenate([fiz_active, foz_active, sz_active])
                         if is_3d
                         else np.array([0] * len(all_x))
                     )
                     self.xPhys = initializers.initialize_material(
-                        p["init_type"],
-                        p["volfrac"],
+                        pm["init_type"],
+                        pd["volfrac"],
                         nelx,
                         nely,
                         nelz,
@@ -1378,65 +1469,71 @@ class MainWindow(QMainWindow):
                         all_z,
                     )
                     # Add regions if specified
-                    for i, shape in enumerate(p["rshape"]):
-                        if shape == "-":
-                            continue
-                        x_min, x_max = max(0, int(p["rx"][i] - p["rradius"][i])), min(
-                            nelx, int(p["rx"][i] + p["rradius"][i]) + 1
-                        )
-                        y_min, y_max = max(0, int(p["ry"][i] - p["rradius"][i])), min(
-                            nely, int(p["ry"][i] + p["rradius"][i]) + 1
-                        )
-                        if is_3d:
-                            z_min, z_max = max(
-                                0, int(p["rz"][i] - p["rradius"][i])
-                            ), min(nelz, int(p["rz"][i] + p["rradius"][i]) + 1)
+                    if "Regions" in self.last_params:
+                        pr = self.last_params["Regions"]
+                        for i, shape in enumerate(pr["rshape"]):
+                            if shape == "-":
+                                continue
+                            x_min, x_max = max(
+                                0, int(pr["rx"][i] - pr["rradius"][i])
+                            ), min(nelx, int(pr["rx"][i] + pr["rradius"][i]) + 1)
+                            y_min, y_max = max(
+                                0, int(pr["ry"][i] - pr["rradius"][i])
+                            ), min(nely, int(pr["ry"][i] + pr["rradius"][i]) + 1)
+                            if is_3d:
+                                z_min, z_max = max(
+                                    0, int(pr["rz"][i] - pr["rradius"][i])
+                                ), min(nelz, int(pr["rz"][i] + pr["rradius"][i]) + 1)
 
-                        idx_x = np.arange(x_min, x_max)
-                        idx_y = np.arange(y_min, y_max)
-                        if is_3d:
-                            idx_z = np.arange(z_min, z_max)
+                            idx_x = np.arange(x_min, x_max)
+                            idx_y = np.arange(y_min, y_max)
+                            if is_3d:
+                                idx_z = np.arange(z_min, z_max)
 
-                        if p["rshape"][i] == "□":  # Square/Cube
-                            if len(idx_x) > 0 and len(idx_y) > 0:
-                                if is_3d and len(idx_z) > 0:
-                                    xx, yy, zz = np.meshgrid(
-                                        idx_x, idx_y, idx_z, indexing="ij"
-                                    )
-                                    indices = zz + yy * nelz + xx * nely * nelz
-                                elif not is_3d:
-                                    xx, yy = np.meshgrid(idx_x, idx_y, indexing="ij")
-                                    indices = yy + xx * nely
+                            if pr["rshape"][i] == "□":  # Square/Cube
+                                if len(idx_x) > 0 and len(idx_y) > 0:
+                                    if is_3d and len(idx_z) > 0:
+                                        xx, yy, zz = np.meshgrid(
+                                            idx_x, idx_y, idx_z, indexing="ij"
+                                        )
+                                        indices = zz + yy * nelz + xx * nely * nelz
+                                    elif not is_3d:
+                                        xx, yy = np.meshgrid(
+                                            idx_x, idx_y, indexing="ij"
+                                        )
+                                        indices = yy + xx * nely
 
-                        elif p["rshape"][i] == "◯":  # Circle/Sphere
-                            if len(idx_x) > 0 and len(idx_y) > 0:
-                                if is_3d and len(idx_z) > 0:
-                                    i_grid, j_grid, k_grid = np.meshgrid(
-                                        idx_x, idx_y, idx_z, indexing="ij"
-                                    )
-                                    mask = (i_grid - p["rx"][i]) ** 2 + (
-                                        j_grid - p["ry"][i]
-                                    ) ** 2 + (k_grid - p["rz"][i]) ** 2 <= p["rradius"][
-                                        i
-                                    ] ** 2
-                                    ii, jj, kk = (
-                                        i_grid[mask],
-                                        j_grid[mask],
-                                        k_grid[mask],
-                                    )
-                                    indices = kk + jj * nelz + ii * nely * nelz
-                                elif not is_3d:
-                                    i_grid, j_grid = np.meshgrid(
-                                        idx_x, idx_y, indexing="ij"
-                                    )
-                                    mask = (i_grid - p["rx"][i]) ** 2 + (
-                                        j_grid - p["ry"][i]
-                                    ) ** 2 <= p["rradius"][i] ** 2
-                                    ii, jj = i_grid[mask], j_grid[mask]
-                                    indices = jj + ii * nely
-                        self.xPhys[indices.flatten()] = (
-                            1e-6 if p["rstate"][i] == "Void" else 1.0
-                        )
+                            elif pr["rshape"][i] == "◯":  # Circle/Sphere
+                                if len(idx_x) > 0 and len(idx_y) > 0:
+                                    if is_3d and len(idx_z) > 0:
+                                        i_grid, j_grid, k_grid = np.meshgrid(
+                                            idx_x, idx_y, idx_z, indexing="ij"
+                                        )
+                                        mask = (i_grid - pr["rx"][i]) ** 2 + (
+                                            j_grid - pr["ry"][i]
+                                        ) ** 2 + (k_grid - pr["rz"][i]) ** 2 <= pr[
+                                            "rradius"
+                                        ][
+                                            i
+                                        ] ** 2
+                                        ii, jj, kk = (
+                                            i_grid[mask],
+                                            j_grid[mask],
+                                            k_grid[mask],
+                                        )
+                                        indices = kk + jj * nelz + ii * nely * nelz
+                                    elif not is_3d:
+                                        i_grid, j_grid = np.meshgrid(
+                                            idx_x, idx_y, indexing="ij"
+                                        )
+                                        mask = (i_grid - pr["rx"][i]) ** 2 + (
+                                            j_grid - pr["ry"][i]
+                                        ) ** 2 <= pr["rradius"][i] ** 2
+                                        ii, jj = i_grid[mask], j_grid[mask]
+                                        indices = jj + ii * nely
+                            self.xPhys[indices.flatten()] = (
+                                1e-6 if pr["rstate"][i] == "Void" else 1.0
+                            )
                 self.plot_material(ax, is_3d=is_3d)
             # Show initial message if xPhys is not a result (even partial) of optimization
             if self.footer.create_button.graphicsEffect() is not None:
@@ -1474,8 +1571,7 @@ class MainWindow(QMainWindow):
 
     def plot_material(self, ax, is_3d, xPhys_data=None):
         """Plot the material."""
-        p = self.last_params
-        nelx, nely, nelz = p["nelxyz"]
+        nelx, nely, nelz = self.last_params["Dimensions"]["nelxyz"]
         data_to_plot = self.xPhys if xPhys_data is None else xPhys_data
         if data_to_plot is None:
             return
@@ -1491,8 +1587,6 @@ class MainWindow(QMainWindow):
             # ax.voxels(x_phys_3d, facecolors=color, edgecolor=None, ) # Very slow for large grids
             # ax.set_box_aspect([nelx, nely, nelz])
             # self.redraw_non_material_layers(ax, is_3d_mode=True)
-
-            p = self.last_params
 
             # Avoids plotting fully transparent points.
             visible_elements_mask = data_to_plot > 0.01
@@ -1547,7 +1641,7 @@ class MainWindow(QMainWindow):
 
     def plot_dimensions_frame(self, ax, is_3d):
         """Draws a dotted frame around the design space, controlled by the Dimensions section's visibility button."""
-        if not self.sections["dimensions"].visibility_button.isChecked():
+        if not self.sections["Dimensions"].visibility_button.isChecked():
             ax.set_xlabel("")
             ax.set_ylabel("")
             if is_3d:
@@ -1560,8 +1654,7 @@ class MainWindow(QMainWindow):
                 spine.set_visible(False)
             return
 
-        p = self.last_params
-        nelx, nely, nelz = p["nelxyz"]
+        nelx, nely, nelz = self.last_params["Dimensions"]["nelxyz"]
 
         if is_3d:
             # Define the 8 vertices of the box
@@ -1621,11 +1714,12 @@ class MainWindow(QMainWindow):
 
     def plot_forces(self, ax, is_3d):
         """Plots the forces as arrows."""
-        if not self.sections["forces"].visibility_button.isChecked():
+        if not self.sections["Forces"].visibility_button.isChecked():
             return
-        if not self.last_params:
+        if not self.last_params or "Forces" not in self.last_params:
             return
-        p = self.last_params
+        pf = self.last_params["Forces"]
+        pd = self.last_params["Dimensions"]
         if self.is_displaying_deformation and self.u is not None:
             if (
                 self.displacement_widget.mov_iter.value() == 1
@@ -1660,7 +1754,7 @@ class MainWindow(QMainWindow):
                         if dirkey in g and g[dirkey].currentText() != "-"
                     ]
                     disp_factor = self.displacement_widget.mov_disp.value()
-                    nely = p["nelxyz"][1]
+                    nely = pd["nelxyz"][1]
                     indices = (
                         (orig_fz * (orig_fx + 1) * (nely + 1))
                         + (orig_fx * (nely + 1))
@@ -1680,7 +1774,7 @@ class MainWindow(QMainWindow):
                     if is_3d:
                         new_fz = orig_fz + uz
 
-                    length = np.mean(p["nelxyz"][:2]) / 6
+                    length = np.mean(pd["nelxyz"][:2]) / 6
                     dx, dy = np.zeros_like(new_fx), np.zeros_like(new_fy)
                     if is_3d:
                         dz = np.zeros_like(new_fz)
@@ -1731,16 +1825,16 @@ class MainWindow(QMainWindow):
                 ("fix", "fiy", "fiz", "fidir", "r"),  # input forces
                 ("fox", "foy", "foz", "fodir", "b"),  # output forces
             ]:
-                directions = p[dirkey]
+                directions = pf[dirkey]
                 if all(d == "-" for d in directions):
                     continue
 
                 colors = [col for d in directions if d != "-"]
-                dx, dy = np.zeros_like(p[xkey]), np.zeros_like(p[ykey])
+                dx, dy = np.zeros_like(pf[xkey]), np.zeros_like(pf[ykey])
                 if is_3d:
-                    dz = np.zeros_like(p[zkey])
+                    dz = np.zeros_like(pf[zkey])
 
-                length = np.mean(p["nelxyz"][:2]) / 6
+                length = np.mean(pd["nelxyz"][:2]) / 6
 
                 for i, d in enumerate(directions):
                     if d == "-":
@@ -1761,9 +1855,9 @@ class MainWindow(QMainWindow):
 
                 if is_3d:
                     ax.quiver(
-                        p[xkey],
-                        p[ykey],
-                        p[zkey],
+                        pf[xkey],
+                        pf[ykey],
+                        pf[zkey],
                         dx,
                         dy,
                         dz,
@@ -1773,8 +1867,8 @@ class MainWindow(QMainWindow):
                     )
                 else:
                     ax.quiver(
-                        p[xkey],
-                        p[ykey],
+                        pf[xkey],
+                        pf[ykey],
                         dx,
                         dy,
                         color=colors,
@@ -1785,14 +1879,16 @@ class MainWindow(QMainWindow):
 
     def plot_supports(self, ax, is_3d):
         """Plots the supports as triangles."""
-        if not self.sections["supports"].visibility_button.isChecked():
+        if not self.sections["Supports"].visibility_button.isChecked():
+            return
+        if not self.last_params or "Supports" not in self.last_params:
             return
         # No need to consider the case is_displaying_deformation since the supports don't move
-        p = self.last_params
-        for i, d in enumerate(p["sdim"]):
+        ps = self.last_params["Supports"]
+        for i, d in enumerate(ps["sdim"]):
             if d == "-":
                 continue
-            pos = [p["sx"][i], p["sy"][i], p["sz"][i]]
+            pos = [ps["sx"][i], ps["sy"][i], ps["sz"][i]]
             if is_3d:
                 ax.scatter(
                     pos[0],
@@ -1808,23 +1904,22 @@ class MainWindow(QMainWindow):
 
     def plot_regions(self, ax, is_3d):
         """Plots the regions outline (square/cube or circle/sphere) in 2D or 3D."""
-        if not self.sections["regions"].visibility_button.isChecked():
+        if not self.sections["Regions"].visibility_button.isChecked():
             return
         if self.is_displaying_deformation:
             return  # Region are not relevant in deformation view
-
-        p = self.last_params
-        if not p:
+        if not self.last_params or "Regions" not in self.last_params:
             return
-        for i, shape in enumerate(p["rshape"]):
+        pr = self.last_params["Regions"]
+        for i, shape in enumerate(pr["rshape"]):
             if shape == "-":
                 continue
 
-            r = p["rradius"][i]
-            rx, ry = p["rx"][i], p["ry"][i]
+            r = pr["rradius"][i]
+            rx, ry = pr["rx"][i], pr["ry"][i]
 
             if is_3d:
-                rz = p["rz"][i]
+                rz = pr["rz"][i]
                 if shape == "□":  # Square/Cube
                     # Define the 8 vertices of the cube
                     verts = np.array(
@@ -1908,22 +2003,21 @@ class MainWindow(QMainWindow):
 
     def plot_displacement_preview(self, ax, is_3d):
         """Overlays displacement vectors (quivers) on the plot if the preview is active."""
-        if not self.sections["displacement"].visibility_button.isChecked():
+        if not self.sections["Displacement"].visibility_button.isChecked():
             return
         if self.is_displaying_deformation:
             return  # The displacement vector doesn't match the deformed shape
         if self.u is None or self.xPhys is None:
             return
-
-        p = self.last_params
+        pf = self.last_params["Forces"]
         disp_factor = self.displacement_widget.mov_disp.value()
         factor = (
-            disp_factor / np.mean(p["finorm"][0])
-            if np.mean(p["finorm"][0]) != 0
+            disp_factor / np.mean(pf["finorm"][0])
+            if np.mean(pf["finorm"][0]) != 0
             else disp_factor
         )
 
-        nelx, nely, nelz = p["nelxyz"]
+        nelx, nely, nelz = self.last_params["Dimensions"]["nelxyz"]
         if is_3d:
             step = max(
                 1, int((nelx + nely + nelz) / 15)
@@ -2083,104 +2177,114 @@ class MainWindow(QMainWindow):
         """Sets all UI widgets to the values from a given parameter dictionary."""
         self.block_all_parameter_signals(True)
 
-        # Dimensions
-        self.dim_widget.nx.setValue(params["nelxyz"][0])
-        self.dim_widget.ny.setValue(params["nelxyz"][1])
-        self.dim_widget.nz.setValue(params["nelxyz"][2])
-        self.dim_widget.volfrac.setValue(params.get("volfrac", 0.3))
+        # --- Dimensions ---
+        Dimensions = params.get("Dimensions", {})
+        self.dim_widget.nx.setValue(Dimensions.get("nelxyz", [1, 1, 1])[0])
+        self.dim_widget.ny.setValue(Dimensions.get("nelxyz", [1, 1, 1])[1])
+        self.dim_widget.nz.setValue(Dimensions.get("nelxyz", [1, 1, 1])[2])
+        self.dim_widget.volfrac.setValue(Dimensions.get("volfrac", 0.3))
         self.update_position_ranges()
 
-        # Regions
-        num_regions_in_preset = len(params.get("rshape", []))
+        # --- Regions (optional) ---
+        pr = params.get("Regions", {})
+        num_regions_in_preset = len(pr.get("rshape", []))
         current_num_regions = len(self.regions_widget.inputs)
+
         while current_num_regions > num_regions_in_preset:
             self.regions_widget.remove_region(current_num_regions - 1, False)
             current_num_regions -= 1
         while current_num_regions < num_regions_in_preset:
             self.regions_widget.add_region(emit_signal=False)
             current_num_regions += 1
+
         for i in range(num_regions_in_preset):
             region_group = self.regions_widget.inputs[i]
             region_group["rshape"].blockSignals(True)
             region_group["rstate"].blockSignals(True)
-            region_group["rshape"].setCurrentText(params["rshape"][i])
-            region_group["rstate"].setCurrentText(params["rstate"][i])
-            region_group["rradius"].setValue(params["rradius"][i])
-            region_group["rx"].setValue(params["rx"][i])
-            region_group["ry"].setValue(params["ry"][i])
-            region_group["rz"].setValue(params["rz"][i])
+            region_group["rshape"].setCurrentText(pr["rshape"][i])
+            region_group["rstate"].setCurrentText(pr["rstate"][i])
+            region_group["rradius"].setValue(pr["rradius"][i])
+            region_group["rx"].setValue(pr["rx"][i])
+            region_group["ry"].setValue(pr["ry"][i])
+            region_group["rz"].setValue(pr["rz"][i])
         self.connect_region_signals()
 
-        # Forces
+        # --- Forces ---
+        pf = params.get("Forces", {})
         nb_input_forces = 0
         for i, force_group in enumerate(self.forces_widget.inputs):
             if "fix" in force_group:
-                force_group["fix"].setValue(params["fix"][i])
-                force_group["fiy"].setValue(params["fiy"][i])
-                force_group["fiz"].setValue(params["fiz"][i])
-                force_group["fidir"].setCurrentText(params["fidir"][i])
-                force_group["finorm"].setValue(params["finorm"][i])
+                force_group["fix"].setValue(pf["fix"][i])
+                force_group["fiy"].setValue(pf["fiy"][i])
+                force_group["fiz"].setValue(pf["fiz"][i])
+                force_group["fidir"].setCurrentText(pf["fidir"][i])
+                force_group["finorm"].setValue(pf["finorm"][i])
                 nb_input_forces += 1
             else:
-                force_group["fox"].setValue(params["fox"][i - nb_input_forces])
-                force_group["foy"].setValue(params["foy"][i - nb_input_forces])
-                force_group["foz"].setValue(params["foz"][i - nb_input_forces])
-                force_group["fodir"].setCurrentText(
-                    params["fodir"][i - nb_input_forces]
-                )
-                force_group["fonorm"].setValue(params["fonorm"][i - nb_input_forces])
+                force_group["fox"].setValue(pf["fox"][i - nb_input_forces])
+                force_group["foy"].setValue(pf["foy"][i - nb_input_forces])
+                force_group["foz"].setValue(pf["foz"][i - nb_input_forces])
+                force_group["fodir"].setCurrentText(pf["fodir"][i - nb_input_forces])
+                force_group["fonorm"].setValue(pf["fonorm"][i - nb_input_forces])
 
-        # Supports
-        num_supports_in_preset = len(params.get("sx", []))
+        # --- Supports (optional) ---
+        ps = params.get("Supports", {})
+        num_supports_in_preset = len(ps.get("sx", []))
         current_num = len(self.supports_widget.inputs)
-        while current_num > num_supports_in_preset:  # Remove extras
+        while current_num > num_supports_in_preset:
             last_btn = self.supports_widget.inputs[-1]["remove_btn"]
             try:
                 last_btn.clicked.disconnect(self.on_parameter_changed)
             except TypeError:
-                pass  # Was not connected; ignore
-            self.supports_widget.remove_support(
-                current_num - 1, False
-            )  # Remove last row
+                pass
+            self.supports_widget.remove_support(current_num - 1, False)
             current_num -= 1
-        while current_num < num_supports_in_preset:  # Add missings
+        while current_num < num_supports_in_preset:
             self.supports_widget.add_support(None, "XYZ", False)
             current_num += 1
-        for i in range(num_supports_in_preset):  # Set values
+        for i in range(num_supports_in_preset):
             support_group = self.supports_widget.inputs[i]
-            support_group["sx"].setValue(params["sx"][i])
-            support_group["sy"].setValue(params["sy"][i])
-            support_group["sz"].setValue(params["sz"][i])
-            support_group["sdim"].setCurrentText(params["sdim"][i])
+            support_group["sx"].setValue(ps["sx"][i])
+            support_group["sy"].setValue(ps["sy"][i])
+            support_group["sz"].setValue(ps["sz"][i])
+            support_group["sdim"].setCurrentText(ps["sdim"][i])
         self.connect_support_signals()
 
-        # Material
-        num_material_in_preset = len(params.get("E", []))
-        for i in range(num_material_in_preset):  # Set values
+        # --- Materials ---
+        pm = params.get("Materials", {})
+        num_material_in_preset = len(pm.get("E", []))
+        for i in range(num_material_in_preset):
             material_group = self.materials_widget.inputs[i]
-            material_group["E"].setValue(params["E"][i])
-            material_group["nu"].setValue(params["nu"][i])
-            material_group["percent"].setValue(params["percent"][i])
-            material_group["color"].set_color(params["color"][i])
-        self.materials_widget.mat_init_type.setCurrentIndex(params["init_type"])
+            material_group["E"].setValue(pm["E"][i])
+            material_group["nu"].setValue(pm["nu"][i])
+            # percent and color can be optional, skip if missing
+            if "percent" in pm:
+                material_group["percent"].setValue(pm["percent"][i])
+            if "color" in pm:
+                material_group["color"].set_color(pm["color"][i])
+        self.materials_widget.mat_init_type.setCurrentIndex(pm.get("init_type", 0))
         self.connect_material_signals()
 
-        # Optimizer
+        # --- Optimizer ---
+        po = params.get("Optimizer", {})
         self.optimizer_widget.opt_ft.setCurrentIndex(
-            0 if params["filter_type"] == "Sensitivity" else 1
+            0 if po.get("filter_type", "Sensitivity") == "Sensitivity" else 1
         )
-        self.optimizer_widget.opt_fr.setValue(params["filter_radius_min"])
-        self.optimizer_widget.opt_p.setValue(params["penal"])
-        self.optimizer_widget.opt_eta.setValue(params["eta"])
-        self.optimizer_widget.opt_max_change.setValue(params["max_change"])
-        self.optimizer_widget.opt_n_it.setValue(params["n_it"])
-        self.optimizer_widget.opt_solver.setCurrentText(params["solver"])
+        self.optimizer_widget.opt_fr.setValue(po.get("filter_radius_min", 1.3))
+        self.optimizer_widget.opt_p.setValue(po.get("penal", 3.0))
+        self.optimizer_widget.opt_eta.setValue(po.get("eta", 0.3))
+        self.optimizer_widget.opt_max_change.setValue(po.get("max_change", 0.05))
+        self.optimizer_widget.opt_n_it.setValue(po.get("n_it", 30))
+        self.optimizer_widget.opt_solver.setCurrentText(po.get("solver", "Auto"))
 
-        # Displacement
-        self.displacement_widget.mov_disp.setValue(params["disp_factor"])
-        self.displacement_widget.mov_iter.setValue(params["disp_iterations"])
+        # --- Displacement ---
+        Displacement = params.get("Displacement", {})
+        self.displacement_widget.mov_disp.setValue(Displacement.get("disp_factor", 1.0))
+        self.displacement_widget.mov_iter.setValue(
+            Displacement.get("disp_iterations", 1)
+        )
 
-        # Unblock signals
+        # --- Unblock signals ---
         self.block_all_parameter_signals(False)
 
         # Manually trigger a single update

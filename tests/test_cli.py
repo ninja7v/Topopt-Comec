@@ -53,7 +53,7 @@ def test_run_cli_valid_png(
     # Mock exporters success
     mock_exporters.save_as_png.return_value = (True, None)
 
-    # Run
+    # Run (on a real preset, not a test one since the function looks for presets.json)
     preset_name = "ForceInverter_2Sup_2D"
     with patch.object(
         sys, "argv", ["main.py", "-preset", preset_name, "-format", "png"]
@@ -63,7 +63,7 @@ def test_run_cli_valid_png(
     # Verify optimize called with correct parameters
     mock_optimize.assert_called_once()
     call_kwargs = mock_optimize.call_args.kwargs
-    assert call_kwargs["nelxyz"] == [15, 10, 0]
+    assert call_kwargs["Dimensions"]["nelxyz"] == [15, 10, 0]
     assert "disp_factor" not in call_kwargs  # Should be removed
 
     # Verify export called

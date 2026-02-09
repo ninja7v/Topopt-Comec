@@ -2,7 +2,7 @@
 # MIT License - Copyright (c) 2025-2026 Luc Prevost
 # Topology Optimizers.
 
-from typing import Callable, List, Optional, Tuple
+from typing import Dict, Callable, Optional, Tuple
 
 import numpy as np
 from scipy.sparse import coo_matrix
@@ -182,38 +182,12 @@ def oc(
 
 
 def optimize(
-    nelxyz: List[int],
-    volfrac: float,
-    rx: List[int],
-    ry: List[int],
-    rz: List[int],
-    rradius: float,
-    rshape: str,
-    rstate: str,
-    fix: List[int],
-    fiy: List[int],
-    fiz: List[int],
-    fidir: List[str],
-    finorm: List[float],
-    fox: List[int],
-    foy: List[int],
-    foz: List[int],
-    fodir: List[str],
-    fonorm: List[float],
-    sx: List[int],
-    sy: List[int],
-    sz: List[int],
-    sdim: List[str],
-    E: List[float],
-    nu: List[float],
-    init_type: int,
-    filter_type: int,
-    filter_radius_min: float,
-    penal: float,
-    eta: float,
-    max_change: float,
-    n_it: int,
-    solver: str,
+    Dimensions: Dict,
+    Forces: Dict,
+    Materials: Dict,
+    Optimizer: Dict,
+    Supports: Optional[Dict] = None,
+    Regions: Optional[Dict] = None,
     progress_callback: Optional[Callable[[int, float, float], None]] = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -223,6 +197,51 @@ def optimize(
         progress_callback: A function to call with (iteration, objective, change) for UI updates.
     """
     print("Optimizer starting...")
+    # Initialize dictionaries if None
+    Regions = Regions or {}
+    Forces = Forces or {}
+    Supports = Supports or {}
+    Materials = Materials or {}
+    Optimizer = Optimizer or {}
+    # Extract Dimensions values
+    nelxyz = Dimensions.get("nelxyz", [1, 1, 1])
+    volfrac = Dimensions.get("volfrac", 0.5)
+    # Extract Regions values with defaults
+    rx = Regions.get("rx", [])
+    ry = Regions.get("ry", [])
+    rz = Regions.get("rz", [])
+    rradius = Regions.get("rradius", 0.0)
+    rshape = Regions.get("rshape", "")
+    rstate = Regions.get("rstate", "")
+    # Extract Forces values with defaults
+    fix = Forces.get("fix", [])
+    fiy = Forces.get("fiy", [])
+    fiz = Forces.get("fiz", [])
+    fidir = Forces.get("fidir", [])
+    finorm = Forces.get("finorm", [])
+    fox = Forces.get("fox", [])
+    foy = Forces.get("foy", [])
+    foz = Forces.get("foz", [])
+    fodir = Forces.get("fodir", [])
+    fonorm = Forces.get("fonorm", [])
+    # Extract Supports
+    sx = Supports.get("sx", [])
+    sy = Supports.get("sy", [])
+    sz = Supports.get("sz", [])
+    sdim = Supports.get("sdim", [])
+    # Extract Materials
+    E = Materials.get("E", [])
+    nu = Materials.get("nu", [])
+    init_type = Materials.get("init_type", 0)
+    # Extract Optimizer
+    filter_type = Optimizer.get("filter_type", 0)
+    filter_radius_min = Optimizer.get("filter_radius_min", 0.0)
+    penal = Optimizer.get("penal", 3.0)
+    eta = Optimizer.get("eta", 1.0)
+    max_change = Optimizer.get("max_change", 0.2)
+    n_it = Optimizer.get("n_it", 100)
+    solver = Optimizer.get("solver", "default")
+
     # Initializations
     nelx, nely, nelz = nelxyz  # Number of elements in x, y and z directions
     is_3d = nelz > 0

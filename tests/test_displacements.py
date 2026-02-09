@@ -28,7 +28,7 @@ def test_displacement_with_presets(preset_name, preset_params):
     """Unit Test: Runs the 2D/3D optimizer with a given preset."""
     # Prepare the parameters for the optimizer function
     disp_params = preset_params.copy()
-    nelx, nely, nelz = disp_params["nelxyz"]
+    nelx, nely, nelz = disp_params["Dimensions"]["nelxyz"]
     is_3d = nelz > 0
     # Remove all keys that are not part of the optimizer's function signature
     keys_to_remove = ["filter_type", "filter_radius_min", "max_change", "n_it"]
@@ -38,16 +38,18 @@ def test_displacement_with_presets(preset_name, preset_params):
         disp_params.pop(key, None)
 
     # Generate a mock result and displacement vector
-    nel = nelx * nely * (disp_params["nelxyz"][2] if is_3d else 1)
+    nel = nelx * nely * (nelz if is_3d else 1)
     ndof = (3 if is_3d else 2) * (nelx + 1) * (nely + 1) * ((nelz + 1) if is_3d else 1)
     p = (
-        1 / preset_params["volfrac"] - 1
+        1 / preset_params["Dimensions"]["volfrac"] - 1
     )  # f(x) = (x/volfrac)^p -> integral(f(x)) from 0 to nel = volfrac * nel
     x = np.linspace(0, 1, nel)
     densities = x**p
     np.random.shuffle(densities)
     result = densities
-    u_vec = np.random.rand(ndof, sum(1 for fdir in disp_params["fidir"] if fdir != "-"))
+    u_vec = np.random.rand(
+        ndof, sum(1 for fdir in disp_params["Forces"]["fidir"] if fdir != "-")
+    )
 
     # Check if not empty
     assert result is not None, "Optimizer returned None"
@@ -81,5 +83,5 @@ def test_displacement_with_presets(preset_name, preset_params):
 
     # Check volume fraction
     assert np.isclose(
-        result.mean(), preset_params["volfrac"], atol=0.05
-    ), f"Final volume ({result.mean():.3f}) is far to target ({preset_params['volfrac']:.3f})"
+        result.mean(), preset_params["Dimensions"]["volfrac"], atol=0.05
+    ), f"Final volume ({result.mean():.3f}) is far to target ({preset_params['Dimensions']['volfrac']:.3f})"

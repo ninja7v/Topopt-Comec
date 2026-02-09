@@ -175,7 +175,7 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     Yields the cropped density field for each iteration.
     """
     # Initialization
-    nelx, nely, nelz = params["nelxyz"][:3]
+    nelx, nely, nelz = params["Dimensions"]["nelxyz"]
     is_3d = nelz > 0
     # Extend domain with margins (5%)
     margin_X = nelx // 5
@@ -190,7 +190,7 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     ndof = elemndof * (nelx + 1) * (nely + 1) * ((nelz + 1) if is_3d else 1)
     nel = nelx * nely * (nelz if is_3d else 1)
     Emin, Emax = 1e-9, 100.0
-    KE = lk(params["E"][0], params["nu"][0], is_3d)
+    KE = lk(params["Materials"]["E"][0], params["Materials"]["nu"][0], is_3d)
     size = 8 * (elemndof if is_3d else 1)
     edofMat = np.zeros((nel, size), dtype=int)
     for ex in range(nelx):
@@ -224,70 +224,75 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     jK = np.kron(edofMat, np.ones((1, size))).flatten()
 
     # Supports
-    active_supports_indices = [
-        i for i in range(len(params["sdim"])) if params["sdim"][i] != "-"
-    ]
     dofs = np.arange(ndof)
     fixed = []
-    neighbors = (
-        [
-            (-1, -1, -1),
-            (-1, -1, 1),
-            (1, -1, -1),
-            (-1, 1, -1),
-            (-1, 1, 1),
-            (1, -1, 1),
-            (1, 1, -1),
-            (1, 1, 1),
+    if "Supports" in params:
+        ps = params["Supports"]
+        active_supports_indices = [
+            i for i in range(len(ps["sdim"])) if ps["sdim"][i] != "-"
         ]
-        if is_3d
-        else [(-1, -1, 0), (-1, 1, 0), (1, -1, 0), (1, 1, 0)]
-    )  # diagonals positions
-    for i in active_supports_indices:
-        x, y = params["sx"][i], params["sy"][i]
-        z = params["sz"][i] if is_3d else 0
-        voxels = [(x, y, z)] + [
-            (x + dx, y + dy, z + dz) for dx, dy, dz in neighbors
-        ]  # add fixed supports in the neighborhood to make sure that the mechanism doesn't detach
-        for vx, vy, vz in voxels:
-            if (
-                0 <= vx <= nelx and 0 <= vy <= nely and (not is_3d or 0 <= vz <= nelz)
-            ):  # stay inside domain
-                node_idx = (
-                    ((vz + margin_Z) * (nelx + 1) * (nely + 1) if is_3d else 0)
-                    + (vx + margin_X) * (nely + 1)
-                    + (vy + margin_Y)
-                )
-                if "X" in params["sdim"][i]:
-                    fixed.append(elemndof * node_idx)
-                if "Y" in params["sdim"][i]:
-                    fixed.append(elemndof * node_idx + 1)
-                if is_3d and "Z" in params["sdim"][i]:
-                    fixed.append(elemndof * node_idx + 2)
+        neighbors = (
+            [
+                (-1, -1, -1),
+                (-1, -1, 1),
+                (1, -1, -1),
+                (-1, 1, -1),
+                (-1, 1, 1),
+                (1, -1, 1),
+                (1, 1, -1),
+                (1, 1, 1),
+            ]
+            if is_3d
+            else [(-1, -1, 0), (-1, 1, 0), (1, -1, 0), (1, 1, 0)]
+        )  # diagonals positions
+        for i in active_supports_indices:
+            x, y = ps["sx"][i], ps["sy"][i]
+            z = ps["sz"][i] if is_3d else 0
+            voxels = [(x, y, z)] + [
+                (x + dx, y + dy, z + dz) for dx, dy, dz in neighbors
+            ]  # add fixed supports in the neighborhood to make sure that the mechanism doesn't detach
+            for vx, vy, vz in voxels:
+                if (
+                    0 <= vx <= nelx
+                    and 0 <= vy <= nely
+                    and (not is_3d or 0 <= vz <= nelz)
+                ):  # stay inside domain
+                    node_idx = (
+                        ((vz + margin_Z) * (nelx + 1) * (nely + 1) if is_3d else 0)
+                        + (vx + margin_X) * (nely + 1)
+                        + (vy + margin_Y)
+                    )
+                    if "X" in ps["sdim"][i]:
+                        fixed.append(elemndof * node_idx)
+                    if "Y" in ps["sdim"][i]:
+                        fixed.append(elemndof * node_idx + 1)
+                    if is_3d and "Z" in ps["sdim"][i]:
+                        fixed.append(elemndof * node_idx + 2)
     free = np.setdiff1d(dofs, fixed)
 
     # Forces
     din = []
     dinVal = []
-    active_iforces_indices = [i for i, d in enumerate(params["fidir"]) if d != "-"]
+    pf = params["Forces"]
+    active_iforces_indices = [i for i, d in enumerate(pf["fidir"]) if d != "-"]
     nf = len(active_iforces_indices)
     for i in active_iforces_indices:
         din_i = elemndof * (
-            ((params["fiz"][i] + margin_Z) * (nelx + 1) * (nely + 1) if is_3d else 0)
-            + (params["fix"][i] + margin_X) * (nely + 1)
-            + (params["fiy"][i] + margin_Y)
+            ((pf["fiz"][i] + margin_Z) * (nelx + 1) * (nely + 1) if is_3d else 0)
+            + (pf["fix"][i] + margin_X) * (nely + 1)
+            + (pf["fiy"][i] + margin_Y)
         )
-        dinVal_i = params["finorm"][i]
-        if "X" in params["fidir"][i]:
-            if "←" in params["fidir"][i]:
+        dinVal_i = pf["finorm"][i]
+        if "X" in pf["fidir"][i]:
+            if "←" in pf["fidir"][i]:
                 dinVal_i = -dinVal_i
-        elif "Y" in params["fidir"][i]:
+        elif "Y" in pf["fidir"][i]:
             din_i += 1
-            if "↑" in params["fidir"][i]:
+            if "↑" in pf["fidir"][i]:
                 dinVal_i = -dinVal_i
-        elif is_3d and "Z" in params["fidir"][i]:
+        elif is_3d and "Z" in pf["fidir"][i]:
             din_i += 2
-            if "<" in params["fidir"][i]:
+            if "<" in pf["fidir"][i]:
                 dinVal_i = -dinVal_i
         din.append(din_i)
         dinVal.append(dinVal_i)
@@ -320,10 +325,9 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         (1 + np.exp(-k / 2)) * (1 + np.exp(k / 2)) / (np.exp(k / 2) - np.exp(-k / 2))
     )
     c = -nominator / (1 + np.exp(k / 2))
+    pd = params["Displacement"]
     delta_disp = (
-        params["disp_factor"] / params["disp_iterations"]
-        if params["disp_iterations"] > 0
-        else 0
+        pd["disp_factor"] / pd["disp_iterations"] if pd["disp_iterations"] > 0 else 0
     )
 
     # Yield the initial state as Frame 0
@@ -332,16 +336,16 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         progress_callback(1)
 
     # Displacement loop
-    for it in range(params["disp_iterations"]):
+    for it in range(pd["disp_iterations"]):
         # Move input force according to previous displacement
         j = 0
         for i in active_iforces_indices:
             din[j] += (
                 elemndof * (nelx + 1) * (nely + 1) * int(u[din[j]][j])
-                if "Z" in params["fidir"][i]
+                if "Z" in pf["fidir"][i]
                 else (
                     elemndof * (nely + 1) * int(u[din[j]][j])
-                    if "Y" in params["fidir"][i]
+                    if "Y" in pf["fidir"][i]
                     else elemndof * int(u[din[j]][j])
                 )
             )
@@ -352,7 +356,7 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
             f[din[i], i] = dinVal[i]
         sK = (
             (KE.flatten()[np.newaxis]).T
-            * (Emin + (xPhys) ** params["penal"] * (Emax - Emin))
+            * (Emin + (xPhys) ** params["Optimizer"]["penal"] * (Emax - Emin))
         ).flatten(order="F")
         K = coo_matrix((sK, (iK, jK)), shape=(ndof, ndof))
         K = K.tolil() if is_3d else K.tocsc()
@@ -410,7 +414,9 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         # Threshold density
         xPhys = nominator / (1 + np.exp(-k * (xPhys - 0.5))) + c
         # Normalize density
-        xPhys = volfrac * xPhys / (np.sum(xPhys) / nel)
+        sum = np.sum(xPhys)
+        if sum > 0:
+            xPhys = volfrac * xPhys / (np.sum(xPhys) / nel)
         xPhys = np.clip(xPhys, 0.0, 1.0)  # Ensure values remain within [0, 1]
 
         # Yield the visible part of the structure for plotting
