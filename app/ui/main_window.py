@@ -9,7 +9,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.colors import LinearSegmentedColormap, to_rgb
+from matplotlib.colors import LinearSegmentedColormap, to_rgb, to_hex
 from matplotlib.patches import Rectangle
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -1386,12 +1386,19 @@ class MainWindow(QMainWindow):
 
                     ax.set_box_aspect([nelx, nely, nelz])
                 else:
+                    hex_color = to_hex(
+                        self.materials_widget.inputs[0]["color"].get_color()
+                    )
+                    color_cmap = LinearSegmentedColormap.from_list(
+                        "material_shades",
+                        [hex_color, "#ffffff"],  # selected material color → white
+                    )
                     X, Y = self.last_displayed_frame_data
                     ax.pcolormesh(
                         X,
                         Y,
                         -self.xPhys.reshape((nelx, nely)),
-                        cmap="gray",
+                        cmap=color_cmap,
                         shading="auto",
                     )
             # Multi-iteration displacement handled in update_animation_frame

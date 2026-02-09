@@ -414,7 +414,9 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         # Threshold density
         xPhys = nominator / (1 + np.exp(-k * (xPhys - 0.5))) + c
         # Normalize density
-        xPhys = volfrac * xPhys / (np.sum(xPhys) / nel)
+        sum = np.sum(xPhys)
+        if sum > 0:
+            xPhys = volfrac * xPhys / (np.sum(xPhys) / nel)
         xPhys = np.clip(xPhys, 0.0, 1.0)  # Ensure values remain within [0, 1]
 
         # Yield the visible part of the structure for plotting

@@ -23,9 +23,9 @@
       "sdim": ["XYZ", "XYZ"]
     },
     "Materials": {
+      "init_type": 0,
       "E": [1.0],
-      "nu": [0.25],
-      "init_type": 0
+      "nu": [0.25]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -73,9 +73,9 @@
       "sdim": ["XYZ", "XYZ"]
     },
     "Materials": {
+      "init_type": 0,
       "E": [1.0],
-      "nu": [0.25],
-      "init_type": 0
+      "nu": [0.25]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -115,9 +115,9 @@
       "sdim": ["XYZ", "XYZ", "XYZ", "XYZ"]
     },
     "Materials": {
+      "init_type": 0,
       "E": [1.0],
-      "nu": [0.25],
-      "init_type": 0
+      "nu": [0.25]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -157,9 +157,9 @@
       "sdim": ["Y"]
     },
     "Materials": {
+      "init_type": 0,
       "E": [0.1],
-      "nu": [0.25],
-      "init_type": 0
+      "nu": [0.25]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -199,9 +199,10 @@
       "sdim": []
     },
     "Materials": {
+      "init_type": 0,
       "E": [1.0],
       "nu": [0.25],
-      "init_type": 0
+      "color": ["#0000ff"]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -286,9 +287,9 @@
       "sdim": ["XYZ", "XYZ"]
     },
     "Materials": {
+      "init_type": 0,
       "E": [1.0],
-      "nu": [0.25],
-      "init_type": 0
+      "nu": [0.25]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
