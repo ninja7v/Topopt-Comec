@@ -424,7 +424,11 @@ class MainWindow(QMainWindow):
             "filter_type": (
                 "Sensitivity"
                 if self.optimizer_widget.opt_ft.currentIndex() == 0
-                else "Density"
+                else (
+                    "Density"
+                    if self.optimizer_widget.opt_ft.currentIndex() == 1
+                    else "None"
+                )
             ),
             "filter_radius_min": self.optimizer_widget.opt_fr.value(),
             "penal": self.optimizer_widget.opt_p.value(),
@@ -2268,7 +2272,9 @@ class MainWindow(QMainWindow):
         # --- Optimizer ---
         po = params.get("Optimizer", {})
         self.optimizer_widget.opt_ft.setCurrentIndex(
-            0 if po.get("filter_type", "Sensitivity") == "Sensitivity" else 1
+            0
+            if po.get("filter_type", "Sensitivity") == "Sensitivity"
+            else 1 if po.get("filter_type", "Sensitivity") == "Density" else 2
         )
         self.optimizer_widget.opt_fr.setValue(po.get("filter_radius_min", 1.3))
         self.optimizer_widget.opt_p.setValue(po.get("penal", 3.0))

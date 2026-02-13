@@ -319,7 +319,7 @@ class FEM:
     def update_xPhys(self, x):
         """Calculates physical density based on design variable and filter."""
         if self.filter_type == "Density":
-            return np.asarray(self.H @ x / self.Hs.flatten())
+            return (self.H @ x).ravel() / np.asarray(self.Hs).ravel()
         return x
 
     def _get_lk_stiffness(self) -> np.ndarray:
