@@ -25,7 +25,8 @@
     "Materials": {
       "init_type": 0,
       "E": [1.0],
-      "nu": [0.25]
+      "nu": [0.25],
+      "color": ["#000000"]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -75,7 +76,8 @@
     "Materials": {
       "init_type": 0,
       "E": [1.0],
-      "nu": [0.25]
+      "nu": [0.25],
+      "color": ["#000000"]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -117,7 +119,8 @@
     "Materials": {
       "init_type": 0,
       "E": [1.0],
-      "nu": [0.25]
+      "nu": [0.25],
+      "color": ["#000000"]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -159,7 +162,8 @@
     "Materials": {
       "init_type": 0,
       "E": [0.1],
-      "nu": [0.25]
+      "nu": [0.25],
+      "color": ["#000000"]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -244,7 +248,8 @@
     "Materials": {
       "E": [1.0],
       "nu": [0.25],
-      "init_type": 0
+      "init_type": 0,
+      "color": ["#000000"]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -289,7 +294,8 @@
     "Materials": {
       "init_type": 0,
       "E": [1.0],
-      "nu": [0.25]
+      "nu": [0.25],
+      "color": ["#000000"]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",

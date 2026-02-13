@@ -308,7 +308,6 @@
             "E": [1.0],
             "nu": [0.25],
             "percent": [100],
-            "color": ["#000000"],
             "init_type": 2
         },
         "Optimizer": {
