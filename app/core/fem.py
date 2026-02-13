@@ -308,15 +308,9 @@ class FEM:
     def _apply_filter(self, x, dc, dv):
         if self.filter_type == "Sensitivity":
             # H * (x * dc) / Hs / max(x, 0.001)
-            #dc = np.asarray((self.H @ (x * dc)) / self.Hs.flatten()) / np.maximum(
-            #    0.001, x
-            #)
-            if self.is_3d:
-                dc[:] = np.asarray((self.H * (x * dc))[np.newaxis].T / self.Hs)[
-                    :, 0
-                ] / np.maximum(0.001, x)
-            else:
-                dc = np.asarray((self.H @ (x * dc)) / self.Hs.flatten()) / np.maximum(0.001, x)
+            dc = np.asarray((self.H @ (x * dc)) / self.Hs.flatten()) / np.maximum(
+                0.001, x
+            )
         elif self.filter_type == "Density":
             dc = np.asarray(self.H * (dc[np.newaxis].T / self.Hs))[:, 0]
             dv = np.asarray(self.H * (dv[np.newaxis].T / self.Hs))[:, 0]
