@@ -871,7 +871,7 @@ class OptimizerWidget(QWidget):
         layout = QGridLayout(self)
         # Filter type
         self.opt_ft = QComboBox()
-        self.opt_ft.addItems(["Sensitivity", "Density"])
+        self.opt_ft.addItems(["Sensitivity", "Density", "None"])
         self.opt_ft.setCurrentIndex(0)
         self.opt_ft.setToolTip(
             "Regularization to avoid checkerboards and mesh dependency\n"
