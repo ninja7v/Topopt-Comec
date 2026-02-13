@@ -2,9 +2,8 @@
 # MIT License - Copyright (c) 2025-2026 Luc Prevost
 # Material initializators.
 
-from typing import List
-
 import numpy as np
+from scipy.spatial.distance import cdist
 
 
 def rescale_densities(d: np.ndarray, volfrac: float) -> np.ndarray:
@@ -41,43 +40,51 @@ def initialize_material(
     nelx: int,
     nely: int,
     nelz: int,
-    all_x: List[int],
-    all_y: List[int],
-    all_z: List[int],
+    all_x: np.ndarray,
+    all_y: np.ndarray,
+    all_z: np.ndarray,
 ) -> np.ndarray:
     """Initialize the material distribution based on the selected type."""
     is_3d = nelz > 0
     nel = nelx * nely * (nelz if is_3d else 1)
 
-    if init_type == 0:  # Uniform
+    # 0. Uniform Distribution
+    if init_type == 0:
         return np.full(nel, volfrac)
 
-    elif init_type == 1:  # Around activity points
-        points = np.stack([all_x, all_y, all_z] if is_3d else [all_x, all_y], axis=1)
-        if is_3d:
-            zz, xx, yy = np.meshgrid(
-                np.arange(nelz), np.arange(nelx), np.arange(nely), indexing="ij"
-            )
-        else:
-            xx, yy = np.meshgrid(np.arange(nelx), np.arange(nely), indexing="ij")
-        coords = np.stack(
-            [xx.ravel(), yy.ravel(), zz.ravel()] if is_3d else [xx.ravel(), yy.ravel()],
-            axis=1,
-        )
-        diff = coords[:, None, :] - points[None, :, :]  # (nel, n_points, 2-3)
-        dist = np.sqrt(np.sum(diff**2, axis=2))  # (nel, n_points)
-        distance_max = np.sqrt(nelx**2 + nely**2 + (nelz**2 if is_3d else 0))
-        d = (distance_max - np.min(dist, axis=1)) / distance_max
-        d = rescale_densities(d, volfrac)
-        return d
+    # 1. Distance Field (Seeded at active points)
+    elif init_type == 1:
+        points = np.column_stack([all_x, all_y, all_z] if is_3d else [all_x, all_y])
+        if len(points) == 0:
+            return np.full(nel, volfrac)
 
-    elif init_type == 2:  # Random
+        # Generate element center coordinates matching FEM loop order:
+        # Loop order is: for ez... for ex... for ey...
+        if is_3d:
+            Z = np.repeat(np.arange(nelz), nelx * nely)
+            X = np.tile(np.repeat(np.arange(nelx), nely), nelz)
+            Y = np.tile(np.arange(nely), nelx * nelz)
+            coords = np.column_stack((X, Y, Z))
+        else:
+            X = np.repeat(np.arange(nelx), nely)
+            Y = np.tile(np.arange(nely), nelx)
+            coords = np.column_stack((X, Y))
+
+        # Vectorized distance calculation
+        dists = cdist(coords, points, metric="euclidean")  # Shape: (nel, n_points)
+        min_dist = dists.min(axis=1)
+
+        # Invert distance: Near = 1.0, Far = 0.0
+        distance_max = np.sqrt(nelx**2 + nely**2 + (nelz**2 if is_3d else 0))
+        raw = (distance_max - min_dist) / distance_max
+
+        return rescale_densities(raw, volfrac)
+
+    # 2. Random Distribution
+    elif init_type == 2:
         np.random.seed(42)
-        d = np.random.rand(nel)
-        d = rescale_densities(d, volfrac)
-        return d
+        raw = np.random.rand(nel)
+        return rescale_densities(raw, volfrac)
 
     else:
-        raise ValueError(
-            "Invalid initialization type. Must be 0 (Uniform), 1 (Around activity points), or 2 (Random)."
-        )
+        raise ValueError(f"Invalid init_type: {init_type}")
