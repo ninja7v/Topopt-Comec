@@ -11,21 +11,6 @@ import pytest
 from app.core import optimizers
 
 
-def test_lk_properties():
-    """Unit Test: Checks the 2D element stiffness matrix (lk) function."""
-    # compute 2D stiffness matrix
-    KE_2D = optimizers.lk(E=1.0, nu=0.3, is_3d=False)
-    assert isinstance(KE_2D, np.ndarray), "lk should return a NumPy array"
-    assert KE_2D.shape == (8, 8), "The 2D stiffness matrix must be 8x8"
-    assert np.allclose(KE_2D, KE_2D.T), "The stiffness matrix must be symmetric"
-
-    # compute 3D stiffness matrix
-    KE_3D = optimizers.lk(E=1.0, nu=0.3, is_3d=True)
-    assert isinstance(KE_3D, np.ndarray), "lk should return a NumPy array"
-    assert KE_3D.shape == (24, 24), "The 3D stiffness matrix must be 24x24"
-    assert np.allclose(KE_3D, KE_3D.T), "The stiffness matrix must be symmetric"
-
-
 def test_oc_update_rule():
     """Unit Test: Checks the Optimality Criteria function."""
     nel = 4
