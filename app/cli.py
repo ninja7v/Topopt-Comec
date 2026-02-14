@@ -28,8 +28,8 @@ def run_cli():
         "-format",
         type=str,
         default="all",
-        choices=["png", "stl", "vti", "all"],
-        help="Output format (png, stl, vti). Default: all",
+        choices=["png", "stl", "vti", "3mf", "all"],
+        help="Output format (png, stl, vti, 3mf). Default: all",
     )
     parser.add_argument(
         "-threshold",
@@ -94,7 +94,7 @@ def run_cli():
 
     formats = []
     if args.format == "all":
-        formats = ["png", "stl", "vti"]
+        formats = ["png", "stl", "vti", "3mf"]
     else:
         formats = [args.format]
     for fmt in formats:
@@ -110,6 +110,8 @@ def run_cli():
             success, error_msg = exporters.save_as_vti(xPhys, nelxyz, filename)
         elif fmt == "stl":
             success, error_msg = exporters.save_as_stl(xPhys, nelxyz, filename)
+        elif fmt == "3mf":
+            success, error_msg = exporters.save_as_3mf(xPhys, nelxyz, filename)
 
         if not success:
             print(f"Error saving {fmt}: {error_msg}")

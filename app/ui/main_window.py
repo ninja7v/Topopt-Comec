@@ -330,6 +330,7 @@ class MainWindow(QMainWindow):
         footer_widget.save_png_action.triggered.connect(self.save_as_png)
         footer_widget.save_vti_action.triggered.connect(self.save_as_vti)
         footer_widget.save_stl_action.triggered.connect(self.save_as_stl)
+        footer_widget.save_3mf_action.triggered.connect(self.save_as_3mf)
         return footer_widget
 
     ##############
@@ -1240,6 +1241,7 @@ class MainWindow(QMainWindow):
             "png": ("Save as PNG", "Portable Network Graphics (*.png)"),
             "vti": ("Save as VTI", "VTK Image Data (*.vti)"),
             "stl": ("Save as STL", "STL File (*.stl)"),
+            "3mf": ("Save as 3MF", "3D Manufacturing File (*.3mf)"),
         }
 
         window_title, extension_filter = filters[file_type]
@@ -1269,6 +1271,13 @@ class MainWindow(QMainWindow):
                 if not success:
                     raise Exception(error_msg)
 
+            elif file_type == "3mf":
+                success, error_msg = exporters.save_as_3mf(
+                    self.xPhys, self.last_params["Dimensions"]["nelxyz"], filepath
+                )
+                if not success:
+                    raise Exception(error_msg)
+
             self.status_bar.showMessage(f"Result saved to {filepath}", 5000)
 
         except Exception as e:
@@ -1285,6 +1294,10 @@ class MainWindow(QMainWindow):
     def save_as_stl(self):
         """Function connected to the save as STL button."""
         self.save_result_as("stl")
+
+    def save_as_3mf(self):
+        """Function connected to the save as 3MF button."""
+        self.save_result_as("3mf")
 
     ########
     # PLOT #

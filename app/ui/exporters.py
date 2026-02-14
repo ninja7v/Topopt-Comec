@@ -6,6 +6,7 @@ import mcubes
 import matplotlib.pyplot as plt
 import numpy as np
 import vtk
+import trimesh
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
 from stl import mesh
 from vtk.util.numpy_support import get_vtk_array_type, numpy_to_vtk
@@ -103,7 +104,7 @@ def save_as_vti(xPhys: np.ndarray, nelxyz: list, filename: str):
 
 
 def save_as_stl(xPhys: np.ndarray, nelxyz: list, filename: str):
-    """Saves the result as a solid .stl file."""
+    """Saves the result as a .stl file."""
     try:
         nx, ny, nz = nelxyz
         if nz > 0:
@@ -123,6 +124,35 @@ def save_as_stl(xPhys: np.ndarray, nelxyz: list, filename: str):
         stl_mesh = mesh.Mesh(np.zeros(triangles.shape[0], dtype=mesh.Mesh.dtype))
         stl_mesh.vectors = vertices[triangles]
         stl_mesh.save(filename)
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
+def save_as_3mf(xPhys: np.ndarray, nelxyz: list, filename: str):
+    """Saves the result as a .3mf file using Trimesh."""
+    try:
+        nx, ny, nz = nelxyz
+        if nz > 0:
+            density_field = xPhys.reshape((nz, nx, ny)).transpose(1, 2, 0)
+        else:
+            nz = 1  # Extrude to a single layer
+            # Reshape 2D data and add a new axis for the Z dimension
+            density_field = xPhys.reshape((nx, ny)).T[np.newaxis, :, :]
+
+        # Add 1-voxel padding to avoid border loss in marching cubes
+        density_field = np.pad(
+            density_field, pad_width=1, mode="constant", constant_values=0
+        )
+        # Run marching cubes
+        vertices, triangles = mcubes.marching_cubes(density_field, 0.5)
+
+        # Build 3MF mesh
+        mesh_3mf = trimesh.Trimesh(vertices=vertices, faces=triangles)
+
+        # Trimesh handles the complex 3MF XML/Zip structure automatically
+        mesh_3mf.export(filename, file_type="3mf")
+
         return True, None
     except Exception as e:
         return False, str(e)

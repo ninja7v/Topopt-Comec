@@ -93,6 +93,7 @@ def test_run_cli_all_formats(
     mock_exporters.save_as_png.return_value = (True, None)
     mock_exporters.save_as_vti.return_value = (True, None)
     mock_exporters.save_as_stl.return_value = (True, None)
+    mock_exporters.save_as_3mf.return_value = (True, None)
 
     preset_name = "ForceInverter_2Sup_2D"
     with patch.object(sys, "argv", ["main.py", "-preset", preset_name]):
@@ -101,6 +102,7 @@ def test_run_cli_all_formats(
     mock_exporters.save_as_png.assert_called_once()
     mock_exporters.save_as_vti.assert_called_once()
     mock_exporters.save_as_stl.assert_called_once()
+    mock_exporters.save_as_3mf.assert_called_once()
 
 
 @patch("app.cli.optimizers.optimize")
