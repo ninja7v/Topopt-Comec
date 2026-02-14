@@ -1031,6 +1031,8 @@ class FooterWidget(QWidget):
         save_menu.addAction(self.save_vti_action)
         self.save_stl_action = QAction("Save as STL (for CAD)...", self)
         save_menu.addAction(self.save_stl_action)
+        self.save_3mf_action = QAction("Save as 3MF (for 3D printing)...", self)
+        save_menu.addAction(self.save_3mf_action)
 
         self.save_button.setMenu(save_menu)
 

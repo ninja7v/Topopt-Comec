@@ -8,3 +8,4 @@ cvxopt
 numpy-stl
 darkdetect
 pytest
+trimesh
