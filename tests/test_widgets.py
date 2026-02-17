@@ -14,6 +14,7 @@ from app.ui.widgets import (
     HeaderWidget,
     MaterialsWidget,
     OptimizerWidget,
+    AnalysisWidget,
     PresetWidget,
     RegionsWidget,
     SupportWidget,
@@ -232,6 +233,14 @@ def test_optimizer_widget_initialization(qt_app):
     assert widget.opt_max_change.value() == 0.05
     assert widget.opt_n_it.value() == 30
     assert widget.opt_solver.currentText() == "Auto"
+
+
+def test_analyze_widget_initialization(qt_app):
+    """Unit Test: Verifies the AnalyzeWidget initializes correctly."""
+    widget = AnalysisWidget()
+    assert hasattr(widget, "run_analysis_button") and isinstance(
+        widget.run_analysis_button, QPushButton
+    )
 
 
 def test_displacement_widget_initialization(qt_app):

@@ -44,11 +44,12 @@ from .widgets import (
     HeaderWidget,
     MaterialsWidget,
     OptimizerWidget,
+    AnalysisWidget,
     PresetWidget,
     RegionsWidget,
     SupportWidget,
 )
-from .workers import DisplacementWorker, OptimizerWorker
+from .workers import AnalysisWorker, DisplacementWorker, OptimizerWorker
 
 
 class MainWindow(QMainWindow):
@@ -145,6 +146,7 @@ class MainWindow(QMainWindow):
         self.sections["Supports"] = self.create_supports_section()
         self.sections["Materials"] = self.create_materials_section()
         self.sections["Optimizer"] = self.create_optimizer_section()
+        self.sections["Analysis"] = self.create_analysis_section()
         self.sections["Displacement"] = self.create_displacement_section()
 
         for section in self.sections.values():
@@ -277,6 +279,19 @@ class MainWindow(QMainWindow):
         self.optimizer_widget.opt_n_it.valueChanged.connect(self.on_parameter_changed)
         return section
 
+    def create_analysis_section(self):
+        """Creates the seventh section for analysis parameters."""
+        self.analysis_widget = AnalysisWidget()
+        section = CollapsibleSection("🔍 Analysis", self.analysis_widget)
+        section.visibility_button.toggled.connect(self.on_visibility_toggled)
+        self.analysis_widget.stop_analysis_button.clicked.connect(self.stop_analysis)
+        self.analysis_widget.run_analysis_button.setEnabled(
+            False
+        )  # Disabled until a result is ready
+        self.analysis_widget.run_analysis_button.clicked.connect(self.run_analysis)
+        self.analysis_widget.stop_analysis_button.clicked.connect(self.stop_analysis)
+        return section
+
     def create_displacement_section(self):
         """Creates the seventh section for displacement animation parameters."""
         self.displacement_widget = DisplacementWidget()
@@ -303,7 +318,6 @@ class MainWindow(QMainWindow):
         self.displacement_widget.mov_disp.valueChanged.connect(
             self.on_displacement_preview_changed
         )
-
         return section
 
     def on_visibility_toggled(self, checked):
@@ -336,6 +350,7 @@ class MainWindow(QMainWindow):
     ##############
     # PARAMETERS #
     ##############
+
     def gather_parameters(self):
         """Collects all parameters from the UI controls into a nested dictionary."""
         params = {}
@@ -463,8 +478,15 @@ class MainWindow(QMainWindow):
             # Disable buttons that require a valid result
             self.footer.binarize_button.setEnabled(False)
             self.footer.save_button.setEnabled(False)
+            self.analysis_widget.run_analysis_button.setEnabled(False)
             self.displacement_widget.run_disp_button.setEnabled(False)
             self.sections["Displacement"].visibility_button.setEnabled(False)
+
+            # Reset the analysis
+            self.analysis_widget.checkerboard_result.setText("-")
+            self.analysis_widget.watertight_result.setText("-")
+            self.analysis_widget.threshold_result.setText("-")
+            self.analysis_widget.efficiency_result.setText("-")
 
             # Inform the user what happened
             self.status_bar.showMessage(
@@ -960,11 +982,11 @@ class MainWindow(QMainWindow):
         QApplication.processEvents()  # Force the UI to draw the initial state
 
         self.preset.setEnabled(False)
+        self.footer.create_button.setEnabled(False)
         self.footer.create_button.hide()
         self.footer.stop_button.setText(" Stop")
         self.footer.stop_button.setEnabled(True)
         self.footer.stop_button.show()
-        self.footer.create_button.setEnabled(False)
         self.footer.binarize_button.setEnabled(False)
         self.footer.save_button.setEnabled(False)
         self.status_bar.showMessage("Starting optimization...")
@@ -1031,6 +1053,7 @@ class MainWindow(QMainWindow):
         self.footer.create_button.setEnabled(True)
         self.footer.binarize_button.setEnabled(True)
         self.footer.save_button.setEnabled(True)
+        self.analysis_widget.run_analysis_button.setEnabled(True)
         self.displacement_widget.run_disp_button.setEnabled(True)
         self.sections["Displacement"].visibility_button.setEnabled(True)
         self.replot()
@@ -1211,6 +1234,86 @@ class MainWindow(QMainWindow):
         self.footer.create_button.setEnabled(True)
         self.displacement_widget.run_disp_button.setEnabled(True)
         QMessageBox.critical(self, "Displacement Runtime Error", error_msg)
+
+    ############
+    # Analysis #
+    ############
+    def run_analysis(self):
+        """Starts the analysis evaluation based on the last optimization result"""
+        if self.xPhys is None or self.u is None:
+            QMessageBox.warning(
+                self,
+                "Analysis Error",
+                "You must run a successful optimization before analyzing results.",
+            )
+            return
+
+        aw = self.analysis_widget
+        aw.run_analysis_button.setEnabled(False)
+        aw.stop_analysis_button.setText(" Stop")
+        aw.button_stack.setCurrentWidget(aw.stop_analysis_button)
+        aw.stop_analysis_button.setEnabled(True)
+        self.footer.create_button.setEnabled(False)
+        self.progress_bar.setRange(0, 4)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(True)
+        self.displacement_widget.run_disp_button.setEnabled(False)
+        self.footer.create_button.setEnabled(False)
+
+        self.analysis_worker = AnalysisWorker(self.last_params, self.xPhys, self.u)
+        self.analysis_worker.progress.connect(self.update_analysis_progress)
+        self.analysis_worker.finished.connect(self.handle_analysis_finished)
+        self.analysis_worker.error.connect(self.handle_analysis_error)
+        self.analysis_worker.start()
+
+    def stop_analysis(self):
+        """Requests the running analysis worker to stop."""
+        if self.analysis_worker:
+            self.analysis_widget.stop_analysis_button.setText(" Stopping...")
+            self.analysis_widget.stop_analysis_button.setEnabled(False)
+            self.analysis_worker.request_stop()
+
+    def update_analysis_progress(self, iteration):
+        """Updates the progress bar and status message during analysis."""
+        self.progress_bar.setValue(iteration)
+        self.status_bar.showMessage(f"Running analysis: step {iteration}...")
+
+    def handle_analysis_finished(self, results):
+        """Handles the results after analysis finishes successfully."""
+        aw = self.analysis_widget
+        aw.checkerboard_result.setText("yes" if results[0] else "no")
+        aw.checkerboard_result.setStyleSheet(
+            "color: green;" if not results[0] else "color: red;"
+        )
+        aw.watertight_result.setText("yes" if results[1] else "no")
+        aw.watertight_result.setStyleSheet(
+            "color: green;" if results[1] else "color: red;"
+        )
+        aw.threshold_result.setText("yes" if results[2] else "no")
+        aw.threshold_result.setStyleSheet(
+            "color: green;" if results[2] else "color: red;"
+        )
+        aw.efficiency_result.setText("yes" if results[3] else "no")
+        aw.efficiency_result.setStyleSheet(
+            "color: green;" if results[3] else "color: red;"
+        )
+        self.status_bar.showMessage("Analysis finished successfully.", 5000)
+        self.progress_bar.setVisible(False)
+        self.footer.create_button.setEnabled(True)
+        aw.stop_analysis_button.setEnabled(False)
+        aw.stop_analysis_button.setText(" Stop")  # Reset text for next run
+        aw.button_stack.setCurrentWidget(aw.run_analysis_button)
+        aw.run_analysis_button.setEnabled(True)
+        self.displacement_widget.run_disp_button.setEnabled(True)
+        self.footer.create_button.setEnabled(True)
+
+    def handle_analysis_error(self, error_msg):
+        """Handles any errors that occur during analysis."""
+        self.status_bar.showMessage("Analysis failed.", 5000)
+        self.progress_bar.setVisible(False)
+        self.footer.create_button.setEnabled(True)
+        self.analysis_widget.run_analysis_button.setEnabled(True)
+        QMessageBox.critical(self, "Analysis Runtime Error", error_msg)
 
     ########
     # Save #
