@@ -316,7 +316,7 @@ class FEM:
             dv = np.asarray(self.H * (dv[np.newaxis].T / self.Hs))[:, 0]
         return dc, dv
 
-    def update_xPhys(self, x):
+    def update_xPhys(self, x) -> np.ndarray:
         """Calculates physical density based on design variable and filter."""
         if self.filter_type == "Density":
             return (self.H @ x).ravel() / np.asarray(self.Hs).ravel()
@@ -365,7 +365,7 @@ class FEM:
                 )
             )
 
-    def _build_3d_blocks(self, k):
+    def _build_3d_blocks(self, k) -> np.ndarray:
         K1 = np.array(
             [
                 [k[0], k[1], k[1], k[2], k[4], k[4]],

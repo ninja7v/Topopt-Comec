@@ -47,7 +47,7 @@ class CollapsibleSection(QWidget):
         self.title_bar.layout().setContentsMargins(5, 2, 5, 2)
         # Expand/Collapse Button
         self.toggle_button = QPushButton()
-        self.toggle_button.setFixedSize(15, 15)
+        self.toggle_button.setFixedSize(18, 18)
         self.toggle_button.setIcon(icons.get("arrow_right"))
         self.toggle_button.setCheckable(True)
         self.toggle_button.setChecked(False)
@@ -67,6 +67,7 @@ class CollapsibleSection(QWidget):
             "Toggle visibility of this element on the plot"
         )
         self.visibility_button.setVisible(False)
+        self.visibility_button.setFixedSize(25, 18)
         self.title_bar.layout().addWidget(self.visibility_button)
 
         # Content area
@@ -79,6 +80,8 @@ class CollapsibleSection(QWidget):
 
         self.main_layout.addWidget(self.title_bar)
         self.main_layout.addWidget(self.content_widget)
+
+        self.title_bar.setFixedHeight(25)
 
         self.toggle_button.toggled.connect(self.toggle_collapse)
         self.title_bar.mousePressEvent = lambda event: self.toggle_button.toggle()
@@ -938,6 +941,66 @@ class OptimizerWidget(QWidget):
         layout.addWidget(self.opt_solver, 6, 1)
 
 
+class AnalysisWidget(QWidget):
+    """Custom widget for optimizer inputs."""
+
+    def __init__(self):
+        super().__init__()
+        layout = QGridLayout(self)
+        # Checkerboard
+        layout.addWidget(QLabel("Checkerboard:"), 0, 0)
+        self.checkerboard_result = QLabel("-")
+        self.checkerboard_result.setToolTip(
+            "Check if the mechanism contains some checkerboard paterns"
+        )
+        layout.addWidget(self.checkerboard_result, 0, 1)
+        # Watertight
+        layout.addWidget(QLabel("Watertight:"), 1, 0)
+        self.watertight_result = QLabel("-")
+        self.watertight_result.setToolTip("Check if the mechanism is watertight")
+        layout.addWidget(self.watertight_result, 1, 1)
+        # Threshold
+        layout.addWidget(QLabel("Thresholded:"), 2, 0)
+        self.threshold_result = QLabel("-")
+        self.threshold_result.setToolTip("Evaluate if gray zones are gone")
+        layout.addWidget(self.threshold_result, 2, 1)
+        # Efficiency
+        layout.addWidget(QLabel("Efficient:"), 3, 0)
+        self.efficiency_result = QLabel("-")
+        self.efficiency_result.setToolTip(
+            "Compare output displacement with input displacement"
+        )
+        layout.addWidget(self.efficiency_result, 3, 1)
+        self.button_stack = QStackedLayout()
+        # Analyze button
+        self.run_analysis_button = QPushButton("🔍 Analyze")
+        self.run_analysis_button.setToolTip("Start the analysis process")
+        self.button_stack.addWidget(self.run_analysis_button)
+        # Stop button
+        self.stop_analysis_button = QPushButton(" Stop")
+        self.stop_analysis_button.setObjectName("stop_analysis_button")
+        self.stop_analysis_button.setIcon(icons.get("stop"))
+        self.stop_analysis_button.setToolTip("Stop the analysis process")
+        self.stop_analysis_button.setStyleSheet("background-color: #C0392B;")
+        self.button_stack.addWidget(self.stop_analysis_button)
+        self.button_stack_widget = QWidget()
+        self.button_stack_widget.setLayout(self.button_stack)
+        layout.addWidget(self.button_stack_widget, 4, 0, 1, 2)
+
+        ## Analyze button
+        # self.run_analysis_button = QPushButton("🔍 Analyze")
+        # self.run_analysis_button.setToolTip("Start the analysis process")
+        # layout.addWidget(self.run_analysis_button)
+        ## Stop button
+        # self.stop_analysis_button = QPushButton(" Stop")
+        # self.stop_analysis_button.setObjectName("stop_analysis_button")
+        # self.stop_analysis_button.setIcon(icons.get("stop"))
+        # self.stop_analysis_button.setToolTip("Stop the analysis process")
+        # self.stop_analysis_button.setStyleSheet("background-color: #C0392B;")
+        # self.stop_analysis_button.hide()  # Hidden by default
+        # layout.addWidget(self.stop_analysis_button)
+
+
 class DisplacementWidget(QWidget):
     """Custom widget for displacement inputs."""
 
@@ -991,7 +1054,6 @@ class FooterWidget(QWidget):
         # Create button
         action_layout = QHBoxLayout(self)
         self.create_button = QPushButton(" Create")
-        self.create_button.setObjectName("create_button")
         self.create_button.setIcon(icons.get("create"))
         self.create_button.setToolTip("Start the optimization process")
         self.create_button.setFont(QFont("Arial", 14, QFont.Bold))
@@ -999,7 +1061,6 @@ class FooterWidget(QWidget):
         action_layout.addWidget(self.create_button)
         # Stop button
         self.stop_button = QPushButton(" Stop")
-        self.stop_button.setObjectName("stop_button")
         self.stop_button.setIcon(icons.get("stop"))
         self.stop_button.setToolTip("Stop the optimization process")
         self.stop_button.setFont(QFont("Arial", 14, QFont.Bold))
