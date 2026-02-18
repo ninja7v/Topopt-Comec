@@ -602,9 +602,13 @@ class SupportWidget(QWidget):
         )  # This list will hold the input widgets so the MainWindow can access them
 
         self.main_layout = QVBoxLayout(self)
-        self.grid = QGridLayout()
-        self.grid.setColumnStretch(1, 1)
-        self.main_layout.addLayout(self.grid)
+
+        # Container for the list of supports to ensure vertical stacking
+        self.supports_container = QWidget()
+        self.supports_list_layout = QVBoxLayout(self.supports_container)
+        self.supports_list_layout.setContentsMargins(0, 0, 0, 0)
+        self.supports_list_layout.setSpacing(10)
+        self.main_layout.addWidget(self.supports_container)
 
         # Add button
         self.add_btn = QPushButton("+ Add Support")
@@ -614,7 +618,7 @@ class SupportWidget(QWidget):
 
         self.dims = ["-", "X", "Y", "Z", "XY", "XZ", "YZ", "XYZ"]
 
-    def add_support(self, pos=None, dim="XYZ", emit_signal=True):
+    def add_support(self, pos=None, dim="XYZ", radius=0, emit_signal=True):
         row = len(self.inputs)
         if row >= 10:  # safety
             return
@@ -622,15 +626,22 @@ class SupportWidget(QWidget):
         if pos is None:
             pos = [0, 0, 0]
 
+        # Container Widget for this support
+        container = QWidget()
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 5, 0, 5)
+
+        # --- Line 1: "Center:" [X] [Y] [Z] ---
+        line1_layout = QHBoxLayout()
+
         # Remove button
         remove_btn = QPushButton("−")
         remove_btn.setFixedWidth(30)
         remove_btn.setToolTip("Remove this support")
-        remove_btn.clicked.connect(lambda checked=False, r=row: self.remove_support(r))
-        self.grid.addWidget(remove_btn, row, 0)
+        remove_btn.clicked.connect(lambda: self.remove_support_by_widget(container))
+        line1_layout.addWidget(remove_btn)
 
-        # Position
-        pos_layout = QHBoxLayout()
+        line1_layout.addWidget(QLabel("Center:"))
         sx = QSpinBox()
         sx.setRange(0, 1000)
         sx.setValue(pos[0])
@@ -646,24 +657,59 @@ class SupportWidget(QWidget):
         sz.setValue(pos[2])
         sz.setMaximumWidth(65)
         sz.setToolTip("Z")
-        pos_layout.addWidget(sx)
-        pos_layout.addWidget(sy)
-        pos_layout.addWidget(sz)
-        self.grid.addLayout(pos_layout, row, 1)
+        line1_layout.addWidget(sx)
+        line1_layout.addWidget(sy)
+        line1_layout.addWidget(sz)
+        line1_layout.addStretch()
+        container_layout.addLayout(line1_layout)
 
-        # Fixed directions
+        # --- Line 2: "Fixed:" [Dim] "Radius:" [Radius] ---
+        line2_layout = QHBoxLayout()
+        line2_layout.addSpacing(40)  # Align with line above
+        line2_layout.addWidget(QLabel("Fixed:"))
         sdim = QComboBox()
         sdim.addItems(self.dims)
         sdim.setCurrentText(dim)
         sdim.setToolTip("Fixed direction(s)")
-        self.grid.addWidget(sdim, row, 2)
+        line2_layout.addWidget(sdim)
+
+        line2_layout.addWidget(QLabel("Radius:"))
+        sr = QSpinBox()
+        sr.setRange(0, 10)
+        sr.setValue(radius)
+        sr.setMaximumWidth(60)
+        sr.setToolTip("Support's radius (0 = single node)")
+        line2_layout.addWidget(sr)
+        line2_layout.addStretch()
+        container_layout.addLayout(line2_layout)
+
+        self.supports_list_layout.addWidget(container)
 
         # Store the widgets in the public 'inputs' list
-        data = {"sx": sx, "sy": sy, "sz": sz, "sdim": sdim, "remove_btn": remove_btn}
+        data = {
+            "sx": sx,
+            "sy": sy,
+            "sz": sz,
+            "sdim": sdim,
+            "sr": sr,
+            "remove_btn": remove_btn,
+            "container": container,
+        }
         self.inputs.append(data)
         if emit_signal:
             self.nbSupportsChanged.emit()
         self.update_remove_buttons()
+
+    def remove_support_by_widget(self, container_widget):
+        # Find index
+        idx = -1
+        for i, support in enumerate(self.inputs):
+            if support["container"] == container_widget:
+                idx = i
+                break
+
+        if idx != -1:
+            self.remove_support(idx)
 
     def remove_support(self, row, emit_signal=True):
         if row < 0 or row >= len(self.inputs):
@@ -671,48 +717,12 @@ class SupportWidget(QWidget):
 
         # Remove widgets
         support = self.inputs.pop(row)
-        for w in [
-            support["remove_btn"],
-            support["sx"],
-            support["sy"],
-            support["sz"],
-            support["sdim"],
-        ]:
-            w.deleteLater()
-            w.setParent(None)
+        support["container"].deleteLater()
+        support["container"].setParent(None)
 
-        # Rebuild grid to fix row indices
-        self.rebuild_grid()
         if emit_signal:
             self.nbSupportsChanged.emit()
         self.update_remove_buttons()
-
-    def rebuild_grid(self):
-        # Clear grid
-        while self.grid.count():
-            item = self.grid.takeAt(0)
-            if item.widget():
-                item.widget().setParent(None)
-            elif item.layout():
-                layout = item.layout()
-                while layout.count():
-                    child = layout.takeAt(0)
-                    if child.widget():
-                        child.widget().setParent(None)
-                layout.setParent(None)
-                layout.deleteLater()
-
-        # Re-add all
-        for i, support in enumerate(self.inputs):
-            support["remove_btn"].clicked.disconnect()
-            support["remove_btn"].clicked.connect(lambda _, r=i: self.remove_support(r))
-            self.grid.addWidget(support["remove_btn"], i, 0)
-            pos_layout = QHBoxLayout()
-            pos_layout.addWidget(support["sx"])
-            pos_layout.addWidget(support["sy"])
-            pos_layout.addWidget(support["sz"])
-            self.grid.addLayout(pos_layout, i, 1)
-            self.grid.addWidget(support["sdim"], i, 2)
 
     def update_remove_buttons(self):
         enabled = len(self.inputs) > 0

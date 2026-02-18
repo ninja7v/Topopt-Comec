@@ -150,6 +150,7 @@ def test_support_widget_initialization(qt_app):
     assert "sy" in new_support and isinstance(widget.inputs[0]["sy"], QSpinBox)
     assert "sz" in new_support and isinstance(widget.inputs[0]["sz"], QSpinBox)
     assert "sdim" in new_support and isinstance(widget.inputs[0]["sdim"], QComboBox)
+    assert "sr" in new_support and isinstance(widget.inputs[0]["sr"], QSpinBox)
 
     # Test remove button
     new_support["remove_btn"].click()
