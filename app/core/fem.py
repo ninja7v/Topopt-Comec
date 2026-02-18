@@ -68,18 +68,59 @@ class FEM:
                 Supports.get("sy", []),
                 Supports.get("sz", []),
             )
+            sr = Supports.get("sr", [0] * len(sx))
             sdim = Supports.get("sdim", [])
             active_sup = [i for i, val in enumerate(sdim) if val != "-"]
 
             for i in active_sup:
-                node_idx = self._get_node_idx(sx[i], sy[i], sz[i] if self.is_3d else 0)
-                node_dof = self.dim_mul * node_idx
-                if "X" in sdim[i]:
-                    fixed.append(node_dof)
-                if "Y" in sdim[i]:
-                    fixed.append(node_dof + 1)
-                if self.is_3d and "Z" in sdim[i]:
-                    fixed.append(node_dof + 2)
+                center_node_idx = self._get_node_idx(
+                    sx[i], sy[i], sz[i] if self.is_3d else 0
+                )
+                nodes_to_fix = [center_node_idx]
+
+                # If radius > 0, find all nodes within radius
+                if i < len(sr) and sr[i] > 0:
+                    radius = sr[i]
+                    # Determine range to search
+                    x_range = range(
+                        max(0, int(sx[i] - radius)),
+                        min(self.nelx + 1, int(sx[i] + radius + 1)),
+                    )
+                    y_range = range(
+                        max(0, int(sy[i] - radius)),
+                        min(self.nely + 1, int(sy[i] + radius + 1)),
+                    )
+                    z_range = (
+                        range(
+                            max(0, int(sz[i] - radius)),
+                            min(self.nelz + 1, int(sz[i] + radius + 1)),
+                        )
+                        if self.is_3d
+                        else range(1)
+                    )
+
+                    for z in z_range:
+                        for x in x_range:
+                            for y in y_range:
+                                dist_sq = (
+                                    (x - sx[i]) ** 2
+                                    + (y - sy[i]) ** 2
+                                    + ((z - sz[i]) ** 2 if self.is_3d else 0)
+                                )
+                                if dist_sq <= radius**2:
+                                    n_idx = self._get_node_idx(
+                                        x, y, z if self.is_3d else 0
+                                    )
+                                    nodes_to_fix.append(n_idx)
+
+                for node_idx in nodes_to_fix:
+                    node_dof = self.dim_mul * node_idx
+                    if "X" in sdim[i]:
+                        fixed.append(node_dof)
+                    if "Y" in sdim[i]:
+                        fixed.append(node_dof + 1)
+                    if self.is_3d and "Z" in sdim[i]:
+                        fixed.append(node_dof + 2)
 
         self.fixed_dofs = np.unique(fixed)
         self.free_dofs = np.setdiff1d(np.arange(self.ndof), self.fixed_dofs)

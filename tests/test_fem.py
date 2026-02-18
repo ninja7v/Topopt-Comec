@@ -250,3 +250,61 @@ def test_filter_construction(base_config_2d):
     row0 = fem.H.getrow(0).toarray().flatten()
     assert row0[0] > 0  # Self connection
     assert row0[1] > 0  # Neighbor connection
+
+
+def test_boundary_conditions_radius(base_config_2d):
+    """Test if a support with radius fixes multiple nodes."""
+    fem = FEM(
+        base_config_2d["Dimensions"],
+        base_config_2d["Materials"],
+        base_config_2d["Optimizer"],
+    )
+
+    # Center at (1, 0) (bottom middle node)
+    # Radius 1 -> should cover (0,0), (1,0), (2,0) and maybe (0,1), (1,1), (2,1)?
+    # Dist from (1,0) to (0,0) is 1. <= 1 -> Yes.
+    # Dist from (1,0) to (1,1) is 1. <= 1 -> Yes.
+    Supports = {
+        "sx": [1],
+        "sy": [0],
+        "sz": [],
+        "sdim": ["XY"],
+        "sr": [1],
+    }
+    Forces = {
+        "fix": [],
+        "fiy": [],
+        "fiz": [],
+        "fidir": [],
+        "finorm": [],
+        "fox": [],
+        "foy": [],
+        "foz": [],
+        "fodir": [],
+        "fonorm": [],
+    }
+
+    fem.setup_boundary_conditions(Forces, Supports)
+
+    # Nodes:
+    # (0,0) -> 0
+    # (1,0) -> 1 (Center)
+    # (2,0) -> 2
+    # (0,1) -> 3
+    # (1,1) -> 4
+    # (2,1) -> 5
+
+    # Check fixed DOFs
+    # 0, 1, 2, 4 are within radius 1 of (1,0)
+    # 0: dist=1
+    # 2: dist=1
+    # 4: dist=1 (x=1, y=1) -> sqrt(0^2 + 1^2) = 1
+    # 3: dist=sqrt(1^2+1^2)=1.41 > 1 -> No
+    # 5: dist=sqrt(1^2+1^2)=1.41 > 1 -> No
+
+    fixed_nodes = set()
+    for dof in fem.fixed_dofs:
+        fixed_nodes.add(dof // fem.dim_mul)
+
+    expected_nodes = {0, 2, 3, 4}
+    assert fixed_nodes == expected_nodes

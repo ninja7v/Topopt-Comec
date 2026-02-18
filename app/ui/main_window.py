@@ -416,12 +416,13 @@ class MainWindow(QMainWindow):
         params["Forces"] = Forces
 
         # --- Supports (optional) ---
-        Supports = {"sx": [], "sy": [], "sz": [], "sdim": []}
+        Supports = {"sx": [], "sy": [], "sz": [], "sdim": [], "sr": []}
         for sw in self.supports_widget.inputs:
             Supports["sx"].append(sw["sx"].value())
             Supports["sy"].append(sw["sy"].value())
             Supports["sz"].append(sw["sz"].value())
             Supports["sdim"].append(sw["sdim"].currentText())
+            Supports["sr"].append(sw["sr"].value())
         if Supports["sx"]:
             params["Supports"] = Supports
 
@@ -1420,6 +1421,90 @@ class MainWindow(QMainWindow):
                 spine.set_edgecolor("black")
         self.canvas.draw()
 
+    def _plot_deformation(self, ax, is_3d, nelx, nely, nelz):
+        if (
+            self.last_params["Displacement"]["disp_iterations"] == 1
+        ):  # Single-frame grid plot
+            if is_3d:
+                # Compute original element centers
+                nel = nelx * nely * nelz
+                visible_indices = np.arange(nel)  # all of them
+                z_idx = visible_indices // (nelx * nely)
+                x_idx = (visible_indices % (nelx * nely)) // nely
+                y_idx = visible_indices % nely
+
+                # Compute displaced centers from node positions
+                X, Y, Z = self.last_displayed_frame_data  # displaced node coords
+
+                # Take mean of the 8 node positions for each voxel center
+                cx = (
+                    X[x_idx, y_idx, z_idx]
+                    + X[x_idx + 1, y_idx, z_idx]
+                    + X[x_idx, y_idx + 1, z_idx]
+                    + X[x_idx + 1, y_idx + 1, z_idx]
+                    + X[x_idx, y_idx, z_idx + 1]
+                    + X[x_idx + 1, y_idx, z_idx + 1]
+                    + X[x_idx, y_idx + 1, z_idx + 1]
+                    + X[x_idx + 1, y_idx + 1, z_idx + 1]
+                ) / 8.0
+
+                cy = (
+                    Y[x_idx, y_idx, z_idx]
+                    + Y[x_idx + 1, y_idx, z_idx]
+                    + Y[x_idx, y_idx + 1, z_idx]
+                    + Y[x_idx + 1, y_idx + 1, z_idx]
+                    + Y[x_idx, y_idx, z_idx + 1]
+                    + Y[x_idx + 1, y_idx, z_idx + 1]
+                    + Y[x_idx, y_idx + 1, z_idx + 1]
+                    + Y[x_idx + 1, y_idx + 1, z_idx + 1]
+                ) / 8.0
+
+                cz = (
+                    Z[x_idx, y_idx, z_idx]
+                    + Z[x_idx + 1, y_idx, z_idx]
+                    + Z[x_idx, y_idx + 1, z_idx]
+                    + Z[x_idx + 1, y_idx + 1, z_idx]
+                    + Z[x_idx, y_idx, z_idx + 1]
+                    + Z[x_idx + 1, y_idx, z_idx + 1]
+                    + Z[x_idx, y_idx + 1, z_idx + 1]
+                    + Z[x_idx + 1, y_idx + 1, z_idx + 1]
+                ) / 8.0
+
+                # Colors with alpha = density
+                colors = np.zeros((nel, 4))
+                colors[:, :3] = to_rgb(
+                    self.materials_widget.inputs[0]["color"].get_color()
+                )
+                colors[:, 3] = self.xPhys
+
+                # Scatter plot of displaced centers
+                ax.scatter(
+                    cx,
+                    cy,
+                    cz,
+                    s=6000 / max(nelx, nely, nelz),
+                    marker="s",
+                    c=colors,
+                    alpha=None,
+                )
+
+                ax.set_box_aspect([nelx, nely, nelz])
+            else:
+                hex_color = to_hex(self.materials_widget.inputs[0]["color"].get_color())
+                color_cmap = LinearSegmentedColormap.from_list(
+                    "material_shades",
+                    [hex_color, "#ffffff"],  # selected material color → white
+                )
+                X, Y = self.last_displayed_frame_data
+                ax.pcolormesh(
+                    X,
+                    Y,
+                    -self.xPhys.reshape((nelx, nely)),
+                    cmap=color_cmap,
+                    shading="auto",
+                )
+        # Multi-iteration displacement handled in update_animation_frame
+
     def replot(self):
         """Redraws the plot canvas, intelligently showing or hiding each layer based on the state of the visibility buttons."""
         if not self.last_params:
@@ -1438,90 +1523,7 @@ class MainWindow(QMainWindow):
             self.is_displaying_deformation
             and self.last_displayed_frame_data is not None
         ):
-            if (
-                self.last_params["Displacement"]["disp_iterations"] == 1
-            ):  # Single-frame grid plot
-                if is_3d:
-                    # Compute original element centers
-                    nel = nelx * nely * nelz
-                    visible_indices = np.arange(nel)  # all of them
-                    z_idx = visible_indices // (nelx * nely)
-                    x_idx = (visible_indices % (nelx * nely)) // nely
-                    y_idx = visible_indices % nely
-
-                    # Compute displaced centers from node positions
-                    X, Y, Z = self.last_displayed_frame_data  # displaced node coords
-
-                    # Take mean of the 8 node positions for each voxel center
-                    cx = (
-                        X[x_idx, y_idx, z_idx]
-                        + X[x_idx + 1, y_idx, z_idx]
-                        + X[x_idx, y_idx + 1, z_idx]
-                        + X[x_idx + 1, y_idx + 1, z_idx]
-                        + X[x_idx, y_idx, z_idx + 1]
-                        + X[x_idx + 1, y_idx, z_idx + 1]
-                        + X[x_idx, y_idx + 1, z_idx + 1]
-                        + X[x_idx + 1, y_idx + 1, z_idx + 1]
-                    ) / 8.0
-
-                    cy = (
-                        Y[x_idx, y_idx, z_idx]
-                        + Y[x_idx + 1, y_idx, z_idx]
-                        + Y[x_idx, y_idx + 1, z_idx]
-                        + Y[x_idx + 1, y_idx + 1, z_idx]
-                        + Y[x_idx, y_idx, z_idx + 1]
-                        + Y[x_idx + 1, y_idx, z_idx + 1]
-                        + Y[x_idx, y_idx + 1, z_idx + 1]
-                        + Y[x_idx + 1, y_idx + 1, z_idx + 1]
-                    ) / 8.0
-
-                    cz = (
-                        Z[x_idx, y_idx, z_idx]
-                        + Z[x_idx + 1, y_idx, z_idx]
-                        + Z[x_idx, y_idx + 1, z_idx]
-                        + Z[x_idx + 1, y_idx + 1, z_idx]
-                        + Z[x_idx, y_idx, z_idx + 1]
-                        + Z[x_idx + 1, y_idx, z_idx + 1]
-                        + Z[x_idx, y_idx + 1, z_idx + 1]
-                        + Z[x_idx + 1, y_idx + 1, z_idx + 1]
-                    ) / 8.0
-
-                    # Colors with alpha = density
-                    colors = np.zeros((nel, 4))
-                    colors[:, :3] = to_rgb(
-                        self.materials_widget.inputs[0]["color"].get_color()
-                    )
-                    colors[:, 3] = self.xPhys
-
-                    # Scatter plot of displaced centers
-                    ax.scatter(
-                        cx,
-                        cy,
-                        cz,
-                        s=6000 / max(nelx, nely, nelz),
-                        marker="s",
-                        c=colors,
-                        alpha=None,
-                    )
-
-                    ax.set_box_aspect([nelx, nely, nelz])
-                else:
-                    hex_color = to_hex(
-                        self.materials_widget.inputs[0]["color"].get_color()
-                    )
-                    color_cmap = LinearSegmentedColormap.from_list(
-                        "material_shades",
-                        [hex_color, "#ffffff"],  # selected material color → white
-                    )
-                    X, Y = self.last_displayed_frame_data
-                    ax.pcolormesh(
-                        X,
-                        Y,
-                        -self.xPhys.reshape((nelx, nely)),
-                        cmap=color_cmap,
-                        shading="auto",
-                    )
-            # Multi-iteration displacement handled in update_animation_frame
+            self._plot_deformation(ax, is_3d, nelx, nely, nelz)
         else:
             if self.sections["Materials"].visibility_button.isChecked():
                 if self.xPhys is None:
@@ -1748,6 +1750,7 @@ class MainWindow(QMainWindow):
                 interpolation="nearest",
                 origin="lower",
                 norm=plt.Normalize(0, 1),
+                extent=[0, nelx, 0, nely],
             )
 
     def redraw_non_material_layers(self, ax, is_3d):
@@ -2009,18 +2012,19 @@ class MainWindow(QMainWindow):
             if d == "-":
                 continue
             pos = [ps["sx"][i], ps["sy"][i], ps["sz"][i]]
+            size = 80 + 200 * ps["sr"][i] ** 2
             if is_3d:
                 ax.scatter(
                     pos[0],
                     pos[1],
                     pos[2],
-                    s=80,
+                    s=size,
                     marker="^",
                     c="black",
                     depthshade=False,
                 )
             else:
-                ax.scatter(pos[0], pos[1], s=80, marker="^", c="black")
+                ax.scatter(pos[0], pos[1], s=size, marker="^", c="black")
 
     def plot_regions(self, ax, is_3d):
         """Plots the regions outline (square/cube or circle/sphere) in 2D or 3D."""
@@ -2368,6 +2372,7 @@ class MainWindow(QMainWindow):
             support_group["sy"].setValue(ps["sy"][i])
             support_group["sz"].setValue(ps["sz"][i])
             support_group["sdim"].setCurrentText(ps["sdim"][i])
+            support_group["sr"].setValue(ps["sr"][i])
         self.connect_support_signals()
 
         # --- Materials ---
@@ -2423,6 +2428,7 @@ class MainWindow(QMainWindow):
             support_group["sy"].valueChanged.connect(self.on_parameter_changed)
             support_group["sz"].valueChanged.connect(self.on_parameter_changed)
             support_group["sdim"].currentIndexChanged.connect(self.on_parameter_changed)
+            support_group["sr"].valueChanged.connect(self.on_parameter_changed)
             # there is a special "nbSupportsChanged" signal for the remove button
 
     def connect_region_signals(self):
