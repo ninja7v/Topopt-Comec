@@ -28,7 +28,7 @@ jobs:
         run: black --check .
 
       - name: Lizard (complexity & length)
-        run: lizard -L 270 -C 60 -w .
+        run: lizard -L 190 -C 40 -w .
 
   tests:
     runs-on: ubuntu-latest

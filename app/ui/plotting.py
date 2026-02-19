@@ -1,0 +1,771 @@
+# app/ui/plotting.py
+# MIT License - Copyright (c) 2025-2026 Luc Prevost
+# Plotting class.
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap, to_hex, to_rgb
+from matplotlib.patches import Rectangle
+
+
+class PlottingMixin:
+    """Mixin for MainWindow to handle all plotting operations."""
+
+    def style_plot_default(self):
+        """Sets the plot to a fixed white theme. Called only once."""
+        self.figure.patch.set_facecolor("white")
+        if self.figure.get_axes():
+            ax = self.figure.get_axes()[0]
+            ax.set_facecolor("white")
+            ax.xaxis.label.set_color("black")
+            ax.yaxis.label.set_color("black")
+            ax.tick_params(axis="x", colors="black")
+            ax.tick_params(axis="y", colors="black")
+            for spine in ax.spines.values():
+                spine.set_edgecolor("black")
+        self.canvas.draw()
+
+    def _plot_deformation(self, ax, is_3d, nelx, nely, nelz):
+        if (
+            self.last_params["Displacement"]["disp_iterations"] == 1
+        ):  # Single-frame grid plot
+            if is_3d:
+                # Compute original element centers
+                nel = nelx * nely * nelz
+                visible_indices = np.arange(nel)  # all of them
+                z_idx = visible_indices // (nelx * nely)
+                x_idx = (visible_indices % (nelx * nely)) // nely
+                y_idx = visible_indices % nely
+
+                # Compute displaced centers from node positions
+                X, Y, Z = self.last_displayed_frame_data  # displaced node coords
+
+                # Take mean of the 8 node positions for each voxel center
+                cx = (
+                    X[x_idx, y_idx, z_idx]
+                    + X[x_idx + 1, y_idx, z_idx]
+                    + X[x_idx, y_idx + 1, z_idx]
+                    + X[x_idx + 1, y_idx + 1, z_idx]
+                    + X[x_idx, y_idx, z_idx + 1]
+                    + X[x_idx + 1, y_idx, z_idx + 1]
+                    + X[x_idx, y_idx + 1, z_idx + 1]
+                    + X[x_idx + 1, y_idx + 1, z_idx + 1]
+                ) / 8.0
+
+                cy = (
+                    Y[x_idx, y_idx, z_idx]
+                    + Y[x_idx + 1, y_idx, z_idx]
+                    + Y[x_idx, y_idx + 1, z_idx]
+                    + Y[x_idx + 1, y_idx + 1, z_idx]
+                    + Y[x_idx, y_idx, z_idx + 1]
+                    + Y[x_idx + 1, y_idx, z_idx + 1]
+                    + Y[x_idx, y_idx + 1, z_idx + 1]
+                    + Y[x_idx + 1, y_idx + 1, z_idx + 1]
+                ) / 8.0
+
+                cz = (
+                    Z[x_idx, y_idx, z_idx]
+                    + Z[x_idx + 1, y_idx, z_idx]
+                    + Z[x_idx, y_idx + 1, z_idx]
+                    + Z[x_idx + 1, y_idx + 1, z_idx]
+                    + Z[x_idx, y_idx, z_idx + 1]
+                    + Z[x_idx + 1, y_idx, z_idx + 1]
+                    + Z[x_idx, y_idx + 1, z_idx + 1]
+                    + Z[x_idx + 1, y_idx + 1, z_idx + 1]
+                ) / 8.0
+
+                # Colors with alpha = density
+                colors = np.zeros((nel, 4))
+                colors[:, :3] = to_rgb(
+                    self.materials_widget.inputs[0]["color"].get_color()
+                )
+                colors[:, 3] = self.xPhys
+
+                # Scatter plot of displaced centers
+                ax.scatter(
+                    cx,
+                    cy,
+                    cz,
+                    s=6000 / max(nelx, nely, nelz),
+                    marker="s",
+                    c=colors,
+                    alpha=None,
+                )
+
+                ax.set_box_aspect([nelx, nely, nelz])
+            else:
+                hex_color = to_hex(self.materials_widget.inputs[0]["color"].get_color())
+                color_cmap = LinearSegmentedColormap.from_list(
+                    "material_shades",
+                    [hex_color, "#ffffff"],  # selected material color → white
+                )
+                X, Y = self.last_displayed_frame_data
+                ax.pcolormesh(
+                    X,
+                    Y,
+                    -self.xPhys.reshape((nelx, nely)),
+                    cmap=color_cmap,
+                    shading="auto",
+                )
+        # Multi-iteration displacement handled in update_animation_frame
+
+    def replot(self):
+        """Redraws the plot canvas, intelligently showing or hiding each layer based on the state of the visibility buttons."""
+        if not self.last_params:
+            return  # Do nothing if triggerd in sections initialization
+        self.figure.clear()
+        self.figure.patch.set_facecolor("white")
+        nelx, nely, nelz = self.last_params["Dimensions"]["nelxyz"]
+        is_3d = nelz > 0
+        if is_3d:
+            ax = self.figure.add_subplot(111, projection="3d", facecolor="white")
+        else:
+            ax = self.figure.add_subplot(111, facecolor="white")
+
+        # Layer 1: The Main Result (Material)
+        if (
+            self.is_displaying_deformation
+            and self.last_displayed_frame_data is not None
+        ):
+            self._plot_deformation(ax, is_3d, nelx, nely, nelz)
+        else:
+            if self.sections["Materials"].visibility_button.isChecked():
+                if self.xPhys is None:
+                    from app.core import initializers  # Import here to avoid circular
+
+                    pm = self.last_params["Materials"]
+                    pd = self.last_params["Dimensions"]
+                    pf = self.last_params["Forces"]
+                    ps = (
+                        self.last_params["Supports"]
+                        if "Supports" in self.last_params
+                        else None
+                    )
+                    # Initialize xPhys
+                    active_iforces_indices = [
+                        i
+                        for i in range(len(pf["fidir"]))
+                        if np.array(pf["fidir"])[i] != "-"
+                    ]
+                    active_oforces_indices = [
+                        i
+                        for i in range(len(pf["fodir"]))
+                        if np.array(pf["fodir"])[i] != "-"
+                    ]
+                    active_supports_indices = (
+                        [
+                            i
+                            for i in range(len(ps["sdim"]))
+                            if np.array(ps["sdim"])[i] != "-"
+                        ]
+                        if ps is not None
+                        else []
+                    )
+                    fix_active = np.array(pf["fix"])[active_iforces_indices]
+                    fiy_active = np.array(pf["fiy"])[active_iforces_indices]
+                    fox_active = np.array(pf["fox"])[active_oforces_indices]
+                    foy_active = np.array(pf["foy"])[active_oforces_indices]
+                    sx_active = (
+                        np.array(ps["sx"])[active_supports_indices]
+                        if ps is not None
+                        else np.array([])
+                    )
+                    sy_active = (
+                        np.array(ps["sy"])[active_supports_indices]
+                        if ps is not None
+                        else np.array([])
+                    )
+                    all_x = np.concatenate([fix_active, fox_active, sx_active])
+                    all_y = np.concatenate([fiy_active, foy_active, sy_active])
+                    if is_3d:
+                        fiz_active = np.array(pf["fiz"])[active_iforces_indices]
+                        foz_active = np.array(pf["foz"])[active_oforces_indices]
+                        sz_active = np.array(ps["sz"])[active_supports_indices]
+                    all_z = (
+                        np.concatenate([fiz_active, foz_active, sz_active])
+                        if is_3d
+                        else np.array([0] * len(all_x))
+                    )
+                    self.xPhys = initializers.initialize_material(
+                        pm["init_type"],
+                        pd["volfrac"],
+                        nelx,
+                        nely,
+                        nelz,
+                        all_x,
+                        all_y,
+                        all_z,
+                    )
+                    # Add regions if specified
+                    if "Regions" in self.last_params:
+                        pr = self.last_params["Regions"]
+                        for i, shape in enumerate(pr["rshape"]):
+                            if shape == "-":
+                                continue
+                            x_min, x_max = max(
+                                0, int(pr["rx"][i] - pr["rradius"][i])
+                            ), min(nelx, int(pr["rx"][i] + pr["rradius"][i]) + 1)
+                            y_min, y_max = max(
+                                0, int(pr["ry"][i] - pr["rradius"][i])
+                            ), min(nely, int(pr["ry"][i] + pr["rradius"][i]) + 1)
+                            if is_3d:
+                                z_min, z_max = max(
+                                    0, int(pr["rz"][i] - pr["rradius"][i])
+                                ), min(nelz, int(pr["rz"][i] + pr["rradius"][i]) + 1)
+
+                            idx_x = np.arange(x_min, x_max)
+                            idx_y = np.arange(y_min, y_max)
+                            if is_3d:
+                                idx_z = np.arange(z_min, z_max)
+
+                            if pr["rshape"][i] == "□":  # Square/Cube
+                                if len(idx_x) > 0 and len(idx_y) > 0:
+                                    if is_3d and len(idx_z) > 0:
+                                        xx, yy, zz = np.meshgrid(
+                                            idx_x, idx_y, idx_z, indexing="ij"
+                                        )
+                                        indices = zz + yy * nelz + xx * nely * nelz
+                                    elif not is_3d:
+                                        xx, yy = np.meshgrid(
+                                            idx_x, idx_y, indexing="ij"
+                                        )
+                                        indices = yy + xx * nely
+
+                            elif pr["rshape"][i] == "◯":  # Circle/Sphere
+                                if len(idx_x) > 0 and len(idx_y) > 0:
+                                    if is_3d and len(idx_z) > 0:
+                                        i_grid, j_grid, k_grid = np.meshgrid(
+                                            idx_x, idx_y, idx_z, indexing="ij"
+                                        )
+                                        mask = (i_grid - pr["rx"][i]) ** 2 + (
+                                            j_grid - pr["ry"][i]
+                                        ) ** 2 + (k_grid - pr["rz"][i]) ** 2 <= pr[
+                                            "rradius"
+                                        ][
+                                            i
+                                        ] ** 2
+                                        ii, jj, kk = (
+                                            i_grid[mask],
+                                            j_grid[mask],
+                                            k_grid[mask],
+                                        )
+                                        indices = kk + jj * nelz + ii * nely * nelz
+                                    elif not is_3d:
+                                        i_grid, j_grid = np.meshgrid(
+                                            idx_x, idx_y, indexing="ij"
+                                        )
+                                        mask = (i_grid - pr["rx"][i]) ** 2 + (
+                                            j_grid - pr["ry"][i]
+                                        ) ** 2 <= pr["rradius"][i] ** 2
+                                        ii, jj = i_grid[mask], j_grid[mask]
+                                        indices = jj + ii * nely
+                            self.xPhys[indices.flatten()] = (
+                                1e-6 if pr["rstate"][i] == "Void" else 1.0
+                            )
+                self.plot_material(ax, is_3d=is_3d)
+            # Show initial message if xPhys is not a result (even partial) of optimization
+            if self.footer.create_button.graphicsEffect() is not None:
+                init_message = 'Configure parameters and press "Create"'
+                if is_3d:
+                    ax.text2D(
+                        0.5,
+                        0.5,
+                        init_message,
+                        transform=ax.transAxes,
+                        ha="center",
+                        va="center",
+                        fontsize=16,
+                        alpha=0.5,
+                        color="black",
+                    )
+                else:
+                    ax.text(
+                        0.5,
+                        0.5,
+                        s=init_message,
+                        transform=ax.transAxes,
+                        ha="center",
+                        va="center",
+                        fontsize=16,
+                        alpha=0.5,
+                        color="black",
+                    )
+
+        self.redraw_non_material_layers(ax, is_3d)
+        if not is_3d:
+            ax.set_aspect("equal", "box")
+        ax.autoscale(tight=True)
+        self.canvas.draw()
+
+    def plot_material(self, ax, is_3d, xPhys_data=None):
+        """Plot the material."""
+        nelx, nely, nelz = self.last_params["Dimensions"]["nelxyz"]
+        data_to_plot = self.xPhys if xPhys_data is None else xPhys_data
+        if data_to_plot is None:
+            return
+
+        ax.clear()
+        if is_3d:
+            # Plot using voxels -> only the exterior box is visible
+            # x_phys_3d = data_to_plot.reshape((nelz, nelx, nely)).transpose(1, 2, 0) if xPhys_data is None else xPhys_data.reshape((nelz, nelx, nely)).transpose(1, 2, 0)
+            # base_color = np.array(to_rgb(self.materials_widget.mat_color.get_color()))
+            # color = np.zeros(x_phys_3d.shape + (4,))
+            # color[..., :3] = base_color  # Set RGB
+            # color[..., 3] = np.clip(x_phys_3d, 0.0, 1.0)
+            # ax.voxels(x_phys_3d, facecolors=color, edgecolor=None, ) # Very slow for large grids
+            # ax.set_box_aspect([nelx, nely, nelz])
+            # self.redraw_non_material_layers(ax, is_3d_mode=True)
+
+            # Avoids plotting fully transparent points.
+            visible_elements_mask = data_to_plot > 0.01
+            visible_indices = np.where(visible_elements_mask)[0]
+
+            densities = data_to_plot[visible_indices]
+
+            z = visible_indices // (nelx * nely)
+            x = (visible_indices % (nelx * nely)) // nely
+            y = visible_indices % nely
+
+            colors = np.zeros((len(densities), 4))
+            base_color_rgb = to_rgb(
+                self.materials_widget.inputs[0]["color"].get_color()
+            )
+            colors[:, :3] = base_color_rgb  # Set the RGB color for all points
+            colors[:, 3] = densities  # Set the Alpha channel to the density
+
+            ax.scatter(
+                x + 0.5,
+                y + 0.5,
+                z + 0.5,
+                s=6000 / max(nelx, nely, nelz),
+                marker="s",  # Square markers to mimic voxels
+                c=colors,
+                alpha=None,
+            )  # Alpha is now controlled by the 'c' array
+
+            ax.set_box_aspect([nelx, nely, nelz])
+        else:
+            mat_color = self.materials_widget.inputs[0]["color"].get_color()
+            cmap = LinearSegmentedColormap.from_list(
+                "custom_cmap", ["white", mat_color]
+            )
+
+            ax.imshow(
+                data_to_plot.reshape((nelx, nely)).T,
+                cmap=cmap,
+                interpolation="nearest",
+                origin="lower",
+                norm=plt.Normalize(0, 1),
+                extent=[0, nelx, 0, nely],
+            )
+
+    def redraw_non_material_layers(self, ax, is_3d):
+        """Helper to draw all the plot layers that are NOT the main result."""
+        # Layer 2: Overlays
+        self.plot_forces(ax, is_3d=is_3d)
+        self.plot_supports(ax, is_3d=is_3d)
+        self.plot_regions(ax, is_3d=is_3d)
+        self.plot_dimensions_frame(ax, is_3d=is_3d)
+        self.plot_displacement_preview(ax, is_3d=is_3d)
+
+    def plot_dimensions_frame(self, ax, is_3d):
+        """Draws a dotted frame around the design space, controlled by the Dimensions section's visibility button."""
+        if not self.sections["Dimensions"].visibility_button.isChecked():
+            ax.set_xlabel("")
+            ax.set_ylabel("")
+            if is_3d:
+                ax.set_zlabel("")
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if is_3d:
+                ax.set_zticks([])
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            return
+
+        nelx, nely, nelz = self.last_params["Dimensions"]["nelxyz"]
+
+        if is_3d:
+            # Define the 8 vertices of the box
+            verts = [
+                (0, 0, 0),
+                (nelx, 0, 0),
+                (nelx, nely, 0),
+                (0, nely, 0),
+                (0, 0, nelz),
+                (nelx, 0, nelz),
+                (nelx, nely, nelz),
+                (0, nely, nelz),
+            ]
+            # Define the 12 edges by connecting the vertices
+            edges = [
+                (0, 1),
+                (1, 2),
+                (2, 3),
+                (3, 0),
+                (4, 5),
+                (5, 6),
+                (6, 7),
+                (7, 4),
+                (0, 4),
+                (1, 5),
+                (2, 6),
+                (3, 7),
+            ]
+            for edge in edges:
+                points = [verts[edge[0]], verts[edge[1]]]
+                x, y, z = zip(*points)
+                ax.plot(x, y, z, color="gray", linestyle=":", linewidth=1.5)
+        else:
+            rect = Rectangle(
+                (0, 0),
+                nelx,
+                nely,
+                fill=False,
+                edgecolor="gray",
+                linestyle=":",
+                linewidth=1.5,
+            )
+            ax.add_patch(rect)
+
+        ax.set_xlabel("X", color="black")
+        ax.set_ylabel("Y", color="black")
+        ax.yaxis.label.set_rotation(0)  # Display Y label vertically
+        if is_3d:
+            ax.set_zlabel("Z", color="black")
+        ax.tick_params(axis="x", colors="black")
+        ax.tick_params(axis="y", colors="black")
+        if is_3d:
+            ax.tick_params(axis="z", colors="black")
+        for spine in ax.spines.values():
+            spine.set_visible(True)
+            spine.set_edgecolor("black")
+
+    def plot_forces(self, ax, is_3d):
+        if not self.sections["Forces"].visibility_button.isChecked():
+            return
+        if not self.last_params or "Forces" not in self.last_params:
+            return
+
+        pf = self.last_params["Forces"]
+        pd = self.last_params["Dimensions"]
+        length = np.mean(pd["nelxyz"][:2]) / 6
+
+        if (
+            self.is_displaying_deformation
+            and self.u is not None
+            and self.displacement_widget.mov_iter.value() == 1
+        ):
+            self._plot_deformed_forces(ax, is_3d, pd, length)
+        else:
+            self._plot_initial_forces(ax, is_3d, pf, length)
+
+    def _arrow_vectors(self, dirs, length, is_3d):
+        dx = np.zeros(len(dirs))
+        dy = np.zeros(len(dirs))
+        dz = np.zeros(len(dirs)) if is_3d else None
+
+        for i, d in enumerate(dirs):
+            c = d.split(":")[1]
+            if c == "→":
+                dx[i] = length
+            elif c == "←":
+                dx[i] = -length
+            elif c == "↑":
+                dy[i] = length
+            elif c == "↓":
+                dy[i] = -length
+            elif is_3d and c == ">":
+                dz[i] = length
+            elif is_3d and c == "<":
+                dz[i] = -length
+
+        return dx, dy, dz
+
+    def _plot_initial_forces(self, ax, is_3d, pf, length):
+        for prefix, color in [("fi", "r"), ("fo", "b")]:
+            dirs = np.array(pf[f"{prefix}dir"])
+            active = dirs != "-"
+            if not np.any(active):
+                continue
+
+            x = np.array(pf[f"{prefix}x"])[active]
+            y = np.array(pf[f"{prefix}y"])[active]
+            z = np.array(pf.get(f"{prefix}z", []))[active] if is_3d else None
+
+            dx, dy, dz = self._arrow_vectors(dirs[active], length, is_3d)
+
+            if is_3d:
+                ax.quiver(
+                    x,
+                    y,
+                    z,
+                    dx,
+                    dy,
+                    dz,
+                    color=color,
+                    length=length,
+                    normalize=True,
+                    arrow_length_ratio=0.3,
+                )
+            else:
+                ax.quiver(x, y, dx, dy, color=color, units="xy", scale=1, width=0.5)
+
+    def _plot_deformed_forces(self, ax, is_3d, pd, length):
+        nely = pd["nelxyz"][1]
+        disp_factor = self.displacement_widget.mov_disp.value()
+
+        for xk, yk, zk, dk, color in [
+            ("fix", "fiy", "fiz", "fidir", "r"),
+            ("fox", "foy", "foz", "fodir", "b"),
+        ]:
+            active = [
+                g
+                for g in self.forces_widget.inputs
+                if dk in g and g[dk].currentText() != "-"
+            ]
+            if not active:
+                continue
+
+            fx = np.array([g[xk].value() for g in active])
+            fy = np.array([g[yk].value() for g in active])
+            fz = np.array([g[zk].value() for g in active]) if is_3d else None
+            dirs = [g[dk].currentText() for g in active]
+
+            idx = (
+                (fz * (fx + 1) * (nely + 1) + fx * (nely + 1) + fy)
+                if is_3d
+                else (fx * (nely + 1) + fy)
+            )
+
+            dof = 3 if is_3d else 2
+            ux = self.u[dof * idx, 0] * disp_factor
+            uy = self.u[dof * idx + 1, 0] * disp_factor
+            uz = self.u[dof * idx + 2, 0] * disp_factor if is_3d else None
+
+            fx = fx + ux  # using += will give an error
+            fy = fy + uy if is_3d else fy - uy
+            if is_3d:
+                fz = fz + uz
+
+            dx, dy, dz = self._arrow_vectors(dirs, length, is_3d)
+
+            if is_3d:
+                ax.quiver(
+                    fx,
+                    fy,
+                    fz,
+                    dx,
+                    dy,
+                    dz,
+                    color=color,
+                    length=length,
+                    normalize=True,
+                    arrow_length_ratio=0.3,
+                )
+            else:
+                ax.quiver(fx, fy, dx, dy, color=color, units="xy", scale=1, width=0.5)
+
+    def plot_supports(self, ax, is_3d):
+        """Plots the supports as triangles."""
+        if not self.sections["Supports"].visibility_button.isChecked():
+            return
+        if not self.last_params or "Supports" not in self.last_params:
+            return
+        # No need to consider the case is_displaying_deformation since the supports don't move
+        ps = self.last_params["Supports"]
+        for i, d in enumerate(ps["sdim"]):
+            if d == "-":
+                continue
+            pos = [ps["sx"][i], ps["sy"][i], ps["sz"][i]]
+            size = 80 + 200 * ps["sr"][i] ** 2
+            if is_3d:
+                ax.scatter(
+                    pos[0],
+                    pos[1],
+                    pos[2],
+                    s=size,
+                    marker="^",
+                    c="black",
+                    depthshade=False,
+                )
+            else:
+                ax.scatter(pos[0], pos[1], s=size, marker="^", c="black")
+
+    def plot_regions(self, ax, is_3d):
+        """Plots the regions outline (square/cube or circle/sphere) in 2D or 3D."""
+        if not self.sections["Regions"].visibility_button.isChecked():
+            return
+        if self.is_displaying_deformation:
+            return  # Region are not relevant in deformation view
+        if not self.last_params or "Regions" not in self.last_params:
+            return
+        pr = self.last_params["Regions"]
+        for i, shape in enumerate(pr["rshape"]):
+            if shape == "-":
+                continue
+
+            r = pr["rradius"][i]
+            rx, ry = pr["rx"][i], pr["ry"][i]
+
+            if is_3d:
+                rz = pr["rz"][i]
+                if shape == "□":  # Square/Cube
+                    # Define the 8 vertices of the cube
+                    verts = np.array(
+                        [
+                            [rx - r, ry - r, rz - r],
+                            [rx + r, ry - r, rz - r],
+                            [rx + r, ry + r, rz - r],
+                            [rx - r, ry + r, rz - r],
+                            [rx - r, ry - r, rz + r],
+                            [rx + r, ry - r, rz + r],
+                            [rx + r, ry + r, rz + r],
+                            [rx - r, ry + r, rz + r],
+                        ]
+                    )
+                    # Define the 12 edges connecting the vertices
+                    edges = [
+                        (0, 1),
+                        (1, 2),
+                        (2, 3),
+                        (3, 0),
+                        (4, 5),
+                        (5, 6),
+                        (6, 7),
+                        (7, 4),
+                        (0, 4),
+                        (1, 5),
+                        (2, 6),
+                        (3, 7),
+                    ]
+                    for edge in edges:
+                        points = verts[list(edge)]
+                        # Note: Matplotlib's 3D axes are ordered (X, Y, Z)
+                        ax.plot(
+                            points[:, 0],
+                            points[:, 1],
+                            points[:, 2],
+                            color="green",
+                            linestyle=":",
+                        )
+
+                elif shape == "◯":  # Circle/Sphere
+                    # Create the surface grid for the sphere
+                    u = np.linspace(0, 2 * np.pi, 20)
+                    v = np.linspace(0, np.pi, 20)
+                    # Parametric equations for a sphere
+                    x = rx + r * np.outer(np.cos(u), np.sin(v))
+                    y = ry + r * np.outer(np.sin(u), np.sin(v))
+                    z = rz + r * np.outer(np.ones(np.size(u)), np.cos(v))
+                    ax.plot_wireframe(x, y, z, color="green", linestyle=":")
+
+            else:
+                if shape == "□":  # Square/Cube
+                    rect = plt.Rectangle(
+                        (rx - r, ry - r),
+                        2 * r,
+                        2 * r,
+                        fill=False,
+                        edgecolor="green",
+                        linestyle=":",
+                    )
+                    ax.add_patch(rect)
+                elif shape == "◯":  # Circle/Sphere
+                    circ = plt.Circle(
+                        (rx, ry), r, fill=False, edgecolor="green", linestyle=":"
+                    )
+                    ax.add_patch(circ)
+
+    def plot_displacement_preview(self, ax, is_3d):
+        """Overlays displacement vectors (quivers) on the plot if the preview is active."""
+        if not self.sections["Displacement"].visibility_button.isChecked():
+            return
+        if self.is_displaying_deformation:
+            return  # The displacement vector doesn't match the deformed shape
+        if self.u is None or self.xPhys is None:
+            return
+        pf = self.last_params["Forces"]
+        disp_factor = self.displacement_widget.mov_disp.value()
+        factor = (
+            disp_factor / np.mean(pf["finorm"][0])
+            if np.mean(pf["finorm"][0]) != 0
+            else disp_factor
+        )
+
+        nelx, nely, nelz = self.last_params["Dimensions"]["nelxyz"]
+        if is_3d:
+            step = max(
+                1, int((nelx + nely + nelz) / 15)
+            )  # number of elements to skip between 2 arrows
+            x_coords, y_coords, z_coords = np.meshgrid(
+                np.arange(0, nelx, step),
+                np.arange(0, nely, step),
+                np.arange(0, nelz, step),
+                indexing="xy",
+            )
+
+            el_indices = (
+                z_coords * (nelx * nely) + x_coords * nely + y_coords
+            ).flatten()
+            node_indices = (
+                z_coords * ((nelx + 1) * (nely + 1)) + x_coords * (nely + 1) + y_coords
+            ).flatten()
+            material_mask = (
+                self.xPhys[el_indices] > 0.5
+            )  # Only show arrows in material regions
+
+            # Get the coordinates and displacement vectors for the valid points
+            x_valid = x_coords.flatten()[material_mask] + 0.5  # Center of element
+            y_valid = y_coords.flatten()[material_mask] + 0.5
+            z_valid = z_coords.flatten()[material_mask] + 0.5
+            node_valid = node_indices[material_mask]
+
+            ux = self.u[3 * node_valid, 0] * factor
+            uy = -self.u[3 * node_valid + 1, 0] * factor
+            uz = self.u[3 * node_valid + 2, 0] * factor
+
+            ax.quiver(
+                x_valid,
+                y_valid,
+                z_valid,
+                ux,
+                uy,
+                uz,
+                color="red",
+                length=disp_factor / 4,
+                normalize=True,
+            )
+        else:
+            step = max(
+                1, int((nelx + nely) / 25)
+            )  # number of elements to skip between 2 arrows
+            x_coords, y_coords = np.meshgrid(
+                np.arange(0, nelx, step), np.arange(0, nely, step), indexing="xy"
+            )
+
+            el_indices = (x_coords * nely + y_coords).flatten()
+            node_indices = (x_coords * (nely + 1) + y_coords).flatten()
+
+            material_mask = (
+                self.xPhys[el_indices] > 0.5
+            )  # Only show arrows in material regions
+
+            # Get the coordinates and displacement vectors for the valid points
+            x_valid = x_coords.flatten()[material_mask]
+            y_valid = y_coords.flatten()[material_mask]
+            node_valid = node_indices[material_mask]
+
+            ux = self.u[2 * node_valid, 0] * factor
+            uy = -self.u[2 * node_valid + 1, 0] * factor
+
+            ax.quiver(
+                x_valid,
+                y_valid,
+                ux,
+                uy,
+                color="red",
+                scale=40,
+                scale_units="xy",
+                angles="xy",
+            )
