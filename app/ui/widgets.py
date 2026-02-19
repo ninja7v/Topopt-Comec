@@ -26,6 +26,36 @@ from PySide6.QtWidgets import (
 from .icons import icons
 
 
+# Make spinbox functions to avoid code repetition
+def make_spin(min_v, max_v, val, width=None, tip=""):
+    s = QSpinBox()
+    s.setRange(min_v, max_v)
+    s.setValue(val)
+    if width:
+        s.setMaximumWidth(width)
+    s.setToolTip(tip)
+    return s
+
+
+def make_dspin(min_v, max_v, val, step=0.01, width=None, tip=""):
+    s = QDoubleSpinBox()
+    s.setRange(min_v, max_v)
+    s.setValue(val)
+    s.setSingleStep(step)
+    if width:
+        s.setMaximumWidth(width)
+    s.setToolTip(tip)
+    return s
+
+
+def make_combo(items=[], index=0, tip=""):
+    c = QComboBox()
+    c.addItems(items)
+    c.setCurrentIndex(index)
+    c.setToolTip(tip)
+    return c
+
+
 class CollapsibleSection(QWidget):
     """A collapsible widget section with a title bar and a content area."""
 
@@ -203,8 +233,7 @@ class PresetWidget(QFrame):
         preset_layout.setContentsMargins(5, 5, 5, 5)
         # Combo Box
         preset_layout.addWidget(QLabel("Presets:"))
-        self.presets_combo = QComboBox()
-        self.presets_combo.setToolTip("Load a saved set of parameters")
+        self.presets_combo = make_combo([], 0, "Load a saved set of parameters")
         preset_layout.addWidget(self.presets_combo, 1)  # Give combo box more stretch
         # Save
         self.save_preset_button = QPushButton()
@@ -228,47 +257,29 @@ class DimensionsWidget(QWidget):
         # Size
         size_layout = QHBoxLayout()
         size_layout.addWidget(QLabel("Size:"))
-        self.nx = QSpinBox()
-        self.nx.setRange(5, 1000)
-        self.nx.setValue(60)
-        self.nx.setMaximumWidth(70)
-        self.nx.setToolTip("X")
+        self.nx = make_spin(5, 1000, 60, 70, "X")
         size_layout.addWidget(self.nx)
         size_layout.addWidget(QLabel("x"))
-        self.ny = QSpinBox()
-        self.ny.setRange(5, 1000)
-        self.ny.setValue(40)
-        self.ny.setMaximumWidth(70)
-        self.ny.setToolTip("Y")
+        self.ny = make_spin(5, 1000, 40, 70, "Y")
         size_layout.addWidget(self.ny)
         size_layout.addWidget(QLabel("x"))
-        self.nz = QSpinBox()
-        self.nz.setRange(0, 1000)
-        self.nz.setValue(0)
-        self.nz.setMaximumWidth(70)
-        self.nz.setToolTip("Z → set to 0 for a 2D problem")
+        self.nz = make_spin(0, 1000, 0, 70, "Z → set to 0 for a 2D problem")
         size_layout.addWidget(self.nz)
         size_layout.addStretch()
         layout.addLayout(size_layout)
         # Volume Fraction
         vol_layout = QHBoxLayout()
         vol_layout.addWidget(QLabel("Vol. Frac:"))
-        self.volfrac = QDoubleSpinBox()
-        self.volfrac.setRange(0.05, 0.8)
-        self.volfrac.setValue(0.3)
-        self.volfrac.setSingleStep(0.05)
-        self.volfrac.setToolTip("Volume Fraction")
+        self.volfrac = make_dspin(0.05, 0.8, 0.3, 0.05, None, "Volume Fraction")
         vol_layout.addWidget(self.volfrac)
         vol_layout.addStretch()
         layout.addLayout(vol_layout)
         # Scale
         scale_layout = QHBoxLayout()
         scale_layout.addWidget(QLabel("Scale:"))
-        self.scale = QDoubleSpinBox()
-        self.scale.setRange(0.5, 5)
-        self.scale.setValue(1.0)
-        self.scale.setSingleStep(0.5)
-        self.scale.setToolTip("Scale every component by this factor")
+        self.scale = make_dspin(
+            0.5, 5, 1.0, 0.5, None, "Scale every component by this factor"
+        )
         scale_layout.addWidget(self.scale)
         self.scale_button = QPushButton("Scale")
         self.scale_button.setIcon(icons.get("scale"))
@@ -331,23 +342,13 @@ class RegionsWidget(QWidget):
 
         # Shape
         line1_layout.addWidget(QLabel("Shape:"))
-        rshape = QComboBox()
-        rshape.addItems(["-", "□", "◯"])
-        rshape.setCurrentIndex(0)
-        rshape.setToolTip("Shape of the region")
+        rshape = make_combo(["-", "□", "◯"], 0, "Shape of the region")
         line1_layout.addWidget(rshape)
-        rstate = QComboBox()
-        rstate.addItems(["Void", "Filled"])
-        rstate.setCurrentIndex(0)
-        rstate.setToolTip("State of the region")
+        rstate = make_combo(["Void", "Filled"], 0, "State of the region")
         line1_layout.addWidget(rstate)
         # Radius
         line1_layout.addWidget(QLabel("Radius:"))
-        rradius = QSpinBox()
-        rradius.setRange(1, 100)
-        rradius.setValue(3)
-        rradius.setMaximumWidth(60)
-        rradius.setToolTip("Radius")
+        rradius = make_spin(1, 100, rradius, 60, "Radius")
         line1_layout.addWidget(rradius)
         line1_layout.addStretch()
         container_layout.addLayout(line1_layout)
@@ -356,23 +357,11 @@ class RegionsWidget(QWidget):
         line2_layout = QHBoxLayout()
         line2_layout.addSpacing(40)  # Align with line above
         line2_layout.addWidget(QLabel("Center:"))
-        rx = QSpinBox()
-        rx.setRange(0, 1000)
-        rx.setValue(pos[0])
-        rx.setMaximumWidth(60)
-        rx.setToolTip("X")
+        rx = make_spin(0, 1000, pos[0], 60, "X")
         line2_layout.addWidget(rx)
-        ry = QSpinBox()
-        ry.setRange(0, 1000)
-        ry.setValue(pos[1])
-        ry.setMaximumWidth(60)
-        ry.setToolTip("Y")
+        ry = make_spin(0, 1000, pos[1], 60, "Y")
         line2_layout.addWidget(ry)
-        rz = QSpinBox()
-        rz.setRange(0, 1000)
-        rz.setValue(pos[2])
-        rz.setMaximumWidth(60)
-        rz.setToolTip("Z")
+        rz = make_spin(0, 1000, pos[2], 60, "Z")
         line2_layout.addWidget(rz)
         line2_layout.addStretch()
         container_layout.addLayout(line2_layout)
@@ -446,146 +435,77 @@ class ForcesWidget(QWidget):
         self.inputs = (
             []
         )  # This list will hold the input widgets so the MainWindow can access them
-        main_layout = QVBoxLayout(self)
-        main_layout.setSpacing(10)
+
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setSpacing(10)
 
         arrows = ["-", "X:→", "X:←", "Y:↑", "Y:↓", "Z:<", "Z:>"]
-        nb_default_input_forces = 2
-        iorigins = [[30, 0, 0], [0, 0, 0]]
-        iarrows = [3, 0]
-        inorms = [0.01, 0.0]
-        nb_default_output_forces = 2
-        oorigins = [[30, 40, 0], [0, 0, 0]]
-        oarrows = [4, 0]
-        onorms = [0.01, 0.0]
+        iorigins, iarrows, inorms = [[30, 0, 0], [0, 0, 0]], [3, 0], [0.01, 0.0]
+        oorigins, oarrows, onorms = [[30, 40, 0], [0, 0, 0]], [4, 0], [0.01, 0.0]
 
-        force_input_label = QLabel("Input")
-        force_input_label.setStyleSheet("color: red;")
-        main_layout.addWidget(force_input_label)
-        for i in range(nb_default_input_forces):
-            grid = QGridLayout()
-            grid.setColumnStretch(1, 1)  # Allow input column to expand
-            # Force position Row
-            origin_label = QLabel("Origin:")
-            grid.addWidget(origin_label, 0, 0)
-            pos_layout = QHBoxLayout()
-            fx = QSpinBox()
-            fx.setRange(0, 1000)
-            fx.setValue(iorigins[i][0])
-            fx.setMaximumWidth(70)
-            fx.setToolTip("X")
-            pos_layout.addWidget(fx)
-            fy = QSpinBox()
-            fy.setRange(0, 1000)
-            fy.setValue(iorigins[i][1])
-            fy.setMaximumWidth(70)
-            fy.setToolTip("Y")
-            pos_layout.addWidget(fy)
-            fz = QSpinBox()
-            fz.setRange(0, 1000)
-            fz.setValue(iorigins[i][2])
-            fz.setMaximumWidth(70)
-            fz.setToolTip("Z")
-            pos_layout.addWidget(fz)
-            grid.addLayout(pos_layout, 0, 1)
-            # Direction
-            dir_layout = QHBoxLayout()
-            dir_layout.addWidget(QLabel("Dir:"))
-            fdir = QComboBox()
-            fdir.addItems(arrows)
-            fdir.setCurrentIndex(iarrows[i])
-            fdir.setToolTip("Force direction")
-            dir_layout.addWidget(fdir)
-            dir_layout.addSpacing(20)
-            # Force spring
-            dir_layout.addWidget(QLabel("Spring (N/m):"))
-            fnorm = QDoubleSpinBox()
-            fnorm.setRange(0, 10)
-            fnorm.setSingleStep(0.01)
-            fnorm.setValue(inorms[i])
-            fnorm.setToolTip("Force magnitude for input, spring stiffness for output")
-            dir_layout.addWidget(fnorm)
-            dir_layout.addStretch()
-            grid.addLayout(dir_layout, 1, 0, 1, 2)  # Span across both columns
+        self._add_section("Input", "red", 2, iorigins, arrows, iarrows, inorms, True)
+        self._add_section("Output", "blue", 2, oorigins, arrows, oarrows, onorms, False)
 
-            # Add this force's grid to the main vertical layout
-            main_layout.addLayout(grid)
+    def _add_section(
+        self, title, color, count, origins, arrows, arrow_indices, norms, is_input
+    ):
+        label = QLabel(title)
+        label.setStyleSheet(f"color: {color};")
+        self.main_layout.addWidget(label)
+        for i in range(count):
+            self._add_row(i, origins, arrows, arrow_indices, norms, is_input)
+            if i < count - 1:
+                self._add_separator()
 
-            # Store the widgets in the public 'inputs' list
-            self.inputs.append(
-                {"fix": fx, "fiy": fy, "fiz": fz, "fidir": fdir, "finorm": fnorm}
-            )
+    def _add_row(self, i, origins, arrows, arrow_indices, norms, is_input):
+        grid = QGridLayout()
+        grid.setColumnStretch(1, 1)
+        grid.addWidget(QLabel("Origin:"), 0, 0)
 
-            # Add a separator line between force sections
-            if i < nb_default_input_forces - 1:
-                line = QFrame()
-                line.setFrameShape(QFrame.Shape.HLine)
-                line.setFrameShadow(QFrame.Shadow.Sunken)
-                main_layout.addWidget(line)
+        pos_layout = QHBoxLayout()
+        key_prefix = "fi" if is_input else "fo"
 
-        force_output_label = QLabel("Output")
-        force_output_label.setStyleSheet("color: blue;")
-        main_layout.addWidget(force_output_label)
-        for i in range(nb_default_output_forces):
-            grid = QGridLayout()
-            grid.setColumnStretch(1, 1)  # Allow input column to expand
-            # Force position Row
-            origin_label = QLabel("Origin:")
-            grid.addWidget(origin_label, 0, 0)
-            pos_layout = QHBoxLayout()
-            fx = QSpinBox()
-            fx.setRange(0, 1000)
-            fx.setValue(oorigins[i][0])
-            fx.setMaximumWidth(70)
-            fx.setToolTip("X")
-            pos_layout.addWidget(fx)
-            fy = QSpinBox()
-            fy.setRange(0, 1000)
-            fy.setValue(oorigins[i][1])
-            fy.setMaximumWidth(70)
-            fy.setToolTip("Y")
-            pos_layout.addWidget(fy)
-            fz = QSpinBox()
-            fz.setRange(0, 1000)
-            fz.setValue(oorigins[i][2])
-            fz.setMaximumWidth(70)
-            fz.setToolTip("Z")
-            pos_layout.addWidget(fz)
-            grid.addLayout(pos_layout, 0, 1)
-            # Direction
-            dir_layout = QHBoxLayout()
-            dir_layout.addWidget(QLabel("Dir:"))
-            fdir = QComboBox()
-            fdir.addItems(arrows)
-            fdir.setCurrentIndex(oarrows[i])
-            fdir.setToolTip("Force direction")
-            dir_layout.addWidget(fdir)
-            dir_layout.addSpacing(20)
-            # Force spring
-            dir_layout.addWidget(QLabel("Spring (N/m):"))
-            fnorm = QDoubleSpinBox()
-            fnorm.setRange(0, 10)
-            fnorm.setSingleStep(0.01)
-            fnorm.setValue(onorms[i])
-            fnorm.setToolTip("Force magnitude for input, spring stiffness for output")
-            dir_layout.addWidget(fnorm)
-            dir_layout.addStretch()
-            grid.addLayout(dir_layout, 1, 0, 1, 2)  # Span across both columns
+        fx = make_spin(0, 1000, origins[i][0], 70, "X")
+        fy = make_spin(0, 1000, origins[i][1], 70, "Y")
+        fz = make_spin(0, 1000, origins[i][2], 70, "Z")
+        for w in [fx, fy, fz]:
+            pos_layout.addWidget(w)
+        grid.addLayout(pos_layout, 0, 1)
 
-            # Add this force's grid to the main vertical layout
-            main_layout.addLayout(grid)
+        dir_layout = QHBoxLayout()
+        dir_layout.addWidget(QLabel("Dir:"))
+        fdir = make_combo(arrows, arrow_indices[i], "Force direction")
+        dir_layout.addWidget(fdir)
+        dir_layout.addSpacing(20)
+        dir_layout.addWidget(QLabel("Spring (N/m):"))
+        fnorm = make_dspin(
+            0,
+            10,
+            norms[i],
+            0.01,
+            None,
+            "Force magnitude for input, spring stiffness for output",
+        )
+        dir_layout.addWidget(fnorm)
+        dir_layout.addStretch()
+        grid.addLayout(dir_layout, 1, 0, 1, 2)
 
-            # Store the widgets in the public 'inputs' list
-            self.inputs.append(
-                {"fox": fx, "foy": fy, "foz": fz, "fodir": fdir, "fonorm": fnorm}
-            )
+        self.main_layout.addLayout(grid)
+        self.inputs.append(
+            {
+                f"{key_prefix}x": fx,
+                f"{key_prefix}y": fy,
+                f"{key_prefix}z": fz,
+                f"{key_prefix}dir": fdir,
+                f"{key_prefix}norm": fnorm,
+            }
+        )
 
-            # Add a separator line between force sections
-            if i < nb_default_output_forces - 1:
-                line = QFrame()
-                line.setFrameShape(QFrame.Shape.HLine)
-                line.setFrameShadow(QFrame.Shadow.Sunken)
-                main_layout.addWidget(line)
+    def _add_separator(self):
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        self.main_layout.addWidget(line)
 
 
 class SupportWidget(QWidget):
@@ -642,21 +562,9 @@ class SupportWidget(QWidget):
         line1_layout.addWidget(remove_btn)
 
         line1_layout.addWidget(QLabel("Center:"))
-        sx = QSpinBox()
-        sx.setRange(0, 1000)
-        sx.setValue(pos[0])
-        sx.setMaximumWidth(65)
-        sx.setToolTip("X")
-        sy = QSpinBox()
-        sy.setRange(0, 1000)
-        sy.setValue(pos[1])
-        sy.setMaximumWidth(65)
-        sy.setToolTip("Y")
-        sz = QSpinBox()
-        sz.setRange(0, 1000)
-        sz.setValue(pos[2])
-        sz.setMaximumWidth(65)
-        sz.setToolTip("Z")
+        sx = make_spin(0, 1000, pos[0], 65, "X")
+        sy = make_spin(0, 1000, pos[1], 65, "Y")
+        sz = make_spin(0, 1000, pos[2], 65, "Z")
         line1_layout.addWidget(sx)
         line1_layout.addWidget(sy)
         line1_layout.addWidget(sz)
@@ -667,18 +575,11 @@ class SupportWidget(QWidget):
         line2_layout = QHBoxLayout()
         line2_layout.addSpacing(40)  # Align with line above
         line2_layout.addWidget(QLabel("Fixed:"))
-        sdim = QComboBox()
-        sdim.addItems(self.dims)
-        sdim.setCurrentText(dim)
-        sdim.setToolTip("Fixed direction(s)")
+        sdim = make_combo(self.dims, self.dims.index(dim), "Fixed direction(s)")
         line2_layout.addWidget(sdim)
 
         line2_layout.addWidget(QLabel("Radius:"))
-        sr = QSpinBox()
-        sr.setRange(0, 10)
-        sr.setValue(radius)
-        sr.setMaximumWidth(60)
-        sr.setToolTip("Support's radius (0 = single node)")
+        sr = make_spin(0, 10, radius, 60, "Support's radius (0 = single node)")
         line2_layout.addWidget(sr)
         line2_layout.addStretch()
         container_layout.addLayout(line2_layout)
@@ -745,10 +646,11 @@ class MaterialsWidget(QWidget):
         # Initialization Type (Global for all materials)
         init_layout = QHBoxLayout()
         init_layout.addWidget(QLabel("Initialization:"))
-        self.mat_init_type = QComboBox()
-        self.mat_init_type.addItems(["Uniform", "Around activity points", "Random"])
-        self.mat_init_type.setCurrentIndex(0)
-        self.mat_init_type.setToolTip("Material distribution initialization type")
+        self.mat_init_type = make_combo(
+            ["Uniform", "Around activity points", "Random"],
+            0,
+            "Material distribution initialization type",
+        )
         init_layout.addWidget(self.mat_init_type)
         self.main_layout.addLayout(init_layout)
 
@@ -792,12 +694,8 @@ class MaterialsWidget(QWidget):
         line1.addSpacing(30)
         # Percentage
         line1.addWidget(QLabel("%:"))
-        mat_percent = QSpinBox()
-        mat_percent.setRange(0, 100)
-        mat_percent.setValue(percent)
-        mat_percent.setMaximumWidth(70)
+        mat_percent = make_spin(0, 100, percent, 70, "Volume Fraction percentage")
         mat_percent.setSingleStep(5)
-        mat_percent.setToolTip("Volume Fraction percentage")
         line1.addWidget(mat_percent)
         line1.addStretch()
         layout.addLayout(line1)
@@ -807,22 +705,20 @@ class MaterialsWidget(QWidget):
         line2.addSpacing(40)  # Align with line above
         # Young's Modulus
         line2.addWidget(QLabel("E:"))
-        mat_E = QDoubleSpinBox()
-        mat_E.setRange(0.1, 100.0)
-        mat_E.setValue(E)
-        mat_E.setMaximumWidth(70)
-        mat_E.setToolTip("Young's Modulus, material’s stiffness")
+        mat_E = make_dspin(
+            0.1, 100.0, E, 0.01, 70, "Young's Modulus, material’s stiffness"
+        )
         line2.addWidget(mat_E)
         line2.addSpacing(20)
         # Poisson's Ratio
         line2.addWidget(QLabel("ν:"))
-        mat_nu = QDoubleSpinBox()
-        mat_nu.setRange(0.0, 0.49)  # 0.5 causes issues in 3D?
-        mat_nu.setValue(nu)
-        mat_nu.setMaximumWidth(70)
-        mat_nu.setSingleStep(0.05)
-        mat_nu.setToolTip(
-            "Poisson's Ratio, material’s lateral shrinkage relative to its elongation"
+        mat_nu = make_dspin(
+            0.0,
+            0.49,
+            nu,
+            0.05,
+            70,
+            "Poisson's Ratio, material’s lateral shrinkage relative to its elongation",
         )
         line2.addWidget(mat_nu)
         line2.addStretch()
@@ -883,71 +779,66 @@ class OptimizerWidget(QWidget):
         super().__init__()
         layout = QGridLayout(self)
         # Filter type
-        self.opt_ft = QComboBox()
-        self.opt_ft.addItems(["Sensitivity", "Density", "None"])
-        self.opt_ft.setCurrentIndex(0)
-        self.opt_ft.setToolTip(
+        tip = (
             "Regularization to avoid checkerboards and mesh dependency\n"
             "Sensitivity: Averages sensitivities to ensure stable and physically meaningful optimization gradients.\n"
             "Density: Smooths the material distribution to avoid checkerboard patterns and mesh dependency."
         )
+        self.opt_ft = make_combo(["Sensitivity", "Density", "None"], 0, tip)
         layout.addWidget(QLabel("Filter Type:"), 0, 0)
         layout.addWidget(self.opt_ft, 0, 1)
         # Filter Radius
         layout.addWidget(QLabel("Filter Radius:"), 1, 0)
-        self.opt_fr = QDoubleSpinBox()
-        self.opt_fr.setRange(0.1, 10.0)
-        self.opt_fr.setValue(1.3)
-        self.opt_fr.setToolTip("Range of the filter coverage")
+        self.opt_fr = make_dspin(
+            0.1, 10.0, 1.3, 0.01, None, "Range of the filter coverage"
+        )
         layout.addWidget(self.opt_fr, 1, 1)
         # Penalization
         layout.addWidget(QLabel("Penalization:"), 2, 0)
-        self.opt_p = QDoubleSpinBox()
-        self.opt_p.setRange(1.0, 10.0)
-        self.opt_p.setValue(3.0)
-        self.opt_p.setToolTip(
-            "Exponent in the SIMP method to penalize intermediate densities"
+        self.opt_p = make_dspin(
+            1.0,
+            10.0,
+            3.0,
+            0.01,
+            None,
+            "Exponent in the SIMP method to penalize intermediate densities",
         )
         layout.addWidget(self.opt_p, 2, 1)
         # Eta
         layout.addWidget(QLabel("Eta:"), 3, 0)
-        self.opt_eta = QDoubleSpinBox()
-        self.opt_eta.setRange(0.05, 1.0)
-        self.opt_eta.setValue(0.3)
-        self.opt_eta.setSingleStep(0.05)
-        self.opt_eta.setToolTip(
-            "Damping factor in OC update rule to controls aggressiveness of density updates.\n"
-            "Lower eta: slower, more stable convergence; Higher eta: faster, but risk"
+        self.opt_eta = make_dspin(
+            0.05,
+            1.0,
+            0.3,
+            0.05,
+            None,
+            "Damping factor in OC update rule to controls aggressiveness of density updates.\nLower eta: slower, more stable convergence; Higher eta: faster, but risk",
         )
         layout.addWidget(self.opt_eta, 3, 1)
         # Max change
         layout.addWidget(QLabel("Max change:"), 4, 0)
-        self.opt_max_change = QDoubleSpinBox()
-        self.opt_max_change.setRange(0.01, 0.5)
-        self.opt_max_change.setValue(0.05)
-        self.opt_max_change.setSingleStep(0.05)
-        self.opt_max_change.setToolTip(
-            "Bound the density change between two iterations to a maximum value"
+        self.opt_max_change = make_dspin(
+            0.01,
+            0.5,
+            0.05,
+            0.05,
+            None,
+            "Bound the density change between two iterations to a maximum value",
         )
         layout.addWidget(self.opt_max_change, 4, 1)
         # Iterations
         layout.addWidget(QLabel("Iterations:"), 5, 0)
-        self.opt_n_it = QSpinBox()
-        self.opt_n_it.setRange(1, 100)
-        self.opt_n_it.setValue(30)
-        self.opt_n_it.setToolTip("Number of optimization iterations")
+        self.opt_n_it = make_spin(1, 100, 30, None, "Number of optimization iterations")
         layout.addWidget(self.opt_n_it, 5, 1)
         # Solver
         layout.addWidget(QLabel("Solver:"), 6, 0)
-        self.opt_solver = QComboBox()
-        self.opt_solver.addItems(["Auto", "Direct", "Iterative"])
-        self.opt_solver.setCurrentIndex(0)
-        self.opt_solver.setToolTip(
+        tip = (
             "Solver type for the linear system\n"
             "Auto: Chooses the best solver based on the problem size\n"
             "Direct: Uses LU factorization (spsolve)\n"
             "Iterative: Uses Conjugate Gradient (cg) with preconditioning\n"
         )
+        self.opt_solver = make_combo(["Auto", "Direct", "Iterative"], 0, tip)
         layout.addWidget(self.opt_solver, 6, 1)
 
 
@@ -1019,19 +910,23 @@ class DisplacementWidget(QWidget):
         layout = QGridLayout(self)
         # Displacement
         layout.addWidget(QLabel("Displacement:"), 0, 0)
-        self.mov_disp = QDoubleSpinBox()
-        self.mov_disp.setRange(0.1, 100.0)
-        self.mov_disp.setValue(1.0)
-        self.mov_disp.setToolTip("Total scaling factor for the displacement animation")
+        self.mov_disp = make_dspin(
+            0.1,
+            100.0,
+            1.0,
+            0.01,
+            None,
+            "Total scaling factor for the displacement animation",
+        )
         layout.addWidget(self.mov_disp, 0, 1)
         # Iterations
         layout.addWidget(QLabel("Iterations:"), 1, 0)
-        self.mov_iter = QSpinBox()
-        self.mov_iter.setRange(1, 20)
-        self.mov_iter.setValue(1)
-        self.mov_iter.setToolTip(
-            "Number of frames in the displacement animation.\n"
-            "If more than 1 iteration is set, a more complex function is used since it requires an domain enlargement and interpolations."
+        self.mov_iter = make_spin(
+            1,
+            20,
+            1,
+            None,
+            "Number of frames in the displacement animation.\nIf more than 1 iteration is set, a more complex function is used since it requires an domain enlargement and interpolations.",
         )
         layout.addWidget(self.mov_iter, 1, 1)
         self.button_stack = QStackedLayout()

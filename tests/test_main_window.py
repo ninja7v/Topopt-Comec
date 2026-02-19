@@ -11,7 +11,7 @@ from unittest.mock import patch
 # --- Test Cases for the Intelligent Comparison ---
 p_base_2d = {
     "Dimensions": {"nelxyz": [60, 40, 0]},
-    "Supports": {"sdim": ["Y", "X"], "sx": [0, 60], "sy": [20, 20]},
+    "Supports": {"sdim": ["Y", "X"], "sx": [0, 60], "sy": [20, 20], "sr": [0, 0]},
     "Forces": {
         "fix": [0, 100],
         "fiy": [30, 40],
@@ -31,13 +31,18 @@ p_base_2d = {
         "color": ["#000000"],
         "init_type": 0,
     },
-    "Region": {},
+    "Regions": {},
     "Displacement": {"disp_factor": 1.0, "disp_iterations": 1},
 }
 
 p_inactive_support = {
     "Dimensions": {"nelxyz": [60, 40, 0]},
-    "Supports": {"sdim": ["Y", "X", "-"], "sx": [0, 60, 0], "sy": [20, 20, 0]},
+    "Supports": {
+        "sdim": ["Y", "X", "-"],
+        "sx": [0, 60, 0],
+        "sy": [20, 20, 0],
+        "sr": [0, 0, 0],
+    },
     "Forces": {
         "fix": [0, 100],
         "fiy": [30, 40],
@@ -57,13 +62,18 @@ p_inactive_support = {
         "color": ["#000000"],
         "init_type": 0,
     },
-    "Region": {},
+    "Regions": {},
     "Displacement": {"disp_factor": 1.0, "disp_iterations": 1},
 }
 
 p_different_support = {
     "Dimensions": {"nelxyz": [60, 40, 0]},
-    "Supports": {"sdim": ["Y", "X", "X"], "sx": [0, 60, 0], "sy": [20, 20, 0]},
+    "Supports": {
+        "sdim": ["Y", "X", "X"],
+        "sx": [0, 60, 0],
+        "sy": [20, 20, 0],
+        "sr": [0, 0, 0],
+    },
     "Forces": {
         "fix": [0, 100],
         "fiy": [30, 40],
@@ -83,13 +93,13 @@ p_different_support = {
         "color": ["#000000"],
         "init_type": 0,
     },
-    "Region": {},
+    "Regions": {},
     "Displacement": {"disp_factor": 1.0, "disp_iterations": 1},
 }
 
 p_inactive_force = {
     "Dimensions": {"nelxyz": [60, 40, 0]},
-    "Supports": {"sdim": ["Y", "X"], "sx": [0, 60], "sy": [20, 20]},
+    "Supports": {"sdim": ["Y", "X"], "sx": [0, 60], "sy": [20, 20], "sr": [0, 0]},
     "Forces": {
         "fix": [0, 100, 0],
         "fiy": [30, 40, 0],
@@ -109,13 +119,18 @@ p_inactive_force = {
         "color": ["#000000"],
         "init_type": 0,
     },
-    "Region": {},
+    "Regions": {},
     "Displacement": {"disp_factor": 1.0, "disp_iterations": 1},
 }
 
 p_different_force = {
     "Dimensions": {"nelxyz": [60, 40, 0]},
-    "Supports": {"sdim": ["Y", "X", "-"], "sx": [0, 60, 0], "sy": [20, 20, 0]},
+    "Supports": {
+        "sdim": ["Y", "X", "-"],
+        "sx": [0, 60, 0],
+        "sy": [20, 20, 0],
+        "sr": [0, 0, 0],
+    },
     "Forces": {
         "fix": [0, 100, 0],
         "fiy": [30, 40, 0],
@@ -135,13 +150,13 @@ p_different_force = {
         "color": ["#000000"],
         "init_type": 0,
     },
-    "Region": {},
+    "Regions": {},
     "Displacement": {"disp_factor": 1.0, "disp_iterations": 1},
 }
 
 p_inactive_region = {
     "Dimensions": {"nelxyz": [60, 40, 0]},
-    "Supports": {"sdim": ["Y", "X"], "sx": [0, 60], "sy": [20, 20]},
+    "Supports": {"sdim": ["Y", "X"], "sx": [0, 60], "sy": [20, 20], "sr": [0, 0]},
     "Forces": {
         "fix": [0, 100],
         "fiy": [30, 40],
@@ -154,7 +169,7 @@ p_inactive_region = {
         "fodir": ["X:\u2192"],
         "fonorm": [0.01],
     },
-    "Region": {
+    "Regions": {
         "rshape": ["-"],
         "rstate": ["Void"],
         "rradius": [5],
@@ -174,7 +189,7 @@ p_inactive_region = {
 
 p_different_region = {
     "Dimensions": {"nelxyz": [60, 40, 0]},
-    "Supports": {"sdim": ["Y", "X", "-"], "sx": [0, 60], "sy": [20, 20]},
+    "Supports": {"sdim": ["Y", "X", "-"], "sx": [0, 60], "sy": [20, 20], "sr": [0, 0]},
     "Forces": {
         "fix": [0, 100],
         "fiy": [30, 40],
@@ -187,7 +202,7 @@ p_different_region = {
         "fodir": ["X:\u2192"],
         "fonorm": [0.01],
     },
-    "Region": {
+    "Regions": {
         "rshape": ["□"],
         "rstate": ["Filled"],
         "rradius": [5],
@@ -207,7 +222,7 @@ p_different_region = {
 
 p_different_material = {
     "Dimensions": {"nelxyz": [60, 40, 0]},
-    "Supports": {"sdim": ["Y", "X"], "sx": [0, 60], "sy": [20, 20]},
+    "Supports": {"sdim": ["Y", "X"], "sx": [0, 60], "sy": [20, 20], "sr": [0, 0]},
     "Forces": {
         "fix": [0, 100],
         "fiy": [30, 40],
@@ -227,13 +242,13 @@ p_different_material = {
         "color": ["#000000"],
         "init_type": 0,
     },
-    "Region": {},
+    "Regions": {},
     "Displacement": {"disp_factor": 1.0, "disp_iterations": 1},
 }
 # A preset that is truly different
 p_different = {
     "Dimensions": {"nelxyz": [80, 50, 0]},
-    "Supports": {"sdim": ["X", "Y"], "sx": [0, 60], "sy": [20, 20]},
+    "Supports": {"sdim": ["X", "Y"], "sx": [0, 60], "sy": [20, 20], "sr": [0, 0]},
     "Forces": {
         "fix": [0, 100, 0],
         "fiy": [30, 40, 0],
@@ -253,7 +268,7 @@ p_different = {
         "color": ["#000500"],
         "init_type": 0,
     },
-    "Region": {
+    "Regions": {
         "rshape": ["□"],
         "rstate": ["Filled"],
         "rradius": [7],
