@@ -109,6 +109,158 @@ class PlottingMixin:
                 )
         # Multi-iteration displacement handled in update_animation_frame
 
+    def _initialize_xphys(self, nelx, nely, nelz, is_3d):
+        """Initializes material settings and regions locally if starting out or restarted."""
+        from app.core import initializers  # Import here to avoid circular
+
+        pm = self.last_params["Materials"]
+        pd = self.last_params["Dimensions"]
+        pf = self.last_params["Forces"]
+        ps = self.last_params["Supports"] if "Supports" in self.last_params else None
+
+        active_iforces_indices = [
+            i for i in range(len(pf["fidir"])) if np.array(pf["fidir"])[i] != "-"
+        ]
+        active_oforces_indices = [
+            i for i in range(len(pf["fodir"])) if np.array(pf["fodir"])[i] != "-"
+        ]
+        active_supports_indices = (
+            [i for i in range(len(ps["sdim"])) if np.array(ps["sdim"])[i] != "-"]
+            if ps is not None
+            else []
+        )
+
+        fix_active = np.array(pf["fix"])[active_iforces_indices]
+        fiy_active = np.array(pf["fiy"])[active_iforces_indices]
+        fox_active = np.array(pf["fox"])[active_oforces_indices]
+        foy_active = np.array(pf["foy"])[active_oforces_indices]
+        sx_active = (
+            np.array(ps["sx"])[active_supports_indices]
+            if ps is not None
+            else np.array([])
+        )
+        sy_active = (
+            np.array(ps["sy"])[active_supports_indices]
+            if ps is not None
+            else np.array([])
+        )
+        all_x = np.concatenate([fix_active, fox_active, sx_active])
+        all_y = np.concatenate([fiy_active, foy_active, sy_active])
+
+        if is_3d:
+            fiz_active = np.array(pf["fiz"])[active_iforces_indices]
+            foz_active = np.array(pf["foz"])[active_oforces_indices]
+            sz_active = np.array(ps["sz"])[active_supports_indices]
+        all_z = (
+            np.concatenate([fiz_active, foz_active, sz_active])
+            if is_3d
+            else np.array([0] * len(all_x))
+        )
+
+        if len(pm["E"]) == 1:
+            self.xPhys = initializers.initialize_material(
+                pm["init_type"], pd["volfrac"], nelx, nely, nelz, all_x, all_y, all_z
+            )
+        else:
+            self.xPhys = initializers.initialize_materials(
+                pm["init_type"],
+                pm["percent"],
+                pd["volfrac"],
+                nelx,
+                nely,
+                nelz,
+                all_x,
+                all_y,
+                all_z,
+            )
+
+        if "Regions" in self.last_params:
+            self._apply_regions(nelx, nely, nelz, is_3d)
+
+    def _apply_regions(self, nelx, nely, nelz, is_3d):
+        """Applies solid/void overrides per customized region."""
+        pr = self.last_params["Regions"]
+        for i, shape in enumerate(pr["rshape"]):
+            if shape == "-":
+                continue
+
+            x_min = max(0, int(pr["rx"][i] - pr["rradius"][i]))
+            x_max = min(nelx, int(pr["rx"][i] + pr["rradius"][i]) + 1)
+            y_min = max(0, int(pr["ry"][i] - pr["rradius"][i]))
+            y_max = min(nely, int(pr["ry"][i] + pr["rradius"][i]) + 1)
+            if is_3d:
+                z_min = max(0, int(pr["rz"][i] - pr["rradius"][i]))
+                z_max = min(nelz, int(pr["rz"][i] + pr["rradius"][i]) + 1)
+
+            idx_x = np.arange(x_min, x_max)
+            idx_y = np.arange(y_min, y_max)
+            if is_3d:
+                idx_z = np.arange(z_min, z_max)
+
+            indices = None
+
+            if pr["rshape"][i] == "□":  # Square/Cube
+                if len(idx_x) > 0 and len(idx_y) > 0:
+                    if is_3d and len(idx_z) > 0:
+                        xx, yy, zz = np.meshgrid(idx_x, idx_y, idx_z, indexing="ij")
+                        indices = zz + yy * nelz + xx * nely * nelz
+                    elif not is_3d:
+                        xx, yy = np.meshgrid(idx_x, idx_y, indexing="ij")
+                        indices = yy + xx * nely
+
+            elif pr["rshape"][i] == "◯":  # Circle/Sphere
+                if len(idx_x) > 0 and len(idx_y) > 0:
+                    if is_3d and len(idx_z) > 0:
+                        i_grid, j_grid, k_grid = np.meshgrid(
+                            idx_x, idx_y, idx_z, indexing="ij"
+                        )
+                        mask = (i_grid - pr["rx"][i]) ** 2 + (
+                            j_grid - pr["ry"][i]
+                        ) ** 2 + (k_grid - pr["rz"][i]) ** 2 <= pr["rradius"][i] ** 2
+                        ii, jj, kk = i_grid[mask], j_grid[mask], k_grid[mask]
+                        indices = kk + jj * nelz + ii * nely * nelz
+                    elif not is_3d:
+                        i_grid, j_grid = np.meshgrid(idx_x, idx_y, indexing="ij")
+                        mask = (i_grid - pr["rx"][i]) ** 2 + (
+                            j_grid - pr["ry"][i]
+                        ) ** 2 <= pr["rradius"][i] ** 2
+                        ii, jj = i_grid[mask], j_grid[mask]
+                        indices = jj + ii * nely
+
+            if indices is not None:
+                self.xPhys[indices.flatten()] = (
+                    1e-6 if pr["rstate"][i] == "Void" else 1.0
+                )
+
+    def _show_initial_message(self, ax, is_3d):
+        """Displays initial placeholder message onto canvas before optimization results exist."""
+        if self.footer.create_button.graphicsEffect() is not None:
+            init_message = 'Configure parameters and press "Create"'
+            if is_3d:
+                ax.text2D(
+                    0.5,
+                    0.5,
+                    init_message,
+                    transform=ax.transAxes,
+                    ha="center",
+                    va="center",
+                    fontsize=16,
+                    alpha=0.5,
+                    color="black",
+                )
+            else:
+                ax.text(
+                    0.5,
+                    0.5,
+                    s=init_message,
+                    transform=ax.transAxes,
+                    ha="center",
+                    va="center",
+                    fontsize=16,
+                    alpha=0.5,
+                    color="black",
+                )
+
     def replot(self):
         """Redraws the plot canvas, intelligently showing or hiding each layer based on the state of the visibility buttons."""
         if not self.last_params:
@@ -131,178 +283,10 @@ class PlottingMixin:
         else:
             if self.sections["Materials"].visibility_button.isChecked():
                 if self.xPhys is None:
-                    from app.core import initializers  # Import here to avoid circular
-
-                    pm = self.last_params["Materials"]
-                    pd = self.last_params["Dimensions"]
-                    pf = self.last_params["Forces"]
-                    ps = (
-                        self.last_params["Supports"]
-                        if "Supports" in self.last_params
-                        else None
-                    )
-                    # Initialize xPhys
-                    active_iforces_indices = [
-                        i
-                        for i in range(len(pf["fidir"]))
-                        if np.array(pf["fidir"])[i] != "-"
-                    ]
-                    active_oforces_indices = [
-                        i
-                        for i in range(len(pf["fodir"]))
-                        if np.array(pf["fodir"])[i] != "-"
-                    ]
-                    active_supports_indices = (
-                        [
-                            i
-                            for i in range(len(ps["sdim"]))
-                            if np.array(ps["sdim"])[i] != "-"
-                        ]
-                        if ps is not None
-                        else []
-                    )
-                    fix_active = np.array(pf["fix"])[active_iforces_indices]
-                    fiy_active = np.array(pf["fiy"])[active_iforces_indices]
-                    fox_active = np.array(pf["fox"])[active_oforces_indices]
-                    foy_active = np.array(pf["foy"])[active_oforces_indices]
-                    sx_active = (
-                        np.array(ps["sx"])[active_supports_indices]
-                        if ps is not None
-                        else np.array([])
-                    )
-                    sy_active = (
-                        np.array(ps["sy"])[active_supports_indices]
-                        if ps is not None
-                        else np.array([])
-                    )
-                    all_x = np.concatenate([fix_active, fox_active, sx_active])
-                    all_y = np.concatenate([fiy_active, foy_active, sy_active])
-                    if is_3d:
-                        fiz_active = np.array(pf["fiz"])[active_iforces_indices]
-                        foz_active = np.array(pf["foz"])[active_oforces_indices]
-                        sz_active = np.array(ps["sz"])[active_supports_indices]
-                    all_z = (
-                        np.concatenate([fiz_active, foz_active, sz_active])
-                        if is_3d
-                        else np.array([0] * len(all_x))
-                    )
-                    if len(pm["E"]) == 1:
-                        self.xPhys = initializers.initialize_material(
-                            pm["init_type"],
-                            pd["volfrac"],
-                            nelx,
-                            nely,
-                            nelz,
-                            all_x,
-                            all_y,
-                            all_z,
-                        )
-                    else:
-                        self.xPhys = initializers.initialize_materials(
-                            pm["init_type"],
-                            pm["percent"],
-                            pd["volfrac"],
-                            nelx,
-                            nely,
-                            nelz,
-                            all_x,
-                            all_y,
-                            all_z,
-                        )
-                    # Add regions if specified
-                    if "Regions" in self.last_params:
-                        pr = self.last_params["Regions"]
-                        for i, shape in enumerate(pr["rshape"]):
-                            if shape == "-":
-                                continue
-                            x_min, x_max = max(
-                                0, int(pr["rx"][i] - pr["rradius"][i])
-                            ), min(nelx, int(pr["rx"][i] + pr["rradius"][i]) + 1)
-                            y_min, y_max = max(
-                                0, int(pr["ry"][i] - pr["rradius"][i])
-                            ), min(nely, int(pr["ry"][i] + pr["rradius"][i]) + 1)
-                            if is_3d:
-                                z_min, z_max = max(
-                                    0, int(pr["rz"][i] - pr["rradius"][i])
-                                ), min(nelz, int(pr["rz"][i] + pr["rradius"][i]) + 1)
-
-                            idx_x = np.arange(x_min, x_max)
-                            idx_y = np.arange(y_min, y_max)
-                            if is_3d:
-                                idx_z = np.arange(z_min, z_max)
-
-                            if pr["rshape"][i] == "□":  # Square/Cube
-                                if len(idx_x) > 0 and len(idx_y) > 0:
-                                    if is_3d and len(idx_z) > 0:
-                                        xx, yy, zz = np.meshgrid(
-                                            idx_x, idx_y, idx_z, indexing="ij"
-                                        )
-                                        indices = zz + yy * nelz + xx * nely * nelz
-                                    elif not is_3d:
-                                        xx, yy = np.meshgrid(
-                                            idx_x, idx_y, indexing="ij"
-                                        )
-                                        indices = yy + xx * nely
-
-                            elif pr["rshape"][i] == "◯":  # Circle/Sphere
-                                if len(idx_x) > 0 and len(idx_y) > 0:
-                                    if is_3d and len(idx_z) > 0:
-                                        i_grid, j_grid, k_grid = np.meshgrid(
-                                            idx_x, idx_y, idx_z, indexing="ij"
-                                        )
-                                        mask = (i_grid - pr["rx"][i]) ** 2 + (
-                                            j_grid - pr["ry"][i]
-                                        ) ** 2 + (k_grid - pr["rz"][i]) ** 2 <= pr[
-                                            "rradius"
-                                        ][
-                                            i
-                                        ] ** 2
-                                        ii, jj, kk = (
-                                            i_grid[mask],
-                                            j_grid[mask],
-                                            k_grid[mask],
-                                        )
-                                        indices = kk + jj * nelz + ii * nely * nelz
-                                    elif not is_3d:
-                                        i_grid, j_grid = np.meshgrid(
-                                            idx_x, idx_y, indexing="ij"
-                                        )
-                                        mask = (i_grid - pr["rx"][i]) ** 2 + (
-                                            j_grid - pr["ry"][i]
-                                        ) ** 2 <= pr["rradius"][i] ** 2
-                                        ii, jj = i_grid[mask], j_grid[mask]
-                                        indices = jj + ii * nely
-                            self.xPhys[indices.flatten()] = (
-                                1e-6 if pr["rstate"][i] == "Void" else 1.0
-                            )
+                    self._initialize_xphys(nelx, nely, nelz, is_3d)
                 self.plot_material(ax, is_3d=is_3d)
             # Show initial message if xPhys is not a result (even partial) of optimization
-            if self.footer.create_button.graphicsEffect() is not None:
-                init_message = 'Configure parameters and press "Create"'
-                if is_3d:
-                    ax.text2D(
-                        0.5,
-                        0.5,
-                        init_message,
-                        transform=ax.transAxes,
-                        ha="center",
-                        va="center",
-                        fontsize=16,
-                        alpha=0.5,
-                        color="black",
-                    )
-                else:
-                    ax.text(
-                        0.5,
-                        0.5,
-                        s=init_message,
-                        transform=ax.transAxes,
-                        ha="center",
-                        va="center",
-                        fontsize=16,
-                        alpha=0.5,
-                        color="black",
-                    )
+            self._show_initial_message(ax, is_3d)
 
         self.redraw_non_material_layers(ax, is_3d)
         if not is_3d:

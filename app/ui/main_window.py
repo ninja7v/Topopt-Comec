@@ -1077,7 +1077,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             )
             mw["percent"].setValue(percents[i])
             color = pm.get("color", ["#000000"] * num_material_in_preset)
-            mw["color"].set_color(color)
+            mw["color"].set_color(color[i])
         self.materials_widget.mat_init_type.setCurrentIndex(pm.get("init_type", 0))
         self.connect_material_signals()
 
