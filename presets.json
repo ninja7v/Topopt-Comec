@@ -27,7 +27,8 @@
       "init_type": 0,
       "E": [1.0],
       "nu": [0.25],
-      "color": ["#000000"]
+      "color": ["#000000"],
+      "percent": [100]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -79,7 +80,8 @@
       "init_type": 0,
       "E": [1.0],
       "nu": [0.25],
-      "color": ["#000000"]
+      "color": ["#000000"],
+      "percent": [100]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -123,7 +125,8 @@
       "init_type": 0,
       "E": [1.0],
       "nu": [0.25],
-      "color": ["#000000"]
+      "color": ["#000000"],
+      "percent": [100]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -167,7 +170,8 @@
       "init_type": 0,
       "E": [0.1],
       "nu": [0.25],
-      "color": ["#000000"]
+      "color": ["#000000"],
+      "percent": [100]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -211,7 +215,8 @@
       "init_type": 0,
       "E": [1.0],
       "nu": [0.25],
-      "color": ["#0000ff"]
+      "color": ["#0000ff"],
+      "percent": [100]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -255,7 +260,8 @@
       "E": [1.0],
       "nu": [0.25],
       "init_type": 0,
-      "color": ["#000000"]
+      "color": ["#000000"],
+      "percent": [100]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",
@@ -302,7 +308,8 @@
       "init_type": 0,
       "E": [1.0],
       "nu": [0.25],
-      "color": ["#000000"]
+      "color": ["#000000"],
+      "percent": [100]
     },
     "Optimizer": {
       "filter_type": "Sensitivity",

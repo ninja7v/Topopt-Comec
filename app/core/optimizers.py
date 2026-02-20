@@ -154,3 +154,112 @@ def _get_active_coords(Supports, Forces, is_3d):
         fiz, foz = get_act(Forces, "fiz", "fidir"), get_act(Forces, "foz", "fodir")
         return all_x, all_y, np.concatenate([fiz, foz, sz])
     return all_x, all_y, np.array([0] * len(all_x))
+
+
+def optimize_multimaterial(
+    Dimensions: Dict,
+    Forces: Dict,
+    Materials: Dict,
+    Optimizer: Dict,
+    Supports: Optional[Dict] = None,
+    Regions: Optional[Dict] = None,
+    progress_callback: Optional[Callable] = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Multi-material topology optimization (max 2 materials).
+
+    Uses per-material density fields. Each material is updated via OC
+    with its own volume constraint, and then projected to ensure the
+    sum of densities does not exceed 1 in any element.
+
+    Args:
+        all parameters splited per section.
+        progress_callback: A function called with (iteration, objective, change, xPhys_multi).
+
+    Returns:
+        xPhys_multi: Final densities, shape (n_mat, nel).
+        ui: Displacement vector from the final solve.
+    """
+    print("Multi-material optimizer starting...")
+    Supports, Regions = Supports or {}, Regions or {}
+
+    # Initialize FEM Environment
+    fem = FEM(Dimensions, Materials, Optimizer)
+    fem.setup_boundary_conditions(Forces, Supports)
+
+    E_list = Materials.get("E", [1.0])
+    percents = Materials.get("percent", [100])
+    n_mat = len(E_list)
+
+    volfrac = Dimensions.get("volfrac", 0.5)
+
+    # Initialize Material
+    x = initializers.initialize_materials(
+        Materials.get("init_type", 0),
+        percents,
+        volfrac,
+        fem.nelx,
+        fem.nely,
+        fem.nelz,
+        *_get_active_coords(Supports, Forces, fem.is_3d),
+    )
+    xPhys = x.copy()
+    g = np.zeros(n_mat)
+
+    # Optimization Params
+    eta, max_change = Optimizer.get("eta", 1.0), Optimizer.get("max_change", 0.1)
+    n_it = Optimizer.get("n_it", 30)
+
+    print("   Preparation done -> Optimization loop starting...")
+    loop, change = 0, 1.0
+    while change > 0.01 and loop < n_it:
+        loop += 1
+        xold = x.copy()
+
+        # Apply Constraints & Analyze
+        for i in range(n_mat):
+            xPhys[i] = fem.apply_regions(xPhys[i], Regions)
+        E_eff = fem.compute_element_stiffness(xPhys, E_list)
+        ui, uo = fem.solve_with_E_eff(E_eff)
+
+        obj_val = 0.0
+
+        # Per-material sensitivity & OC update
+        for i in range(n_mat):
+            # Compute Sensitivities & Filter
+            obj_val_i, (dc_i, dv_i) = fem.compute_sensitivities(xPhys[i], ui, uo)
+
+            # Chain-rule: Scale the sensitivity by the material's stiffness.
+            dc_i *= E_list[i]
+
+            # Store the objective value (perfectly correct for compliant mechanisms)
+            obj_val = obj_val_i
+
+            # Update Design Variables
+            x[i], g[i] = oc(fem.nel, x[i], eta, max_change, dc_i, dv_i, g[i])
+            xPhys[i] = fem.update_xPhys(x[i])
+
+        # For rigid mechanisms, compute_sensitivities computes obj_val using single-material E_max/E_min.
+        # To print the TRUE multi-material objective value to the console, we quickly recalculate it here:
+        if len(fem.fo_indices) == 0:
+            obj_val = (E_eff * fem.compute_ce(ui, uo)).sum()
+
+        # Partition-of-unity constraint: ensure sum of densities <= 1 per element
+        col_sums = xPhys.sum(axis=0)
+        excess = col_sums > 1.0
+        if np.any(excess):
+            xPhys[:, excess] /= col_sums[excess]
+
+        # Check Convergence
+        change = float(np.max(np.abs(x - xold)))
+        print(
+            f"It.: {loop:3d}, Obj.: {obj_val:.4f}, "
+            + ", ".join(f"V{i}: {xPhys[i].mean():.3f}" for i in range(n_mat))
+            + f", Ch.: {change:.3f}"
+        )
+
+        if progress_callback and progress_callback(loop, obj_val, change, xPhys):
+            print("Optimization stopped by user.")
+            break
+
+    print("Multi-material optimizer finished.")
+    return xPhys, ui

@@ -634,7 +634,9 @@ class SupportWidget(QWidget):
 class MaterialsWidget(QWidget):
     """Custom widget for defining the materials."""
 
-    nbMaterialsChanged = Signal()
+    nbMaterialsChanged = (
+        Signal()
+    )  # Signal to update the parameters when the number of material changes
 
     def __init__(self):
         super().__init__()
@@ -750,11 +752,11 @@ class MaterialsWidget(QWidget):
         if idx != -1:
             self.remove_material(idx)
 
-    def remove_material(self, idx, emit_signal=True):
-        if idx < 0 or idx >= len(self.inputs):
+    def remove_material(self, row, emit_signal=True):
+        if row < 0 or row >= len(self.inputs):
             return
 
-        mat = self.inputs.pop(idx)
+        mat = self.inputs.pop(row)
         mat["container"].deleteLater()
         mat["container"].setParent(None)
 
@@ -764,7 +766,7 @@ class MaterialsWidget(QWidget):
 
     def update_ui_state(self):
         # Update Add/Remove buttons state
-        can_add = len(self.inputs) < 3
+        can_add = len(self.inputs) < 2
         can_remove = len(self.inputs) > 1
 
         self.add_btn.setEnabled(can_add)

@@ -186,16 +186,29 @@ class PlottingMixin:
                         if is_3d
                         else np.array([0] * len(all_x))
                     )
-                    self.xPhys = initializers.initialize_material(
-                        pm["init_type"],
-                        pd["volfrac"],
-                        nelx,
-                        nely,
-                        nelz,
-                        all_x,
-                        all_y,
-                        all_z,
-                    )
+                    if len(pm["E"]) == 1:
+                        self.xPhys = initializers.initialize_material(
+                            pm["init_type"],
+                            pd["volfrac"],
+                            nelx,
+                            nely,
+                            nelz,
+                            all_x,
+                            all_y,
+                            all_z,
+                        )
+                    else:
+                        self.xPhys = initializers.initialize_materials(
+                            pm["init_type"],
+                            pm["percent"],
+                            pd["volfrac"],
+                            nelx,
+                            nely,
+                            nelz,
+                            all_x,
+                            all_y,
+                            all_z,
+                        )
                     # Add regions if specified
                     if "Regions" in self.last_params:
                         pr = self.last_params["Regions"]
@@ -304,60 +317,101 @@ class PlottingMixin:
         if data_to_plot is None:
             return
 
+        # Detect multi-material: shape (n_mat, nel)
+        is_multi = data_to_plot.ndim == 2
+
         ax.clear()
         if is_3d:
-            # Plot using voxels -> only the exterior box is visible
-            # x_phys_3d = data_to_plot.reshape((nelz, nelx, nely)).transpose(1, 2, 0) if xPhys_data is None else xPhys_data.reshape((nelz, nelx, nely)).transpose(1, 2, 0)
-            # base_color = np.array(to_rgb(self.materials_widget.mat_color.get_color()))
-            # color = np.zeros(x_phys_3d.shape + (4,))
-            # color[..., :3] = base_color  # Set RGB
-            # color[..., 3] = np.clip(x_phys_3d, 0.0, 1.0)
-            # ax.voxels(x_phys_3d, facecolors=color, edgecolor=None, ) # Very slow for large grids
-            # ax.set_box_aspect([nelx, nely, nelz])
-            # self.redraw_non_material_layers(ax, is_3d_mode=True)
+            self._plot_material_3d(ax, data_to_plot, nelx, nely, nelz, is_multi)
+        else:
+            self._plot_material_2d(ax, data_to_plot, nelx, nely, is_multi)
 
-            # Avoids plotting fully transparent points.
-            visible_elements_mask = data_to_plot > 0.01
-            visible_indices = np.where(visible_elements_mask)[0]
+    def _plot_material_2d(self, ax, data, nelx, nely, is_multi):
+        """2D material plot — single or multi-material."""
+        if is_multi:
+            n_mat, nel = data.shape
+            rgb_image = np.ones((nel, 3))  # Start white
+            for i in range(n_mat):
+                mat_rgb = np.array(
+                    to_rgb(self.materials_widget.inputs[i]["color"].get_color())
+                )
+                # Blend: pixel = sum(rho_i * color_i)
+                rgb_image += data[i, :, np.newaxis] * (mat_rgb - 1.0)
+            rgb_image = np.clip(rgb_image, 0.0, 1.0)
+            rgb_image = rgb_image.reshape((nelx, nely, 3)).transpose(1, 0, 2)
 
-            densities = data_to_plot[visible_indices]
-
-            z = visible_indices // (nelx * nely)
-            x = (visible_indices % (nelx * nely)) // nely
-            y = visible_indices % nely
-
-            colors = np.zeros((len(densities), 4))
-            base_color_rgb = to_rgb(
-                self.materials_widget.inputs[0]["color"].get_color()
+            ax.imshow(
+                rgb_image,
+                interpolation="nearest",
+                origin="lower",
+                extent=[0, nelx, 0, nely],
             )
-            colors[:, :3] = base_color_rgb  # Set the RGB color for all points
-            colors[:, 3] = densities  # Set the Alpha channel to the density
-
-            ax.scatter(
-                x + 0.5,
-                y + 0.5,
-                z + 0.5,
-                s=6000 / max(nelx, nely, nelz),
-                marker="s",  # Square markers to mimic voxels
-                c=colors,
-                alpha=None,
-            )  # Alpha is now controlled by the 'c' array
-
-            ax.set_box_aspect([nelx, nely, nelz])
         else:
             mat_color = self.materials_widget.inputs[0]["color"].get_color()
             cmap = LinearSegmentedColormap.from_list(
                 "custom_cmap", ["white", mat_color]
             )
-
             ax.imshow(
-                data_to_plot.reshape((nelx, nely)).T,
+                data.reshape((nelx, nely)).T,
                 cmap=cmap,
                 interpolation="nearest",
                 origin="lower",
                 norm=plt.Normalize(0, 1),
                 extent=[0, nelx, 0, nely],
             )
+
+    def _plot_material_3d(self, ax, data, nelx, nely, nelz, is_multi):
+        """3D material plot — single or multi-material."""
+        if is_multi:
+            # Effective density for visibility
+            eff_density = data.sum(axis=0)
+            visible_mask = eff_density > 0.01
+            visible_idx = np.where(visible_mask)[0]
+            if len(visible_idx) == 0:
+                return
+
+            z = visible_idx // (nelx * nely)
+            x = (visible_idx % (nelx * nely)) // nely
+            y = visible_idx % nely
+
+            n_mat = data.shape[0]
+            colors = np.ones((len(visible_idx), 4))  # RGBA, start white
+            for i in range(n_mat):
+                mat_rgb = np.array(
+                    to_rgb(self.materials_widget.inputs[i]["color"].get_color())
+                )
+                rho_vis = data[i, visible_idx]
+                colors[:, :3] += rho_vis[:, np.newaxis] * (mat_rgb - 1.0)
+            colors[:, :3] = np.clip(colors[:, :3], 0.0, 1.0)
+            colors[:, 3] = np.clip(eff_density[visible_idx], 0.0, 1.0)
+        else:
+            visible_mask = data > 0.01
+            visible_idx = np.where(visible_mask)[0]
+            if len(visible_idx) == 0:
+                return
+
+            densities = data[visible_idx]
+            z = visible_idx // (nelx * nely)
+            x = (visible_idx % (nelx * nely)) // nely
+            y = visible_idx % nely
+
+            colors = np.zeros((len(densities), 4))
+            base_color_rgb = to_rgb(
+                self.materials_widget.inputs[0]["color"].get_color()
+            )
+            colors[:, :3] = base_color_rgb
+            colors[:, 3] = densities
+
+        ax.scatter(
+            x + 0.5,
+            y + 0.5,
+            z + 0.5,
+            s=6000 / max(nelx, nely, nelz),
+            marker="s",
+            c=colors,
+            alpha=None,
+        )
+        ax.set_box_aspect([nelx, nely, nelz])
 
     def redraw_non_material_layers(self, ax, is_3d):
         """Helper to draw all the plot layers that are NOT the main result."""
