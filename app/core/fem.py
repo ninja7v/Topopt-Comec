@@ -193,57 +193,74 @@ class FEM:
 
         return ui, uo
 
+    def solve_with_E_eff(self, E_eff: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Assembles K using pre-computed effective element stiffness and solves."""
+        sK = (self.KE.flatten()[np.newaxis]).T * E_eff
+        K = coo_matrix(
+            (sK.flatten(order="F"), (self.iK, self.jK)), shape=(self.ndof, self.ndof)
+        ).tocsc()
+        self._add_artificial_springs(K, self.di_indices, self.fi_indices, self.finorm)
+        self._add_artificial_springs(K, self.do_indices, self.fo_indices, self.fonorm)
+
+        K_free = K[np.ix_(self.free_dofs, self.free_dofs)]
+        ui = np.zeros((self.ndof, len(self.fi_indices)))
+        uo = np.zeros((self.ndof, len(self.fo_indices)))
+        self._solve_linear_system(K_free, self.forces_i, self.fi_indices, ui)
+        self._solve_linear_system(K_free, self.forces_o, self.fo_indices, uo)
+
+        return ui, uo
+
+    def compute_ce(self, ui: np.ndarray, uo: np.ndarray) -> np.ndarray:
+        """Compute element compliance ce = u^T KE u for all elements.
+
+        For rigid mechanisms (no output forces): ce = sum_i u_i^T KE u_i
+        For compliant mechanisms: ce = sum_i sum_o u_in^T KE u_out
+        """
+        nb_out = len(self.fo_indices)
+        ce_total = np.zeros(self.nel)
+
+        if nb_out == 0:  # Rigid Mechanism (Minimize Compliance)
+            for i_in in self.fi_indices:
+                Ue = ui[self.edofMat, i_in]
+                if self.is_3d:
+                    ce_total += np.sum(np.dot(Ue, self.KE) * Ue, axis=1)
+                else:
+                    ce_total += np.einsum("ij,jk,ik->i", Ue, self.KE, Ue)
+        else:  # Compliant Mechanism
+            if self.is_3d:
+                for el in range(self.nel):
+                    for i_in in self.fi_indices:
+                        Ue_in = ui[self.edofMat[el, :], [i_in]]
+                        for i_out in self.fo_indices:
+                            Ue_out = uo[self.edofMat[el, :], [i_out]]
+                            ce_total[el] += (Ue_in.T @ self.KE @ Ue_out).item()
+            else:
+                for i_in in self.fi_indices:
+                    Ue_in = ui[self.edofMat, i_in]
+                    for i_out in self.fo_indices:
+                        Ue_out = uo[self.edofMat, i_out]
+                        ce_total += np.einsum("ij,jk,ik->i", Ue_in, self.KE, Ue_out)
+
+        return ce_total
+
     def compute_sensitivities(
         self, xPhys: np.ndarray, ui: np.ndarray, uo: np.ndarray
     ) -> Tuple[float, np.ndarray, np.ndarray]:
         """Calculates Objective value, Sensitivity (dc), and Volume Sensitivity (dv)."""
         nb_out = len(self.fo_indices)
+        ce_total = self.compute_ce(ui, uo)
 
         # 1. Compliance / Objective Calculation
-        dc = np.zeros(self.nel)
         obj_val = 0.0
-
         if nb_out == 0:  # Rigid Mechanism (Minimize Compliance)
-            ce_total = np.zeros(self.nel)
-            for i_in in self.fi_indices:
-                Ue = ui[self.edofMat, i_in]
-                # Efficient calculation of u^T * K * u for all elements
-                if self.is_3d:
-                    ce_total += np.sum(
-                        np.dot(Ue, self.KE) * Ue, axis=1
-                    )  # Simpler 3D op
-                else:
-                    ce_total += np.einsum("ij,jk,ik->i", Ue, self.KE, Ue)
-
             obj_val = (
                 (self.E_min + xPhys**self.penal * (self.E_max - self.E_min)) * ce_total
             ).sum()
             dc = -self.penal * (xPhys ** (self.penal - 1)) * ce_total
-
         else:  # Compliant Mechanism
-            # Objective: Average displacement in output directions
-            # Sensitivity calculation via Adjoint Method
-            if self.is_3d:
-                for el in range(self.nel):
-                    ce_total = 0
-                    for i_in in self.fi_indices:
-                        Ue_in = ui[self.edofMat[el, :], [i_in]]
-                        for i_out in self.fo_indices:
-                            Ue_out = uo[self.edofMat[el, :], [i_out]]
-                            ce_total += (Ue_in.T @ self.KE @ Ue_out).item()
-                    dc[el] = self.penal * (xPhys[el] ** (self.penal - 1)) * ce_total
-            else:
-                ce_total = np.zeros(self.nel)
-                for i_in in self.fi_indices:
-                    Ue_in = ui[self.edofMat, i_in]  # Shape (nel, 8)
-                    for i_out in self.fo_indices:
-                        Ue_out = uo[self.edofMat, i_out]  # Shape (nel, 8)
-                        ce_total += np.einsum("ij,jk,ik->i", Ue_in, self.KE, Ue_out)
-                dc = self.penal * (xPhys ** (self.penal - 1)) * ce_total
-
+            dc = self.penal * (xPhys ** (self.penal - 1)) * ce_total
             # Sum of absolute output displacements
             for idx, dof_indices in enumerate(self.do_indices):
-                # This approximates the "average displacement" metric from the original code
                 obj_val += sum(abs(uo[dof, idx]) for dof in [dof_indices]) / nb_out
 
         # 2. Volume Sensitivity (dv)
@@ -362,6 +379,21 @@ class FEM:
         if self.filter_type == "Density":
             return (self.H @ x).ravel() / np.asarray(self.Hs).ravel()
         return x
+
+    def compute_element_stiffness(self, rho: np.ndarray, E_list: list) -> np.ndarray:
+        """Compute effective per-element stiffness for multi-material SIMP.
+
+        Args:
+            rho: Material densities, shape (n_mat, nel).
+            E_list: Young's modulus for each material.
+
+        Returns:
+            Effective element stiffness array of shape (nel,).
+        """
+        E_eff = np.full(self.nel, self.E_min)
+        for i, E_i in enumerate(E_list):
+            E_eff += rho[i] ** self.penal * E_i
+        return E_eff
 
     def _get_lk_stiffness(self) -> np.ndarray:
         """Get element stiffness matrix."""

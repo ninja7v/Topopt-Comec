@@ -311,10 +311,11 @@
             "fonorm": [0.0, 0.0]
         },
         "Materials": {
-            "E": [1.0],
-            "nu": [0.25],
-            "percent": [100],
-            "init_type": 2
+            "init_type": 2,
+            "E": [1.0, 2.0],
+            "nu": [0.25, 0.30],
+            "percent" : [20, 80],
+            "color": ["#000000", "#0000ff"]
         },
         "Optimizer": {
             "filter_type": "None",

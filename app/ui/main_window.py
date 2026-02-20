@@ -249,6 +249,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         section.set_visibility_toggle(True)
         section.visibility_button.toggled.connect(self.on_visibility_toggled)
         self.materials_widget.add_btn.clicked.connect(self.connect_material_signals)
+        self.materials_widget.nbMaterialsChanged.connect(self.on_parameter_changed)
         self.materials_widget.mat_init_type.currentIndexChanged.connect(
             self.on_parameter_changed
         )
@@ -256,10 +257,11 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
     def connect_material_signals(self):
         """(Re)connects on_parameter_changed signals to all current material widgets."""
-        for mat in self.materials_widget.inputs:
-            mat["E"].valueChanged.connect(self.on_parameter_changed)
-            mat["nu"].valueChanged.connect(self.on_parameter_changed)
-            mat["percent"].valueChanged.connect(self.on_parameter_changed)
+        for mw in self.materials_widget.inputs:
+            mw["color"].clicked.connect(self.replot)
+            mw["E"].valueChanged.connect(self.on_parameter_changed)
+            mw["nu"].valueChanged.connect(self.on_parameter_changed)
+            mw["percent"].valueChanged.connect(self.on_parameter_changed)
 
     def create_optimizer_section(self):
         """Creates the sixth section for optimization parameters."""
@@ -415,9 +417,13 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             if self.last_params
             else False
         )
-        if is_3d:
+
+        # Multi-material frames have shape (n_mat, nel) — use full replot
+        is_multi = xPhys_frame.ndim == 2
+
+        if is_3d or is_multi:
             self.plot_material(ax, is_3d=is_3d, xPhys_data=xPhys_frame)
-            self.redraw_non_material_layers(ax, is_3d=True)
+            self.redraw_non_material_layers(ax, is_3d=is_3d)
         else:
             if not ax.images:
                 return
@@ -993,34 +999,34 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             current_num_regions += 1
 
         for i in range(num_regions_in_preset):
-            region_group = self.regions_widget.inputs[i]
-            region_group["rshape"].blockSignals(True)
-            region_group["rstate"].blockSignals(True)
-            region_group["rshape"].setCurrentText(pr["rshape"][i])
-            region_group["rstate"].setCurrentText(pr["rstate"][i])
-            region_group["rradius"].setValue(pr["rradius"][i])
-            region_group["rx"].setValue(pr["rx"][i])
-            region_group["ry"].setValue(pr["ry"][i])
-            region_group["rz"].setValue(pr["rz"][i])
+            rw = self.regions_widget.inputs[i]
+            rw["rshape"].blockSignals(True)
+            rw["rstate"].blockSignals(True)
+            rw["rshape"].setCurrentText(pr["rshape"][i])
+            rw["rstate"].setCurrentText(pr["rstate"][i])
+            rw["rradius"].setValue(pr["rradius"][i])
+            rw["rx"].setValue(pr["rx"][i])
+            rw["ry"].setValue(pr["ry"][i])
+            rw["rz"].setValue(pr["rz"][i])
         self.connect_region_signals()
 
         # --- Forces ---
         pf = params.get("Forces", {})
         nb_input_forces = 0
-        for i, force_group in enumerate(self.forces_widget.inputs):
-            if "fix" in force_group:
-                force_group["fix"].setValue(pf["fix"][i])
-                force_group["fiy"].setValue(pf["fiy"][i])
-                force_group["fiz"].setValue(pf["fiz"][i])
-                force_group["fidir"].setCurrentText(pf["fidir"][i])
-                force_group["finorm"].setValue(pf["finorm"][i])
+        for i, fw in enumerate(self.forces_widget.inputs):
+            if "fix" in fw:
+                fw["fix"].setValue(pf["fix"][i])
+                fw["fiy"].setValue(pf["fiy"][i])
+                fw["fiz"].setValue(pf["fiz"][i])
+                fw["fidir"].setCurrentText(pf["fidir"][i])
+                fw["finorm"].setValue(pf["finorm"][i])
                 nb_input_forces += 1
             else:
-                force_group["fox"].setValue(pf["fox"][i - nb_input_forces])
-                force_group["foy"].setValue(pf["foy"][i - nb_input_forces])
-                force_group["foz"].setValue(pf["foz"][i - nb_input_forces])
-                force_group["fodir"].setCurrentText(pf["fodir"][i - nb_input_forces])
-                force_group["fonorm"].setValue(pf["fonorm"][i - nb_input_forces])
+                fw["fox"].setValue(pf["fox"][i - nb_input_forces])
+                fw["foy"].setValue(pf["foy"][i - nb_input_forces])
+                fw["foz"].setValue(pf["foz"][i - nb_input_forces])
+                fw["fodir"].setCurrentText(pf["fodir"][i - nb_input_forces])
+                fw["fonorm"].setValue(pf["fonorm"][i - nb_input_forces])
 
         # --- Supports (optional) ---
         ps = params.get("Supports", {})
@@ -1038,26 +1044,40 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             self.supports_widget.add_support(None, "XYZ", False)
             current_num += 1
         for i in range(num_supports_in_preset):
-            support_group = self.supports_widget.inputs[i]
-            support_group["sx"].setValue(ps["sx"][i])
-            support_group["sy"].setValue(ps["sy"][i])
-            support_group["sz"].setValue(ps["sz"][i])
-            support_group["sdim"].setCurrentText(ps["sdim"][i])
-            support_group["sr"].setValue(ps["sr"][i])
+            sw = self.supports_widget.inputs[i]
+            sw["sx"].setValue(ps["sx"][i])
+            sw["sy"].setValue(ps["sy"][i])
+            sw["sz"].setValue(ps["sz"][i])
+            sw["sdim"].setCurrentText(ps["sdim"][i])
+            sw["sr"].setValue(ps["sr"][i])
         self.connect_support_signals()
 
         # --- Materials ---
         pm = params.get("Materials", {})
         num_material_in_preset = len(pm.get("E", []))
+        current_num = len(self.materials_widget.inputs)
+        while current_num > num_material_in_preset:
+            last_btn = self.materials_widget.inputs[-1]["remove_btn"]
+            try:
+                last_btn.clicked.disconnect(self.on_parameter_changed)
+            except TypeError:
+                pass
+            self.materials_widget.remove_material(current_num - 1, False)
+            current_num -= 1
+        while current_num < num_material_in_preset:
+            self.materials_widget.add_material()
+            current_num += 1
         for i in range(num_material_in_preset):
-            material_group = self.materials_widget.inputs[i]
-            material_group["E"].setValue(pm["E"][i])
-            material_group["nu"].setValue(pm["nu"][i])
+            mw = self.materials_widget.inputs[i]
+            mw["E"].setValue(pm["E"][i])
+            mw["nu"].setValue(pm["nu"][i])
             # percent and color can be optional, skip if missing
-            if "percent" in pm:
-                material_group["percent"].setValue(pm["percent"][i])
-            if "color" in pm:
-                material_group["color"].set_color(pm["color"][i])
+            percents = pm.get(
+                "percent", [int(100 / num_material_in_preset)] * num_material_in_preset
+            )
+            mw["percent"].setValue(percents[i])
+            color = pm.get("color", ["#000000"] * num_material_in_preset)
+            mw["color"].set_color(color[i])
         self.materials_widget.mat_init_type.setCurrentIndex(pm.get("init_type", 0))
         self.connect_material_signals()
 

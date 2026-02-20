@@ -88,3 +88,64 @@ def initialize_material(
 
     else:
         raise ValueError(f"Invalid init_type: {init_type}")
+
+
+def initialize_materials(
+    init_type: int,
+    materials_percentage: list,
+    volfrac: float,
+    nelx: int,
+    nely: int,
+    nelz: int,
+    all_x: np.ndarray,
+    all_y: np.ndarray,
+    all_z: np.ndarray,
+) -> np.ndarray:
+    """Initialize multi-material density fields.
+
+    Args:
+        init_type: Initialization strategy (0=Uniform, 1=Distance, 2=Random).
+        materials_percentage: List of percentage of each material (sum to 100).
+        volfrac: Total target volume fractions.
+        nelx, nely, nelz: Grid dimensions.
+        all_x, all_y, all_z: Active coordinate arrays for distance-based init.
+
+    Returns:
+        Array of shape (n_mat, nel) with per-material densities.
+        Columns sum to 1 (partition of unity) and each row's mean
+        approximates the corresponding volume fraction.
+    """
+    if sum(materials_percentage) != 100:
+        return
+
+    n_mat = len(materials_percentage)
+    materials_frac = volfrac * np.array(materials_percentage) / 100
+    nel = nelx * nely * (nelz if nelz > 0 else 1)
+
+    # Start from the single-material spatial pattern for material 0
+    base = initialize_material(
+        init_type, materials_frac[0], nelx, nely, nelz, all_x, all_y, all_z
+    )
+
+    rho = np.zeros((n_mat, nel))
+    rho[0] = base
+
+    # Material 1 gets the complement
+    if n_mat > 1:
+        rho[1] = rescale_densities(volfrac - base, materials_frac[1])
+
+    # Normalize columns so sum = volfrac (partition of unity)
+    col_sums = rho.sum(axis=0)
+    col_sums[col_sums == 0] = volfrac  # avoid division by zero
+    rho *= volfrac / col_sums
+
+    # Re-scale rows to hit target volume fractions
+    for i in range(n_mat):
+        rho[i] = rescale_densities(rho[i], materials_frac[i])
+
+    # Final normalization pass
+    col_sums = rho.sum(axis=0)
+    col_sums[col_sums == 0] = volfrac
+    rho *= volfrac / col_sums
+
+    return np.clip(rho, 1e-6, 1.0)

@@ -49,9 +49,15 @@ class OptimizerWorker(QThread, Worker):
             # Remove unneeded parameters for the optimizer
             if "Displacement" in optimizer_params:
                 optimizer_params.pop("Displacement", None)
+
+            is_multimaterial = (
+                len(optimizer_params.get("Materials", {}).get("E", [1.0])) > 1
+            )
+
             if "Materials" in optimizer_params:
-                optimizer_params["Materials"].pop("percent", None)
                 optimizer_params["Materials"].pop("color", None)
+                if not is_multimaterial:
+                    optimizer_params["Materials"].pop("percent", None)
 
             def progress_callback(iteration, objective, change, xPhys_frame):
                 self.progress.emit(iteration, objective, change)
@@ -60,8 +66,12 @@ class OptimizerWorker(QThread, Worker):
 
             optimizer_params["progress_callback"] = progress_callback
 
-            print("Dispatching to optimizer...")
-            result, u = optimizers.optimize(**optimizer_params)
+            if is_multimaterial:
+                print("Dispatching to multi-material optimizer...")
+                result, u = optimizers.optimize_multimaterial(**optimizer_params)
+            else:
+                print("Dispatching to optimizer...")
+                result, u = optimizers.optimize(**optimizer_params)
 
             self.finished.emit((result, u))  # Emit the tuple (xPhys, u)
         except Exception as e:
