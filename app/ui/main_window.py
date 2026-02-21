@@ -1193,7 +1193,8 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         QDesktopServices.openUrl(url)
 
     def closeEvent(self, event):
-        import matplotlib.pyplot as plt
+        """Close figure when the app is closed"""
+        # Needed for the tests
         if self.figure:
             plt.close(self.figure)
         super().closeEvent(event)
