@@ -4,7 +4,6 @@
 
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 from app.ui import exporters
@@ -36,9 +35,16 @@ def test_exporters():
     np.random.shuffle(densities_3d)
     result_3d = densities_3d
 
-    # Save as image
-    figure = plt.figure()
-    figure.savefig(filepath, dpi=300, bbox_inches="tight")
+    # Save as PNG
+    png_path = str(Path(__file__).parent / "test_output_file.png")
+    success, error_msg = exporters.save_as_png(
+        result_2d, (nelx_2d, nely_2d, nelz_2d), png_path
+    )
+    assert success, f"PNG export for 2D mechanism failed: {error_msg}"
+    success, error_msg = exporters.save_as_png(
+        result_3d, (nelx_3d, nely_3d, nelz_3d), png_path
+    )
+    assert success, f"PNG export for 3D mechanism failed: {error_msg}"
 
     # Save as VTI
     success, error_msg = exporters.save_as_vti(
@@ -59,3 +65,14 @@ def test_exporters():
         result_3d, (nelx_3d, nely_3d, nelz_3d), filepath
     )
     assert success, f"STL export for 3D mechanism failed: {error_msg}"
+
+    # Save as 3MF
+    threemf_path = str(Path(__file__).parent / "test_output_file.3mf")
+    success, error_msg = exporters.save_as_3mf(
+        result_2d, (nelx_2d, nely_2d, nelz_2d), threemf_path
+    )
+    assert success, f"3MF export for 2D mechanism failed: {error_msg}"
+    success, error_msg = exporters.save_as_3mf(
+        result_3d, (nelx_3d, nely_3d, nelz_3d), threemf_path
+    )
+    assert success, f"3MF export for 3D mechanism failed: {error_msg}"

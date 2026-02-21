@@ -166,3 +166,68 @@ def test_run_cli_presets_file_not_found(mock_exists):
         with pytest.raises(SystemExit) as cm:
             run_cli()
         assert cm.value.code == 1
+
+
+@patch("builtins.open")
+@patch.object(Path, "exists")
+def test_run_cli_json_decode_error(mock_exists, mock_open):
+    """Test behavior when presets.json contains invalid JSON."""
+    mock_exists.return_value = True
+    mock_open.return_value.__enter__ = lambda s: s
+    mock_open.return_value.__exit__ = lambda s, *a: None
+
+    with patch("json.load", side_effect=json.JSONDecodeError("err", "doc", 0)):
+        with patch.object(sys, "argv", ["main.py", "-preset", "TestPreset"]):
+            with pytest.raises(SystemExit) as cm:
+                run_cli()
+            assert cm.value.code == 1
+
+
+@patch("app.cli.optimizers.optimize")
+@patch("builtins.open")
+@patch("json.load")
+@patch.object(Path, "exists")
+def test_run_cli_optimization_failure(
+    mock_exists, mock_json_load, mock_open, mock_optimize, mock_presets_data
+):
+    """Test behavior when the optimizer raises an exception."""
+    mock_exists.return_value = True
+    mock_json_load.return_value = mock_presets_data
+    mock_optimize.side_effect = RuntimeError("Solver diverged")
+
+    preset_name = "ForceInverter_2Sup_2D"
+    with patch.object(
+        sys, "argv", ["main.py", "-preset", preset_name, "-format", "png"]
+    ):
+        with pytest.raises(SystemExit) as cm:
+            run_cli()
+        assert cm.value.code == 1
+
+
+@patch("app.cli.optimizers.optimize")
+@patch("app.cli.exporters")
+@patch("builtins.open")
+@patch("json.load")
+@patch.object(Path, "exists")
+def test_run_cli_export_failure(
+    mock_exists,
+    mock_json_load,
+    mock_open,
+    mock_exporters,
+    mock_optimize,
+    mock_presets_data,
+):
+    """Test behavior when an exporter returns failure."""
+    mock_exists.return_value = True
+    mock_json_load.return_value = mock_presets_data
+    mock_optimize.return_value = (np.zeros(150), None)
+    mock_exporters.save_as_png.return_value = (False, "Disk full")
+
+    preset_name = "ForceInverter_2Sup_2D"
+    with patch.object(
+        sys, "argv", ["main.py", "-preset", preset_name, "-format", "png"]
+    ):
+        # Should not raise, just print error message
+        run_cli()
+
+    mock_exporters.save_as_png.assert_called_once()

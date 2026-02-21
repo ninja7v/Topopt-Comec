@@ -9,3 +9,5 @@ numpy-stl
 darkdetect
 pytest
 trimesh
+networkx
+lxml

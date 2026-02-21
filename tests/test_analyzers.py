@@ -24,7 +24,7 @@ def load_presets():
 
 
 @pytest.mark.parametrize("preset_name, preset_params", load_presets())
-def test_displacement_with_presets(preset_name, preset_params):
+def test_analysis_with_presets(preset_name, preset_params):
     """Unit Test: Runs the 2D/3D optimizer with a given preset."""
     # Prepare the parameters for the optimizer function
     disp_params = preset_params.copy()
@@ -70,3 +70,138 @@ def test_displacement_with_presets(preset_name, preset_params):
             is_efficient,
         )
     )
+
+
+def test_checkerboard():
+    """Test checkerboard pattern analysis."""
+    # Create a perfect 3x3 checkerboard pattern embedded in a larger grid
+    x = np.zeros((5, 5))
+    x[1, 1] = 1
+    x[1, 3] = 1
+    x[2, 2] = 1
+    x[3, 1] = 1
+    x[3, 3] = 1
+    assert analyzers.checkerboard(x) is True, "Checkerboard should have been detected"
+    x = np.ones((5, 5))
+    assert (
+        analyzers.checkerboard(x) is False
+    ), "Checkerboard shouldn't have been detected"
+    x = np.ones((4, 4, 4))
+    assert (
+        analyzers.checkerboard(x) is False
+    ), "Checkerboard shouldn't have been detected"
+
+
+def test_watertight():
+    """Test watertight analysis."""
+    x = np.zeros((5, 5))
+    x[1:4, 1:4] = 1.0
+    assert analyzers.watertight(x) is True, "Watertighteness wrongly detected"
+    x = np.zeros((10, 10))
+    x[0, 0] = 1.0
+    x[9, 9] = 1.0
+    assert analyzers.watertight(x) is False, "Watertighteness wrongly detected"
+
+
+def test_threholded():
+    """Test thresholded returns True for a fully binarized field."""
+    x = np.array([0.0, 0.0, 1.0, 1.0, 0.0, 1.0])
+    assert analyzers.threholded(x) is True
+    x = np.full(100, 0.5)
+    assert analyzers.threholded(x) is False
+
+
+def test_efficient():
+    """Test efficient() for rigid mechanisms (no output forces)."""
+    # Rigid body
+    Dimensions = {"nelxyz": [10, 10, 0]}
+    Forces = {
+        "fidir": ["X:→"],
+        "fix": [5],
+        "fiy": [5],
+        "fiz": [0],
+        "finorm": [0.01],
+        "fodir": [],  # No output forces = rigid mechanism
+    }
+    ndof = 2 * 11 * 11
+    u = np.zeros((ndof, 1))
+    # Small displacement at force location -> efficient
+    idx = 5 * 11 + 5
+    u[idx * 2, 0] = 0.001
+    result = analyzers.efficient(u, Dimensions, Forces)
+    assert isinstance(result, bool)
+
+    # Compliant mechanism
+    Dimensions = {"nelxyz": [10, 10, 0]}
+    Forces = {
+        "fidir": ["X:→"],
+        "fix": [0],
+        "fiy": [5],
+        "fiz": [0],
+        "finorm": [0.01],
+        "fodir": ["X:→"],
+        "fox": [10],
+        "foy": [5],
+        "foz": [0],
+        "fonorm": [0.01],
+    }
+    ndof = 2 * 11 * 11
+    u = np.zeros((ndof, 1))
+    result = analyzers.efficient(u, Dimensions, Forces)
+    assert isinstance(result, bool)
+
+
+def test_analyze_with_progress_callback_cancel():
+    """Test analyze() cancels early when progress_callback returns True at step 1."""
+    nelx, nely = 5, 5
+    xPhys = np.random.rand(nelx * nely)
+    u = np.random.rand(2 * 6 * 6, 1)
+    Dimensions = {"nelxyz": [nelx, nely, 0]}
+    Forces = {
+        "fidir": ["X:→"],
+        "fix": [0],
+        "fiy": [2],
+        "fiz": [0],
+        "finorm": [0.01],
+        "fodir": [],
+        "fox": [],
+        "foy": [],
+        "foz": [],
+        "fonorm": [],
+    }
+
+    def cancel_at_1(step):
+        return step >= 1
+
+    result = analyzers.analyze(
+        xPhys, u, Dimensions, Forces, progress_callback=cancel_at_1
+    )
+    # Should return early with False for watertight, thresholded, efficient
+    assert len(result) == 4
+    assert result[1] is False
+    assert result[2] is False
+    assert result[3] is False
+
+
+def test_analyze_no_callback():
+    """Test analyze() runs fully without a progress_callback."""
+    nelx, nely = 5, 5
+    xPhys = np.random.rand(nelx * nely)
+    u = np.random.rand(2 * 6 * 6, 1)
+    Dimensions = {"nelxyz": [nelx, nely, 0]}
+    Forces = {
+        "fidir": ["X:→"],
+        "fix": [0],
+        "fiy": [2],
+        "fiz": [0],
+        "finorm": [0.01],
+        "fodir": [],
+        "fox": [],
+        "foy": [],
+        "foz": [],
+        "fonorm": [],
+    }
+
+    result = analyzers.analyze(xPhys, u, Dimensions, Forces)
+    assert len(result) == 4
+    assert all(isinstance(v, bool) for v in result)
