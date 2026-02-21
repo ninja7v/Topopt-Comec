@@ -374,7 +374,7 @@ class ParameterManagerMixin:
 
         err = self._check_duplicates(
             range(len(pm["E"])),
-            lambda i: (pm["E"][i], pm["nu"][i], pm["percent"][i]),
+            lambda i: (pm["E"][i], pm["nu"][i], pm.get("percent", [100])[i]),
             lambda a, b: f"Materials {a+1} and {b+1} are identical.",
         )
         if err:
