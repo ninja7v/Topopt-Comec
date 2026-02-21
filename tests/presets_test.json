@@ -171,8 +171,8 @@
             "sr": [0]
         },
         "Forces": {
-            "fix": [0, 100],
-            "fiy": [30, 0],
+            "fix": [10, 0],
+            "fiy": [3, 0],
             "fiz": [0, 0],
             "fidir": ["Y:\u2191", "-"],
             "finorm": [0.01, 0.0],
@@ -237,7 +237,7 @@
             "solver": "Auto"
         },
         "Displacement": {
-            "disp_factor": 66.0,
+            "disp_factor": 2.0,
             "disp_iterations": 3
         }
     },

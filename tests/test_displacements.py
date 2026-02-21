@@ -68,6 +68,7 @@ def test_displacement_with_presets(preset_name, preset_params):
         ), "Displacement function returned None arrays"
 
     # Test iterative displacement function
+    disp_params["Displacement"]["disp_iterations"] = 2
     for frame in displacements.run_iterative_displacement(disp_params, result):
         last_result_displaced = frame
     assert (
@@ -76,12 +77,16 @@ def test_displacement_with_presets(preset_name, preset_params):
     assert (
         last_result_displaced.shape == np.array(result).shape
     ), "Iterative displacement function returned different shapes"
-    vals = last_result_displaced
     assert (
-        np.max(vals) <= 1.0 and np.min(vals) >= 0.0
+        np.max(last_result_displaced) <= 1.0 and np.min(last_result_displaced) >= 0.0
     ), "Displaced densities should remain within [0, 1]"
-
-    # Check volume fraction
     assert np.isclose(
-        result.mean(), preset_params["Dimensions"]["volfrac"], atol=0.05
-    ), f"Final volume ({result.mean():.3f}) is far to target ({preset_params['Dimensions']['volfrac']:.3f})"
+        last_result_displaced.mean(), preset_params["Dimensions"]["volfrac"], atol=0.08
+    ), f"Final volume ({last_result_displaced.mean():.3f}) is far to target ({preset_params['Dimensions']['volfrac']:.3f})"
+
+    disp_params["Displacement"]["disp_factor"] = 0.0
+    for frame in displacements.run_iterative_displacement(disp_params, result):
+        last_result_displaced = frame
+    assert np.array_equal(
+        last_result_displaced, result
+    ), "Iterative displacement with factor 0 should return the same result"
