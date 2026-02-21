@@ -558,35 +558,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         if is_3d:
             ax.clear()
-
-            # Use the fast scatter plot with variable alpha for the "cloud" effect
-            visible_elements_mask = frame_data > 0.01
-            visible_indices = np.where(visible_elements_mask)[0]
-            densities = frame_data[visible_indices]
-
-            # Calculate coordinates for only the visible elements
-            z = visible_indices // (nelx * nely)
-            x = (visible_indices % (nelx * nely)) // nely
-            y = visible_indices % nely
-
-            # Create the RGBA color array where alpha = density
-            colors = np.zeros((len(densities), 4))
-            base_color_rgb = to_rgb(
-                self.materials_widget.inputs[0]["color"].get_color()
-            )
-            colors[:, :3] = base_color_rgb
-            colors[:, 3] = densities
-
-            ax.scatter(
-                x + 0.5,
-                y + 0.5,
-                z + 0.5,
-                s=6000 / max(nelx, nely, nelz),
-                marker="s",  # Square markers to mimic voxels
-                c=colors,
-                alpha=None,
-            )  # Alpha is now controlled by the 'c' array
-
+            self.plot_material(ax, is_3d, frame_data)
             self.redraw_non_material_layers(ax, is_3d=True)
 
         else:

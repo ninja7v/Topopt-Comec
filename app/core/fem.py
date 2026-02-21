@@ -299,17 +299,16 @@ class FEM:
         for mat_idx, i in enumerate(active_indices):
             node = self._get_node_idx(fx[i], fy[i], fz[i] if self.is_3d else 0)
             val = 4 / 100.0  # Artificial stiffness value for force application points
-            dof = -1
+            dof = self.dim_mul * node
             if "X" in fdir[i]:
-                dof = self.dim_mul * node
                 if "←" in fdir[i]:
                     val = -val
             elif "Y" in fdir[i]:
-                dof = self.dim_mul * node + 1
+                dof += 1
                 if "↑" in fdir[i]:
                     val = -val
             elif self.is_3d and "Z" in fdir[i]:
-                dof = self.dim_mul * node + 2
+                dof += 2
                 if ">" in fdir[i]:
                     val = -val
 
@@ -510,80 +509,117 @@ class FEM:
 
     def _build_dof_map(self):
         size = 8 * (self.elemndof if self.is_3d else 1)
-        edofMat = np.zeros((self.nel, size), dtype=int)
-        # Todo: vectorize this loop for performance
-        for ex in range(self.nelx):
-            for ey in range(self.nely):
-                for ez in range(self.nelz if self.is_3d else 1):
-                    n1 = (
-                        (ez * (self.nelx + 1) * (self.nely + 1) if self.is_3d else 0)
-                        + ex * (self.nely + 1)
-                        + ey
-                    )
-                    nodes = [
-                        n1 + 1,
-                        n1 + self.nely + 2,
-                        n1 + self.nely + 1,
-                        n1,
-                    ]  # Bottom face
-                    if self.is_3d:
-                        off = (self.nelx + 1) * (self.nely + 1)
-                        nodes += [n + off for n in nodes]
+        el = np.arange(self.nel)
 
-                    dofs = []
-                    for n in nodes:
-                        dofs.extend([n * self.dim_mul + d for d in range(self.dim_mul)])
+        # Vectorize elemental coordinates
+        if self.is_3d:
+            ez = el // (self.nelx * self.nely)
+            rem = el % (self.nelx * self.nely)
+            ex = rem // self.nely
+            ey = rem % self.nely
+            n1 = ez * (self.nelx + 1) * (self.nely + 1) + ex * (self.nely + 1) + ey
 
-                    el = (
-                        (ez * self.nelx * self.nely if self.is_3d else 0)
-                        + ex * self.nely
-                        + ey
-                    )
-                    edofMat[el, :] = dofs
+            # Bottom + Top face nodes
+            off = (self.nelx + 1) * (self.nely + 1)
+            base_nodes = np.array(
+                [
+                    1,
+                    self.nely + 2,
+                    self.nely + 1,
+                    0,
+                    1 + off,
+                    self.nely + 2 + off,
+                    self.nely + 1 + off,
+                    off,
+                ]
+            )
+        else:
+            ex = el // self.nely
+            ey = el % self.nely
+            n1 = ex * (self.nely + 1) + ey
+            base_nodes = np.array([1, self.nely + 2, self.nely + 1, 0])
 
-        iK = np.kron(edofMat, np.ones((size, 1))).flatten()
-        jK = np.kron(edofMat, np.ones((1, size))).flatten()
+        # 2. Map node combinations using broadcasting
+        node_mat = n1[:, None] + base_nodes[None, :]
+        dof_offsets = np.arange(self.dim_mul)
+
+        # Multiply by DOF multiplier and apply offsets, returning a flattened structure
+        edofMat = (
+            (node_mat[:, :, None] * self.dim_mul + dof_offsets[None, None, :])
+            .reshape(self.nel, -1)
+            .astype(int)
+        )
+
+        # Fast equivalent of np.kron for DOF mappings
+        iK = edofMat.repeat(size, axis=0).flatten()
+        jK = edofMat.repeat(size, axis=1).flatten()
+
         return edofMat, iK, jK
 
     def _build_filter(self):
+        el = np.arange(self.nel)
+
+        # Map 1D element arrays to 2D/3D indices
+        if self.is_3d:
+            ez = el // (self.nelx * self.nely)
+            rem = el % (self.nelx * self.nely)
+            ex = rem // self.nely
+            ey = rem % self.nely
+        else:
+            ex = el // self.nely
+            ey = el % self.nely
+
+        # Pre-calculate the localized relative neighbor meshgrid
         r = np.ceil(self.filter_radius)
+        if self.is_3d:
+            dx, dy, dz = np.meshgrid(
+                np.arange(-r, r + 1),
+                np.arange(-r, r + 1),
+                np.arange(-r, r + 1),
+                indexing="ij",
+            )
+            dist = np.sqrt(dx**2 + dy**2 + dz**2)
+            valid = dist < self.filter_radius
+            dx, dy, dz = dx[valid], dy[valid], dz[valid]
+        else:
+            dx, dy = np.meshgrid(
+                np.arange(-r, r + 1), np.arange(-r, r + 1), indexing="ij"
+            )
+            dist = np.sqrt(dx**2 + dy**2)
+            valid = dist < self.filter_radius
+            dx, dy = dx[valid], dy[valid]
+
+        vals = self.filter_radius - dist[valid]
         iH, jH, sH = [], [], []
-        # Todo: vectorize this loop for performance
-        for ez in range(self.nelz if self.is_3d else 1):
-            for ex in range(self.nelx):
-                for ey in range(self.nely):
-                    el1 = (
-                        (ez * self.nelx * self.nely if self.is_3d else 0)
-                        + ex * self.nely
-                        + ey
-                    )
+        for n in range(len(dx)):
+            nx = ex + dx[n]
+            ny = ey + dy[n]
 
-                    k_min, k_max = (
-                        (max(ez - r + 1, 0), min(ez + r, self.nelz))
-                        if self.is_3d
-                        else (0, 1)
-                    )
-                    i_min, i_max = max(ex - r + 1, 0), min(ex + r, self.nelx)
-                    j_min, j_max = max(ey - r + 1, 0), min(ey + r, self.nely)
+            if self.is_3d:
+                nz = ez + dz[n]
+                mask = (
+                    (nx >= 0)
+                    & (nx < self.nelx)
+                    & (ny >= 0)
+                    & (ny < self.nely)
+                    & (nz >= 0)
+                    & (nz < self.nelz)
+                )
+                el2 = (
+                    nz[mask] * (self.nelx * self.nely) + nx[mask] * self.nely + ny[mask]
+                )
+            else:
+                mask = (nx >= 0) & (nx < self.nelx) & (ny >= 0) & (ny < self.nely)
+                el2 = nx[mask] * self.nely + ny[mask]
 
-                    for k in range(int(k_min), int(k_max)):
-                        for i in range(int(i_min), int(i_max)):
-                            for j in range(int(j_min), int(j_max)):
-                                el2 = (
-                                    (k * self.nelx * self.nely if self.is_3d else 0)
-                                    + i * self.nely
-                                    + j
-                                )
-                                dist = np.sqrt(
-                                    (ex - i) ** 2
-                                    + (ey - j) ** 2
-                                    + ((ez - k) ** 2 if self.is_3d else 0)
-                                )
-                                val = self.filter_radius - dist
-                                if val > 0:
-                                    iH.append(el1)
-                                    jH.append(el2)
-                                    sH.append(val)
+            iH.append(el[mask])
+            jH.append(el2)
+            sH.append(np.full(np.count_nonzero(mask), vals[n]))
 
-        H = coo_matrix((sH, (iH, jH)), shape=(self.nel, self.nel)).tocsc()
+        # Concatenate chunks to build the sparse matrix
+        H = coo_matrix(
+            (np.concatenate(sH), (np.concatenate(iH), np.concatenate(jH))),
+            shape=(self.nel, self.nel),
+        ).tocsc()
+
         return H, H.sum(1)
