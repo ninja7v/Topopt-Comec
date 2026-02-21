@@ -427,71 +427,68 @@ class ParameterManagerMixin:
     def scale_parameters(self):
         """Scales all dimensional and positional parameters by a given factor."""
         scale = self.dim_widget.scale.value()
-        is_3d = self.dim_widget.nz.value() > 0
-
         if scale == 1.0:
             self.status_bar.showMessage("Scale is 1.0, nothing to do.", 3000)
             return
 
-        def check(value, scale):
-            scaled_val = value * scale
-            if (scaled_val < 1 or scaled_val > 1000) and value > 0:
-                return True, False
-            if (
-                abs(scaled_val - round(scaled_val)) > 1e-6
-            ):  # Check if it's not an integer
-                return False, True
-            return False, False
+        is_3d = self.dim_widget.nz.value() > 0
+        axes = ["x", "y", "z"] if is_3d else ["x", "y"]
 
-        proceed_impossible, warn_needed = False, False
+        # Track dimensions separately so they can be scaled BEFORE positions
+        dims_to_scale = [self.dim_widget.nx, self.dim_widget.ny]
+        if is_3d:
+            dims_to_scale.append(self.dim_widget.nz)
 
-        # Check dimensions
-        for dim_widget in [self.dim_widget.nx, self.dim_widget.ny] + (
-            [self.dim_widget.nz] if is_3d else []
-        ):
-            pi, wn = check(dim_widget.value(), scale)
-            proceed_impossible |= pi
-            warn_needed |= wn
+        pos_to_validate = []
+        pos_to_scale = []
 
-        # Check regions
+        def register(widget, active, is_radius=False):
+            if active:
+                pos_to_validate.append(widget)
+            pos_to_scale.append((widget, is_radius))
+
+        # --- Gather parameters ---
+        # 1Gather Regions
         for rw in self.regions_widget.inputs:
-            if rw["rshape"].currentText() != "-":
-                for key in ["rx", "ry"] + (["rz"] if is_3d else []):
-                    pi, wn = check(rw[key].value(), scale)
-                    proceed_impossible |= pi
-                    warn_needed |= wn
-            pi, wn = check(rw["rradius"].value(), scale)
-            proceed_impossible |= pi
-            warn_needed |= wn
+            active = rw["rshape"].currentText() != "-"
+            for ax in axes:
+                register(rw["r" + ax], active)
+            # Original logic validated rradius regardless of active state
+            register(rw["rradius"], True, True)
 
-        # Check forces
+        # Gather Forces
         for fw in self.forces_widget.inputs:
             if "fidir" in fw:
-                if fw["fidir"].currentText() != "-":
-                    for key in ["fix", "fiy"] + (["fiz"] if is_3d else []):
-                        pi, wn = check(fw[key].value(), scale)
-                        proceed_impossible |= pi
-                        warn_needed |= wn
+                active = fw["fidir"].currentText() != "-"
+                for ax in axes:
+                    register(fw["fi" + ax], active)
             elif "fodir" in fw:
-                if fw["fodir"].currentText() != "-":
-                    for key in ["fox", "foy"] + (["foz"] if is_3d else []):
-                        pi, wn = check(fw[key].value(), scale)
-                        proceed_impossible |= pi
-                        warn_needed |= wn
+                active = fw["fodir"].currentText() != "-"
+                for ax in axes:
+                    register(fw["fo" + ax], active)
 
-        # Check supports
+        # Gather Supports
         for sw in self.supports_widget.inputs:
-            if sw["sdim"].currentText() != "-":
-                for key in ["sx", "sy"] + (["sz"] if is_3d else []):
-                    pi, wn = check(sw[key].value(), scale)
-                    proceed_impossible |= pi
-                    warn_needed |= wn
+            active = sw["sdim"].currentText() != "-"
+            for ax in axes:
+                register(sw["s" + ax], active)
+
+        # --- Validation ---
+        proceed_impossible, warn_needed = False, False
+
+        for w in dims_to_scale + pos_to_validate:
+            val = w.value() * scale
+            if (val < 1 or val > 1000) and w.value() > 0:
+                proceed_impossible = True
+            elif abs(val - round(val)) > 1e-6:
+                warn_needed = True
 
         if proceed_impossible:
             QMessageBox.critical(
                 self, "Scaling Error", "Scaling would lead position(s) out of range."
             )
             return
+
         if warn_needed:
             reply = QMessageBox.question(
                 self,
@@ -507,38 +504,17 @@ class ParameterManagerMixin:
         # Temporarily block signals to prevent multiple replots
         self.block_all_parameter_signals(True)
 
-        self.dim_widget.nx.setValue(round(self.dim_widget.nx.value() * scale))
-        self.dim_widget.ny.setValue(round(self.dim_widget.ny.value() * scale))
-        if is_3d:
-            self.dim_widget.nz.setValue(round(self.dim_widget.nz.value() * scale))
+        for w in dims_to_scale:
+            w.setValue(round(w.value() * scale))
 
         if scale > 1.0:
             self.update_position_ranges()  # Update max ranges before scaling positions otherwise they might get clamped
 
-        for rw in self.regions_widget.inputs:
-            rw["rx"].setValue(round(rw["rx"].value() * scale))
-            rw["ry"].setValue(round(rw["ry"].value() * scale))
-            if is_3d:
-                rw["rz"].setValue(round(rw["rz"].value() * scale))
-            rw["rradius"].setValue(max(1, round(rw["rradius"].value() * scale)))
-
-        for fw in self.forces_widget.inputs:
-            if "fidir" in fw:
-                fw["fix"].setValue(round(fw["fix"].value() * scale))
-                fw["fiy"].setValue(round(fw["fiy"].value() * scale))
-                if is_3d:
-                    fw["fiz"].setValue(round(fw["fiz"].value() * scale))
-            elif "fodir" in fw:
-                fw["fox"].setValue(round(fw["fox"].value() * scale))
-                fw["foy"].setValue(round(fw["foy"].value() * scale))
-                if is_3d:
-                    fw["foz"].setValue(round(fw["foz"].value() * scale))
-
-        for sw in self.supports_widget.inputs:
-            sw["sx"].setValue(round(sw["sx"].value() * scale))
-            sw["sy"].setValue(round(sw["sy"].value() * scale))
-            if is_3d:
-                sw["sz"].setValue(round(sw["sz"].value() * scale))
+        for w, is_radius in pos_to_scale:
+            new_val = round(w.value() * scale)
+            if is_radius:
+                new_val = max(1, new_val)
+            w.setValue(new_val)
 
         if scale < 1.0:
             self.update_position_ranges()  # Update max ranges after scaling positions otherwise values might be clamped before scaling
