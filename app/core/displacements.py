@@ -101,9 +101,9 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     xPhys_large = np.zeros(full_shape)
     if is_3d:
         xPhys_large[mx : mx + nelx, my : my + nely, mz : mz + nelz] = (
-            xPhys_initial.reshape(nelx, nely, nelz)
+            xPhys_initial.reshape((nelx, nely, nelz), order="C")
         )
-        xPhys = xPhys_large.flatten(order="F")
+        xPhys = xPhys_large.flatten(order="C")
     else:
         xPhys_large[mx : mx + nelx, my : my + nely] = xPhys_initial.reshape(nelx, nely)
         xPhys = xPhys_large.flatten()
@@ -169,25 +169,30 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         if is_3d:
             points[:, 2] += u_avg[:, 2] * delta_disp
 
-        # Interpolate density from old points to new (warped) points
-        xPhys = np.nan_to_num(
-            griddata(points, xPhys, points_interp, method="linear"), nan=0.0
-        )
+        moved = not np.allclose(points, points_interp, atol=1e-14)
+        if moved:
+            # Interpolate density from old points to new (warped) points
+            xPhys = np.nan_to_num(
+                griddata(points, xPhys, points_interp, method="linear"), nan=0.0
+            )
 
-        # Threshold & Normalize (Sigmoid filter)
-        xPhys = nominator / (1 + np.exp(-k * (xPhys - 0.5))) + c_val
-        curr_sum = np.sum(xPhys)
-        if curr_sum > 0:
-            xPhys = volfrac * xPhys / (curr_sum / fem.nel)
-        xPhys = np.clip(xPhys, 0.0, 1.0)
+            # Threshold & Normalize to prevent material spread (Sigmoid filter)
+            xPhys = nominator / (1 + np.exp(-k * (xPhys - 0.5))) + c_val
+            curr_sum = np.sum(xPhys)
+            if curr_sum > 0:
+                xPhys = volfrac * xPhys / (curr_sum / fem.nel)
+            xPhys = np.clip(xPhys, 0.0, 1.0)
 
         # Crop and Yield
         if is_3d:
-            cropped = xPhys.reshape(fem.nelz, fem.nelx, fem.nely)[
-                mz : mz + nelz, mx : mx + nelx, my : my + nely
+            cropped = xPhys.reshape((fem.nelx, fem.nely, fem.nelz), order="C")[
+                mx : mx + nelx, my : my + nely, mz : mz + nelz
             ]
         else:
-            cropped = xPhys.reshape(fem.nelx, fem.nely)[mx : mx + nelx, my : my + nely]
-        yield cropped.flatten()
+            cropped = xPhys.reshape((fem.nelx, fem.nely), order="C")[
+                mx : mx + nelx, my : my + nely
+            ]
+
+        yield cropped.flatten(order="C")
         if progress_callback:
             progress_callback(it + 2)
