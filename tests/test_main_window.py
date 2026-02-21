@@ -311,6 +311,7 @@ def test_are_parameters_equivalent(qt_app, p1, p2, expected):
     # We need a MainWindow instance to get access to the method
     window = MainWindow()
     assert window.are_parameters_equivalent(p1, p2) == expected
+    window.close()
 
 
 def test_gather_and_apply_parameters(qt_app):
@@ -347,6 +348,7 @@ def test_gather_and_apply_parameters(qt_app):
     assert len(new_params_from_ui["Regions"]["rshape"]) == 2
     assert new_params_from_ui["Regions"]["rshape"][1] == "◯"
     assert new_params_from_ui["Regions"]["rradius"][1] == 10
+    window.close()
 
 
 def test_save_result(qt_app):
@@ -360,6 +362,166 @@ def test_save_result(qt_app):
 
     with patch("PySide6.QtWidgets.QFileDialog.getSaveFileName") as mock_dialog:
         mock_dialog.return_value = ("results/test.png", "PNG")
+        window.save_result_as("png")  # Should not raise
 
-        # Should not raise
-        window.save_result_as("png")
+
+def test_on_visibility_toggled(qt_app):
+    """Test visibility toggled ."""
+    window = MainWindow()
+    vis_btn = window.sections["Dimensions"].visibility_button
+    vis_btn.setChecked(False)
+    assert vis_btn.toolTip() == "Element is hidden. Click to show."
+    vis_btn.setChecked(True)
+    assert vis_btn.toolTip() == "Element is visible. Click to hide."
+    window.close()
+
+
+def test_handle_optimization_results(qt_app):
+    """Test that handle_optimization_results sets xPhys and enables buttons."""
+    import numpy as np
+
+    window = MainWindow()
+    nelx, nely = window.last_params["Dimensions"]["nelxyz"][:2]
+    nel = nelx * nely
+    ndof = 2 * (nelx + 1) * (nely + 1)
+    mock_xPhys = np.ones(nel)
+    mock_u = np.ones((ndof, 1))
+
+    window.handle_optimization_results((mock_xPhys, mock_u))
+
+    np.testing.assert_array_equal(window.xPhys, mock_xPhys)
+    np.testing.assert_array_equal(window.u, mock_u)
+    assert window.footer.create_button.isEnabled()
+    assert window.footer.binarize_button.isEnabled()
+    assert window.footer.save_button.isEnabled()
+    assert window.analysis_widget.run_analysis_button.isEnabled()
+    assert window.displacement_widget.run_disp_button.isEnabled()
+    window.close()
+
+
+def test_handle_optimization_error(qt_app):
+    """Test that handle_optimization_error re-enables buttons and shows message."""
+    window = MainWindow()
+
+    with patch("PySide6.QtWidgets.QMessageBox.critical") as mock_msg:
+        window.handle_optimization_error("Something went wrong")
+
+    mock_msg.assert_called_once()
+    assert window.footer.create_button.isEnabled()
+    window.close()
+
+
+def test_toggle_theme(qt_app):
+    """Test toggling the theme between dark and light."""
+    window = MainWindow()
+    initial_theme = window.current_theme
+    window.toggle_theme()
+    assert window.current_theme != initial_theme
+    window.toggle_theme()
+    assert window.current_theme == initial_theme
+    window.close()
+
+
+def test_run_optimization_validation_error(qt_app):
+    """Test that run_optimization shows error when validation fails."""
+    window = MainWindow()
+    # Force an invalid parameter: set all dimensions to zero
+    window.last_params = window.gather_parameters()
+    window.last_params["Dimensions"]["nelxyz"] = [0, 0, 0]
+
+    with patch("PySide6.QtWidgets.QMessageBox.critical") as mock_msg:
+        window.run_optimization()
+
+    mock_msg.assert_called_once()
+    window.close()
+
+
+def test_binarize(qt_app):
+    """Test that binarize does nothing when no xPhys exists."""
+    window = MainWindow()
+    # No xPhys exists
+    window.xPhys = None
+    window.on_binarize_clicked()  # Should not raise
+
+    # xPhys exists
+    import numpy as np
+
+    nelx, nely = window.last_params["Dimensions"]["nelxyz"][:2]
+    nel = nelx * nely
+    window.xPhys = np.linspace(0.1, 0.9, nel)
+    window.on_binarize_clicked()
+    assert set(np.unique(window.xPhys)).issubset({0.0, 1.0})
+    window.close()
+
+
+def test_stop_optimization_no_worker(qt_app):
+    """Test that stop_optimization does nothing when no worker exists."""
+    window = MainWindow()
+    window.worker = None
+    # Should not raise
+    window.stop_optimization()
+    window.close()
+
+
+def test_style_plot_default(qt_app):
+    """Test that style_plot_default sets the plot background to white."""
+    window = MainWindow()
+    window.style_plot_default()
+    assert window.figure.get_facecolor() == (1.0, 1.0, 1.0, 1.0)
+    window.close()
+
+
+def test_update_optimization_progress(qt_app):
+    """Test that update_optimization_progress sets progress bar value."""
+    window = MainWindow()
+    window.progress_bar.setRange(0, 100)
+    window.progress_bar.setVisible(True)
+    window.update_optimization_progress(42, 1.234, 0.001)
+    assert window.progress_bar.value() == 42
+    window.close()
+
+
+def test_handle_analysis_finished(qt_app):
+    """Test that handle_analysis_finished updates the analysis widget."""
+    window = MainWindow()
+    results = (True, False, True, False)
+    window.handle_analysis_finished(results)
+    assert window.analysis_widget.checkerboard_result.text() == "yes"
+    assert window.analysis_widget.watertight_result.text() == "no"
+    assert window.analysis_widget.threshold_result.text() == "yes"
+    assert window.analysis_widget.efficiency_result.text() == "no"
+    assert window.footer.create_button.isEnabled()
+    window.close()
+
+
+def test_handle_analysis_error(qt_app):
+    """Test that handle_analysis_error re-enables buttons."""
+    window = MainWindow()
+
+    with patch("PySide6.QtWidgets.QMessageBox.critical") as mock_msg:
+        window.handle_analysis_error("Analysis failed badly")
+
+    mock_msg.assert_called_once()
+    assert window.analysis_widget.run_analysis_button.isEnabled()
+    window.close()
+
+
+def test_handle_displacement_finished(qt_app):
+    """Test handle_displacement_finished updates UI state."""
+    window = MainWindow()
+    window.handle_displacement_finished("Done")
+    assert window.is_displaying_deformation is True
+    assert window.footer.create_button.isEnabled()
+    window.close()
+
+
+def test_handle_displacement_error(qt_app):
+    """Test handle_displacement_error re-enables buttons."""
+    window = MainWindow()
+
+    with patch("PySide6.QtWidgets.QMessageBox.critical") as mock_msg:
+        window.handle_displacement_error("Displacement crashed")
+
+    mock_msg.assert_called_once()
+    assert window.displacement_widget.run_disp_button.isEnabled()
+    window.close()

@@ -1191,3 +1191,9 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         """Opens the specified URL in the user's default web browser."""
         url = QUrl("https://github.com/ninja7v/Topopt-Comec")
         QDesktopServices.openUrl(url)
+
+    def closeEvent(self, event):
+        import matplotlib.pyplot as plt
+        if self.figure:
+            plt.close(self.figure)
+        super().closeEvent(event)
