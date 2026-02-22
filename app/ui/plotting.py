@@ -256,7 +256,7 @@ class PlottingMixin:
                         indices = jj + ii * nely
 
             if indices is not None:
-                self.xPhys[indices.flatten()] = (
+                self.xPhys[:, indices.flatten()] = (
                     1e-6 if pr["rstate"][i] == "Void" else 1.0
                 )
 
