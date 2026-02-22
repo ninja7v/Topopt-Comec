@@ -212,6 +212,13 @@ class HeaderWidget(QWidget):
         self.info_button.setToolTip("Open the project's GitHub page")
         self.info_button.setFlat(True)
         title_layout.addWidget(self.info_button)
+        # Wiki
+        self.help_button = QPushButton()
+        self.help_button.setIcon(icons.get("help"))
+        self.help_button.setFixedSize(24, 24)
+        self.help_button.setToolTip("Open the wiki")
+        self.help_button.setFlat(True)
+        title_layout.addWidget(self.help_button)
         title_layout.addStretch()
         # Theme Toggle
         self.theme_button = QPushButton()

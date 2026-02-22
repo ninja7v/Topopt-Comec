@@ -27,18 +27,18 @@ LIGHT_THEME_STYLESHEET = """
 
     /* Buttons */
     QPushButton, QToolButton {
-        background-color: #E1E1E1;
+        background-color: #F0F0F0;
         border: 1px solid #C0C0C0;
         border-radius: 4px;
         padding: 3px;
     }
     QPushButton:hover, QToolButton:hover {
-        background-color: #E8E8E8;
-    }
-    QPushButton:pressed, QToolButton:pressed {
         background-color: #D0D0D0;
     }
-    
+    QPushButton:pressed, QToolButton:pressed {
+        background-color: #C8C8C8;
+    }
+
     /* Collapsible Section */
     #collapsibleTitleBar {
         background-color: #E0E0E0;
@@ -46,8 +46,8 @@ LIGHT_THEME_STYLESHEET = """
         border-radius: 4px;
     }
     #collapsibleTitleLabel { font-weight: bold; }
-    #collapsibleContent { 
-        border: 1px solid #E0E0E0;
+    #collapsibleContent {
+        border: 1px solid #C0C0C0;
         border-top: none;
         border-radius: 0 0 4px 4px;
         padding: 1px;
@@ -67,7 +67,7 @@ LIGHT_THEME_STYLESHEET = """
         width: 10px;
     }
     QFrame#presetFrame {
-        border: 1px solid #D0D0D0; /* A light gray border */
+        border: 1px solid #C0C0C0;
         border-radius: 4px;
     }
 """
@@ -76,12 +76,12 @@ LIGHT_THEME_STYLESHEET = """
 DARK_THEME_STYLESHEET = """
     /* General Widget Styling */
     QWidget {
-        background-color: #2E2E2E;
+        background-color: #121212;
         color: #E0E0E0;
         font-family: Arial;
     }
     QMainWindow {
-        background-color: #2E2E2E;
+        background-color: #0D0D0D;
     }
 
     /* Input Widgets */
@@ -98,26 +98,26 @@ DARK_THEME_STYLESHEET = """
 
     /* Buttons */
     QPushButton, QToolButton {
-        background-color: #4A4A4A;
+        background-color: #121212;
         border: 1px solid #5A5A5A;
         border-radius: 4px;
         padding: 3px;
     }
     QPushButton:hover, QToolButton:hover {
-        background-color: #555555;
+        background-color: #3A3A3A;
     }
     QPushButton:pressed, QToolButton:pressed {
-        background-color: #3A3A3A;
+        background-color: #4A4A4A;
     }
 
     /* Collapsible Section */
     #collapsibleTitleBar {
-        background-color: #3C3C3C;
-        border: 1px solid #555555;
+        background-color: #252525;
+        border: 1px solid #5A5A5A;
         border-radius: 4px;
     }
     #collapsibleTitleLabel { font-weight: bold; }
-    #collapsibleContent { 
+    #collapsibleContent {
         border: 1px solid #5A5A5A;
         border-top: none;
         border-radius: 0 0 4px 4px;
@@ -140,7 +140,7 @@ DARK_THEME_STYLESHEET = """
         width: 10px;
     }
     QFrame#presetFrame {
-        border: 1px solid #555555; /* A dark gray border, matching other elements */
+        border: 1px solid #5A5A5A;
         border-radius: 4px;
     }
 """

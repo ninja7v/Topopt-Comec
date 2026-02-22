@@ -164,6 +164,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         # Connect the signals from the widget's public buttons to MainWindow's handlers
         header_widget.info_button.clicked.connect(self.open_github_link)
+        header_widget.help_button.clicked.connect(self.open_wiki_link)
         header_widget.theme_button.clicked.connect(self.toggle_theme)
 
         return header_widget
@@ -1104,8 +1105,10 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             self.header.theme_button.setIcon(icons.get("moon"))
             self.header.theme_button.setToolTip("Switch to Dark Theme")
 
-        # Update presets icons
+        # Update header icons
         self.header.info_button.setIcon(icons.get("info"))
+        self.header.info_button.setIcon(icons.get("help"))
+        # Update presets icons
         self.preset.save_preset_button.setIcon(icons.get("save"))
         self.preset.delete_preset_button.setIcon(icons.get("delete"))
         # Update dimensions icons
@@ -1126,6 +1129,11 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
     def open_github_link(self):
         """Opens the specified URL in the user's default web browser."""
         url = QUrl("https://github.com/ninja7v/Topopt-Comec")
+        QDesktopServices.openUrl(url)
+
+    def open_wiki_link(self):
+        """Opens the specified URL in the user's default web browser."""
+        url = QUrl("https://github.com/ninja7v/Topopt-Comec/wiki/Topopt-Comec-wiki")
         QDesktopServices.openUrl(url)
 
     def closeEvent(self, event):
