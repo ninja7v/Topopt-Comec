@@ -708,7 +708,7 @@ class MaterialsWidget(QWidget):
         # Young's Modulus
         line2.addWidget(QLabel("E:"))
         mat_E = make_dspin(
-            0.1, 100.0, E, 0.01, 70, "Young's Modulus, material’s stiffness"
+            0.1, 100.0, E, 0.05, 70, "Young's Modulus, material’s stiffness"
         )
         line2.addWidget(mat_E)
         line2.addSpacing(20)

@@ -129,12 +129,15 @@ def analyze(
     progress_callback: Optional[Callable] = None,
 ) -> Tuple[bool, bool, bool, bool]:
     """Analyze the mechanism"""
+    xPhys_copy = xPhys.copy()
+    if xPhys.ndim == 2 and xPhys.shape[0] == 2:
+        xPhys_copy = xPhys_copy.mean(axis=0, keepdims=True)
     x = (
-        xPhys.reshape(
+        xPhys_copy.reshape(
             Dimensions["nelxyz"][2], Dimensions["nelxyz"][0], Dimensions["nelxyz"][1]
         )
         if Dimensions["nelxyz"][2] > 0
-        else xPhys.reshape(Dimensions["nelxyz"][0], Dimensions["nelxyz"][1])
+        else xPhys_copy.reshape(Dimensions["nelxyz"][0], Dimensions["nelxyz"][1])
     )
 
     contains_checkerboard = checkerboard(x)
