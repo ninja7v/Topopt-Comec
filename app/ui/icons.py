@@ -61,6 +61,7 @@ class IconProvider:
             "sun": QStyle.StandardPixmap.SP_TitleBarMaxButton,
             "moon": QStyle.StandardPixmap.SP_TitleBarMaxButton,
             "info": QStyle.StandardPixmap.SP_MessageBoxInformation,
+            "help": QStyle.StandardPixmap.SP_MessageBoxQuestion,
             "binarize": QStyle.StandardPixmap.SP_DialogApplyButton,
             "stop": QStyle.StandardPixmap.SP_MediaStop,
             "move": QStyle.StandardPixmap.SP_ArrowRight,
