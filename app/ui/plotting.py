@@ -94,19 +94,47 @@ class PlottingMixin:
 
                 ax.set_box_aspect([nelx, nely, nelz])
             else:
-                hex_color = to_hex(self.materials_widget.inputs[0]["color"].get_color())
-                color_cmap = LinearSegmentedColormap.from_list(
-                    "material_shades",
-                    [hex_color, "#ffffff"],  # selected material color → white
-                )
                 X, Y = self.last_displayed_frame_data
-                ax.pcolormesh(
-                    X,
-                    Y,
-                    -self.xPhys.reshape((nelx, nely)),
-                    cmap=color_cmap,
-                    shading="auto",
-                )
+
+                is_multi = hasattr(self.xPhys, "ndim") and self.xPhys.ndim > 1
+                if is_multi:
+                    n_mat, nel = self.xPhys.shape
+                    rgb_image = np.ones((nel, 3))  # Start white
+
+                    for i in range(n_mat):
+                        mat_rgb = np.array(
+                            to_rgb(self.materials_widget.inputs[i]["color"].get_color())
+                        )
+                        # Blend: pixel = sum(rho_i * color_i)
+                        rgb_image += self.xPhys[i, :, np.newaxis] * (mat_rgb - 1.0)
+
+                    rgb_image = np.clip(rgb_image, 0.0, 1.0)
+
+                    # Matplotlib's pcolormesh natively accepts 3D RGB arrays for the C parameter.
+                    # We reshape the (nel, 3) list into the 2D grid shape (nelx, nely, 3).
+                    ax.pcolormesh(
+                        X,
+                        Y,
+                        rgb_image.reshape((nelx, nely, 3)),
+                        shading="auto",
+                    )
+
+                else:
+                    # Single-material logic
+                    hex_color = to_hex(
+                        self.materials_widget.inputs[0]["color"].get_color()
+                    )
+                    color_cmap = LinearSegmentedColormap.from_list(
+                        "material_shades",
+                        [hex_color, "#ffffff"],  # selected material color → white
+                    )
+                    ax.pcolormesh(
+                        X,
+                        Y,
+                        -self.xPhys.reshape((nelx, nely)),
+                        cmap=color_cmap,
+                        shading="auto",
+                    )
         # Multi-iteration displacement handled in update_animation_frame
 
     def _initialize_xphys(self, nelx, nely, nelz, is_3d):

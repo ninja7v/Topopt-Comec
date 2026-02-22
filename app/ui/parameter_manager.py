@@ -4,6 +4,7 @@
 
 import copy
 from PySide6.QtWidgets import QMessageBox
+from matplotlib.colors import to_hex
 
 
 class ParameterManagerMixin:
@@ -88,7 +89,7 @@ class ParameterManagerMixin:
             Materials["E"].append(mat["E"].value())
             Materials["nu"].append(mat["nu"].value())
             Materials["percent"].append(mat["percent"].value())
-            Materials["color"].append(mat["color"].text())
+            Materials["color"].append(to_hex(mat["color"].get_color()))
         Materials["init_type"] = self.materials_widget.mat_init_type.currentIndex()
         params["Materials"] = Materials
 

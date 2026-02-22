@@ -67,10 +67,10 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     Performs iterative FE analysis to simulate displacement.
     Yields the cropped density field for each iteration.
     """
-    # Expand Domain
     dims = params["Dimensions"]
     nelx, nely, nelz = dims["nelxyz"]
     is_3d = nelz > 0
+    is_multi = hasattr(xPhys_initial, "ndim") and xPhys_initial.ndim > 1
 
     # Enlarge domain (approx 20% total padding)
     mx, my, mz = nelx // 5, nely // 5, (nelz // 5 if is_3d else 0)
@@ -92,23 +92,26 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     if "Supports" in sim_params:
         offset_coords(sim_params["Supports"], ["sx", "sy", "sz"])
     offset_coords(sim_params["Forces"], ["fix", "fiy", "fiz"])
-    # Note: Output forces aren't usually relevant for the displacement visualization loop,
-    # but we offset them for consistency.
-    offset_coords(sim_params["Forces"], ["fox", "foy", "foz"])
 
     # Embed Material into Expanded Domain
-    full_shape = (fem.nelx, fem.nely, fem.nelz) if is_3d else (fem.nelx, fem.nely)
-    xPhys_large = np.zeros(full_shape)
-    if is_3d:
-        xPhys_large[mx : mx + nelx, my : my + nely, mz : mz + nelz] = (
-            xPhys_initial.reshape((nelx, nely, nelz), order="C")
-        )
-        xPhys = xPhys_large.flatten(order="C")
-    else:
-        xPhys_large[mx : mx + nelx, my : my + nely] = xPhys_initial.reshape(nelx, nely)
-        xPhys = xPhys_large.flatten()
+    _x_init = xPhys_initial if is_multi else xPhys_initial[np.newaxis, :]
+    n_mat = _x_init.shape[0]
 
-    volfrac = np.mean(xPhys)  # Keep track to normalize later
+    full_shape = (fem.nelx, fem.nely, fem.nelz) if is_3d else (fem.nelx, fem.nely)
+    xPhys_large = np.zeros((n_mat, *full_shape))
+
+    for i in range(n_mat):
+        if is_3d:
+            xPhys_large[i, mx : mx + nelx, my : my + nely, mz : mz + nelz] = _x_init[
+                i
+            ].reshape((nelx, nely, nelz), order="C")
+        else:
+            xPhys_large[i, mx : mx + nelx, my : my + nely] = _x_init[i].reshape(
+                (nelx, nely), order="C"
+            )
+
+    xPhys = xPhys_large.reshape(n_mat, -1, order="C")
+    volfrac = np.mean(xPhys, axis=1)  # Keep track to normalize later per-material
 
     # Simulation Parameters
     pd = params["Displacement"]
@@ -139,15 +142,17 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     # Iterative Loop
     for it in range(pd["disp_iterations"]):
         # Solve FEM to get the deformation
-        ui, _ = fem.solve(xPhys)
+        if is_multi:
+            E_list = sim_params["Materials"].get("E", [1.0] * n_mat)
+            E_eff = fem.compute_element_stiffness(xPhys, E_list)
+            ui, _ = fem.solve_with_E_eff(E_eff)
+        else:
+            ui, _ = fem.solve(xPhys[0])
 
         # Collapse multiple load cases to average if necessary (usually 1 input force in this context)
         u_curr = np.mean(ui, axis=1) if ui.shape[1] > 0 else np.zeros(fem.ndof)
 
-        # Follow the Forces
-        # Update force coordinates based on current integer displacement
-        # Calculate DOF index for this force, Get integer displacement at force application point
-        # Check direction to pick specific component, Update coordinate in params
+        # Replace the Forces
         for i, f_idx in enumerate(fem.fi_indices):
             if (
                 int(u_curr[fem.di_indices[i]]) != 0
@@ -155,10 +160,7 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
             ):
                 sim_params["Forces"]["fix"][f_idx] += 0
 
-        # Interpolate / Warp Mesh
         # Get nodal displacements for every element
-        # fem.edofMat: (nel, 8*dim)
-        # We need to gather (nel, nodes_per_elem) -> average -> (nel, dim)
         u_elem = u_curr[fem.edofMat].reshape(fem.nel, len(node_ids), fem.elemndof)
 
         # Displace points
@@ -168,31 +170,42 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         points[:, 1] -= u_avg[:, 1] * delta_disp
         if is_3d:
             points[:, 2] += u_avg[:, 2] * delta_disp
-
         moved = not np.allclose(points, points_interp, atol=1e-14)
         if moved:
-            # Interpolate density from old points to new (warped) points
-            xPhys = np.nan_to_num(
-                griddata(points, xPhys, points_interp, method="linear"), nan=0.0
-            )
+            for i in range(n_mat):
+                # Interpolate density from old points to new (warped) points
+                xPhys[i] = np.nan_to_num(
+                    griddata(points, xPhys[i], points_interp, method="linear"), nan=0.0
+                )
 
-            # Threshold & Normalize to prevent material spread (Sigmoid filter)
-            xPhys = nominator / (1 + np.exp(-k * (xPhys - 0.5))) + c_val
-            curr_sum = np.sum(xPhys)
-            if curr_sum > 0:
-                xPhys = volfrac * xPhys / (curr_sum / fem.nel)
-            xPhys = np.clip(xPhys, 0.0, 1.0)
+                # Threshold & Normalize to prevent material spread (Sigmoid filter)
+                xPhys[i] = nominator / (1 + np.exp(-k * (xPhys[i] - 0.5))) + c_val
+                curr_sum = np.sum(xPhys[i])
+                if curr_sum > 0:
+                    xPhys[i] = volfrac[i] * xPhys[i] / (curr_sum / fem.nel)
+                xPhys[i] = np.clip(xPhys[i], 0.0, 1.0)
+
+            # Partition-of-unity constraint for multi-material
+            if is_multi:
+                col_sums = xPhys.sum(axis=0)
+                excess = col_sums > 1.0
+                if np.any(excess):
+                    xPhys[:, excess] /= col_sums[excess]
 
         # Crop and Yield
-        if is_3d:
-            cropped = xPhys.reshape((fem.nelx, fem.nely, fem.nelz), order="C")[
-                mx : mx + nelx, my : my + nely, mz : mz + nelz
-            ]
-        else:
-            cropped = xPhys.reshape((fem.nelx, fem.nely), order="C")[
-                mx : mx + nelx, my : my + nely
-            ]
+        cropped = np.zeros((n_mat, nelx * nely * (nelz if is_3d else 1)))
+        for i in range(n_mat):
+            if is_3d:
+                c = xPhys[i].reshape((fem.nelx, fem.nely, fem.nelz), order="C")[
+                    mx : mx + nelx, my : my + nely, mz : mz + nelz
+                ]
+            else:
+                c = xPhys[i].reshape((fem.nelx, fem.nely), order="C")[
+                    mx : mx + nelx, my : my + nely
+                ]
+            cropped[i] = c.flatten(order="C")
 
-        yield cropped.flatten(order="C")
+        # Strip the extra dimension off if it was just a single material
+        yield cropped if is_multi else cropped[0]
         if progress_callback:
             progress_callback(it + 2)

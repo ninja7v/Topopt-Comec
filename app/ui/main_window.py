@@ -8,7 +8,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.colors import LinearSegmentedColormap, to_rgb, to_hex
+from matplotlib.colors import to_rgb
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
@@ -565,7 +565,27 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             if not ax.images:
                 return
             im = ax.images[0]
-            im.set_array(frame_data.reshape((nelx, nely)).T)
+
+            is_multi = hasattr(self.xPhys, "ndim") and self.xPhys.ndim > 1
+            if is_multi:
+                n_mat, nel = frame_data.shape
+                rgb_image = np.ones((nel, 3))  # Start white
+
+                for i in range(n_mat):
+                    mat_rgb = np.array(
+                        to_rgb(self.materials_widget.inputs[i]["color"].get_color())
+                    )
+                    # Blend: pixel = sum(rho_i * color_i)
+                    rgb_image += frame_data[i, :, np.newaxis] * (mat_rgb - 1.0)
+
+                rgb_image = np.clip(rgb_image, 0.0, 1.0)
+                # Reshape to (nelx, nely, 3 -RGB-) and transpose spatial dimensions to (nely, nelx, 2)
+                final_image = rgb_image.reshape((nelx, nely, 3)).transpose(1, 0, 2)
+
+                im.set_array(final_image)
+            else:
+                # Single-material fallback
+                im.set_array(frame_data.reshape((nelx, nely)).T)
 
         # Redraw the canvas to show the changes
         self.canvas.draw()
@@ -782,90 +802,6 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             for spine in ax.spines.values():
                 spine.set_edgecolor("black")
         self.canvas.draw()
-
-    def _plot_deformation(self, ax, is_3d, nelx, nely, nelz):
-        if (
-            self.last_params["Displacement"]["disp_iterations"] == 1
-        ):  # Single-frame grid plot
-            if is_3d:
-                # Compute original element centers
-                nel = nelx * nely * nelz
-                visible_indices = np.arange(nel)  # all of them
-                z_idx = visible_indices // (nelx * nely)
-                x_idx = (visible_indices % (nelx * nely)) // nely
-                y_idx = visible_indices % nely
-
-                # Compute displaced centers from node positions
-                X, Y, Z = self.last_displayed_frame_data  # displaced node coords
-
-                # Take mean of the 8 node positions for each voxel center
-                cx = (
-                    X[x_idx, y_idx, z_idx]
-                    + X[x_idx + 1, y_idx, z_idx]
-                    + X[x_idx, y_idx + 1, z_idx]
-                    + X[x_idx + 1, y_idx + 1, z_idx]
-                    + X[x_idx, y_idx, z_idx + 1]
-                    + X[x_idx + 1, y_idx, z_idx + 1]
-                    + X[x_idx, y_idx + 1, z_idx + 1]
-                    + X[x_idx + 1, y_idx + 1, z_idx + 1]
-                ) / 8.0
-
-                cy = (
-                    Y[x_idx, y_idx, z_idx]
-                    + Y[x_idx + 1, y_idx, z_idx]
-                    + Y[x_idx, y_idx + 1, z_idx]
-                    + Y[x_idx + 1, y_idx + 1, z_idx]
-                    + Y[x_idx, y_idx, z_idx + 1]
-                    + Y[x_idx + 1, y_idx, z_idx + 1]
-                    + Y[x_idx, y_idx + 1, z_idx + 1]
-                    + Y[x_idx + 1, y_idx + 1, z_idx + 1]
-                ) / 8.0
-
-                cz = (
-                    Z[x_idx, y_idx, z_idx]
-                    + Z[x_idx + 1, y_idx, z_idx]
-                    + Z[x_idx, y_idx + 1, z_idx]
-                    + Z[x_idx + 1, y_idx + 1, z_idx]
-                    + Z[x_idx, y_idx, z_idx + 1]
-                    + Z[x_idx + 1, y_idx, z_idx + 1]
-                    + Z[x_idx, y_idx + 1, z_idx + 1]
-                    + Z[x_idx + 1, y_idx + 1, z_idx + 1]
-                ) / 8.0
-
-                # Colors with alpha = density
-                colors = np.zeros((nel, 4))
-                colors[:, :3] = to_rgb(
-                    self.materials_widget.inputs[0]["color"].get_color()
-                )
-                colors[:, 3] = self.xPhys
-
-                # Scatter plot of displaced centers
-                ax.scatter(
-                    cx,
-                    cy,
-                    cz,
-                    s=6000 / max(nelx, nely, nelz),
-                    marker="s",
-                    c=colors,
-                    alpha=None,
-                )
-
-                ax.set_box_aspect([nelx, nely, nelz])
-            else:
-                hex_color = to_hex(self.materials_widget.inputs[0]["color"].get_color())
-                color_cmap = LinearSegmentedColormap.from_list(
-                    "material_shades",
-                    [hex_color, "#ffffff"],  # selected material color → white
-                )
-                X, Y = self.last_displayed_frame_data
-                ax.pcolormesh(
-                    X,
-                    Y,
-                    -self.xPhys.reshape((nelx, nely)),
-                    cmap=color_cmap,
-                    shading="auto",
-                )
-        # Multi-iteration displacement handled in update_animation_frame
 
     ###########
     # Presets #

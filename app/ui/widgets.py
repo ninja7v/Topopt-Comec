@@ -916,7 +916,7 @@ class DisplacementWidget(QWidget):
             0.1,
             100.0,
             1.0,
-            0.01,
+            0.1,
             None,
             "Total scaling factor for the displacement animation",
         )
