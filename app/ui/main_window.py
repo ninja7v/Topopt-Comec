@@ -10,7 +10,7 @@ import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.colors import to_rgb
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QColor
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
