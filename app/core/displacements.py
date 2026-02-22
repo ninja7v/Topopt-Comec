@@ -67,7 +67,6 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     Performs iterative FE analysis to simulate displacement.
     Yields the cropped density field for each iteration.
     """
-    # Expand Domain
     dims = params["Dimensions"]
     nelx, nely, nelz = dims["nelxyz"]
     is_3d = nelz > 0
@@ -93,12 +92,8 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     if "Supports" in sim_params:
         offset_coords(sim_params["Supports"], ["sx", "sy", "sz"])
     offset_coords(sim_params["Forces"], ["fix", "fiy", "fiz"])
-    # Note: Output forces aren't usually relevant for the displacement visualization loop,
-    # but we offset them for consistency.
-    offset_coords(sim_params["Forces"], ["fox", "foy", "foz"])
 
     # Embed Material into Expanded Domain
-    # We treat single-material as a 1-row multi-material array to unify the logic
     _x_init = xPhys_initial if is_multi else xPhys_initial[np.newaxis, :]
     n_mat = _x_init.shape[0]
 
@@ -157,8 +152,7 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         # Collapse multiple load cases to average if necessary (usually 1 input force in this context)
         u_curr = np.mean(ui, axis=1) if ui.shape[1] > 0 else np.zeros(fem.ndof)
 
-        # Follow the Forces
-        # Update force coordinates based on current integer displacement
+        # Replace the Forces
         for i, f_idx in enumerate(fem.fi_indices):
             if (
                 int(u_curr[fem.di_indices[i]]) != 0
@@ -166,7 +160,6 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
             ):
                 sim_params["Forces"]["fix"][f_idx] += 0
 
-        # Interpolate / Warp Mesh
         # Get nodal displacements for every element
         u_elem = u_curr[fem.edofMat].reshape(fem.nel, len(node_ids), fem.elemndof)
 
@@ -177,7 +170,6 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         points[:, 1] -= u_avg[:, 1] * delta_disp
         if is_3d:
             points[:, 2] += u_avg[:, 2] * delta_disp
-
         moved = not np.allclose(points, points_interp, atol=1e-14)
         if moved:
             for i in range(n_mat):
