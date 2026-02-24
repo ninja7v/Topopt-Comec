@@ -77,12 +77,6 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     sim_params = copy.deepcopy(params)
     sim_params["Dimensions"]["nelxyz"] = [nelx + 2 * mx, nely + 2 * my, nelz + 2 * mz]
 
-    # Initialize FEM
-    fem = FEM(
-        sim_params["Dimensions"], sim_params["Materials"], sim_params["Optimizer"]
-    )
-    fem.setup_boundary_conditions(sim_params["Forces"], sim_params.get("Supports"))
-
     # Offset Supports and Forces coordinates to center the part in the new domain
     def offset_coords(container, keys):
         for k, o in zip(keys, [mx, my, mz]):
@@ -92,6 +86,12 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     if "Supports" in sim_params:
         offset_coords(sim_params["Supports"], ["sx", "sy", "sz"])
     offset_coords(sim_params["Forces"], ["fix", "fiy", "fiz"])
+
+    # Initialize FEM
+    fem = FEM(
+        sim_params["Dimensions"], sim_params["Materials"], sim_params["Optimizer"]
+    )
+    fem.setup_boundary_conditions(sim_params["Forces"], sim_params.get("Supports"))
 
     # Embed Material into Expanded Domain
     _x_init = xPhys_initial if is_multi else xPhys_initial[np.newaxis, :]

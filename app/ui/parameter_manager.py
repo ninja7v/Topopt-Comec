@@ -242,8 +242,7 @@ class ParameterManagerMixin:
                         list, zip(*active)
                     )
                 else:
-                    for key in ["sx", "sy", "sz", "sdim", "sr"]:
-                        ps.pop(key, None)  # pop them, not just empty them
+                    p.pop("Supports", None)
                 if is_2d and "sz" in ps:
                     ps.pop("sz")
 

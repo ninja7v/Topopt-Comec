@@ -228,7 +228,7 @@
       "solver": "Auto"
     },
     "Displacement": {
-      "disp_factor": 66.0,
+      "disp_factor": 2.0,
       "disp_iterations": 3
     }
   },
@@ -273,7 +273,7 @@
       "solver": "Auto"
     },
     "Displacement": {
-      "disp_factor": 66.0,
+      "disp_factor": 2.0,
       "disp_iterations": 3
     }
   },
@@ -326,9 +326,6 @@
     "Dimensions": {
       "nelxyz": [120, 30, 0],
       "volfrac": 0.3
-    },
-    "Regions": {
-      "rz": [0]
     },
     "Forces": {
       "fix": [120, 0],
