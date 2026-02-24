@@ -950,7 +950,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             self.supports_widget.remove_support(current_num - 1, False)
             current_num -= 1
         while current_num < num_supports_in_preset:
-            self.supports_widget.add_support(None, "XYZ", False)
+            self.supports_widget.add_support(None, "XYZ", 0, False)
             current_num += 1
         for i in range(num_supports_in_preset):
             sw = self.supports_widget.inputs[i]
@@ -974,7 +974,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             self.materials_widget.remove_material(current_num - 1, False)
             current_num -= 1
         while current_num < num_material_in_preset:
-            self.materials_widget.add_material()
+            self.materials_widget.add_material(emit_signal=False)
             current_num += 1
         for i in range(num_material_in_preset):
             mw = self.materials_widget.inputs[i]
