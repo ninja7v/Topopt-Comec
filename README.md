@@ -3,7 +3,7 @@ Topopt Comec
 
 **Interactive topology optimization for compliant mechanisms — unleash your creativity!**
 
-![topopt-comec_demo](https://github.com/user-attachments/assets/6ed953b6-ae72-4844-8c35-a1d284d7478f)
+![topopt-comec_demo](https://github.com/user-attachments/assets/61474237-eb3a-48af-ae03-371615038686)
 
 ## What is Topopt Comec?
 Topopt Comec helps you design compliant mechanisms — flexible structures that achieve motion through material deformation rather than joints.
@@ -23,7 +23,7 @@ None of the existing competing solutions combine all of these features in a sing
 ## 🚀Quick Start
 ### Clone/Download the repo
 ```cmd
-git clone https://github.com/ninja7V/topopt-comec.git
+git clone https://github.com/ninja7V/Topopt-Comec.git
 cd topopt-comec
 ```
 ### Install dependencies
@@ -53,7 +53,7 @@ The interface should feel intuitive, but you’ll find detailed visual explanati
 ## ✍️Contribute
 Ideas, bug reports, or pull requests — all are welcome. Let’s build something awesome together!
 
-Now it's your turn to create cool mechanisms.
+See the CONTRIBUTING.md file for details. 
 
 Thank you for using Topopt Comec 🙂
 
