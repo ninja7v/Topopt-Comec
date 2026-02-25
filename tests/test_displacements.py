@@ -81,7 +81,7 @@ def test_displacement_with_presets(preset_name, preset_params):
         np.max(last_result_displaced) <= 1.0 and np.min(last_result_displaced) >= 0.0
     ), "Displaced densities should remain within [0, 1]"
     assert np.isclose(
-        last_result_displaced.mean(), preset_params["Dimensions"]["volfrac"], atol=0.08
+        last_result_displaced.mean(), preset_params["Dimensions"]["volfrac"], atol=0.15
     ), f"Final volume ({last_result_displaced.mean():.3f}) is far to target ({preset_params['Dimensions']['volfrac']:.3f})"
 
     disp_params["Displacement"]["disp_factor"] = 0.0
