@@ -213,12 +213,12 @@ class PlottingMixin:
                 continue
 
             x_min = max(0, int(pr["rx"][i] - pr["rradius"][i]))
-            x_max = min(nelx, int(pr["rx"][i] + pr["rradius"][i]) + 1)
+            x_max = min(nelx, int(pr["rx"][i] + pr["rradius"][i]))
             y_min = max(0, int(pr["ry"][i] - pr["rradius"][i]))
-            y_max = min(nely, int(pr["ry"][i] + pr["rradius"][i]) + 1)
+            y_max = min(nely, int(pr["ry"][i] + pr["rradius"][i]))
             if is_3d:
                 z_min = max(0, int(pr["rz"][i] - pr["rradius"][i]))
-                z_max = min(nelz, int(pr["rz"][i] + pr["rradius"][i]) + 1)
+                z_max = min(nelz, int(pr["rz"][i] + pr["rradius"][i]))
 
             idx_x = np.arange(x_min, x_max)
             idx_y = np.arange(y_min, y_max)

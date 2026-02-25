@@ -137,8 +137,6 @@ class FEM:
 
         active_regions = [i for i, s in enumerate(rshape) if s != "-"]
 
-        # This loop logic is specific to the grid geometry
-        # Simplified for brevity, assumes standard implementation from original code
         for i in active_regions:
             val = 1e-6 if rstate[i] == "Void" else 1.0
             r = rradius[i]
@@ -147,7 +145,6 @@ class FEM:
                 if self.is_3d
                 else range(1)
             )
-
             for ez in z_range:
                 for ex in range(max(0, int(rx[i] - r)), min(self.nelx, int(rx[i] + r))):
                     for ey in range(
