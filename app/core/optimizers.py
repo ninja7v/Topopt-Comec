@@ -129,6 +129,9 @@ def optimize(
             print("Optimization stopped by user.")
             break
 
+    # Apply regions after the last iteration
+    xPhys = fem.apply_regions(xPhys, Regions)
+
     print("Optimizer finished.")
     return xPhys, ui
 
@@ -260,6 +263,10 @@ def optimize_multimaterial(
         if progress_callback and progress_callback(loop, obj_val, change, xPhys):
             print("Optimization stopped by user.")
             break
+
+    # Apply regions after the last iteration
+    for i in range(n_mat):
+        xPhys[i] = fem.apply_regions(xPhys[i], Regions)
 
     print("Multi-material optimizer finished.")
     return xPhys, ui
