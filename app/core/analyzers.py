@@ -64,61 +64,81 @@ def threholded(xPhys: np.ndarray) -> bool:
 
 def efficient(u: np.ndarray, Dimensions: Dict, Forces: Dict) -> bool:
     """check if the mechanism is efficient"""
-    effectiveness = 0.0
     nelx, nely, nelz = Dimensions["nelxyz"]
     is_3d = nelz > 0
+    dim_mul = 3 if is_3d else 2
+
     active_iforces_indices = [
-        i for i in range(len(Forces["fidir"])) if Forces["fidir"][i] != "-"
+        i for i, fdir in enumerate(Forces.get("fidir", [])) if fdir != "-"
     ]
-    nbForces = len(active_iforces_indices)
-    j = 0
-    output_forces = Forces.get("fodir", [])
-    if output_forces:
-        # Compliant mechanism: output displacement must be big relative to the input displacement (at respective positions)
-        for i in active_iforces_indices:
-            idx = (
-                (Forces["fiz"][i] * nelx * nely if is_3d else 0)
-                + Forces["fix"][i] * nely
-                + Forces["fiy"][i]
-            )
-            idx = idx * (3 if is_3d else 2) + (
-                0
-                if Forces["fidir"][i] == "X:\u2192" or Forces["fidir"][i] == "X:\u2190"
-                else (
-                    1
-                    if Forces["fidir"][i] == "Y:\u2193"
-                    or Forces["fidir"][i] == "Y:\u2191"
-                    else 2
+    nbInputForces = len(active_iforces_indices)
+    if nbInputForces == 0:
+        return False
+
+    def get_disp(x, y, z, fdir, col_idx):
+        node = (z * (nelx + 1) * (nely + 1) if is_3d else 0) + x * (nely + 1) + y
+        dof_base = node * dim_mul
+        if "X" in fdir:
+            dof = dof_base
+        elif "Y" in fdir:
+            dof = dof_base + 1
+        else:
+            dof = dof_base + 2
+
+        sign = -1 if "\u2190" in fdir or "\u2191" in fdir or "<" in fdir else 1
+        return u[dof, col_idx] * sign
+
+    effectiveness = 0.0
+    active_oforces_indices = [
+        i for i, fdir in enumerate(Forces.get("fodir", [])) if fdir != "-"
+    ]
+
+    if active_oforces_indices:
+        # Compliant mechanism: compare total input travel to total output geometric travel
+        total_u_in = 0.0
+        total_u_out = 0.0
+
+        nbOutputForces = len(active_oforces_indices)
+
+        for col_idx, i in enumerate(active_iforces_indices):
+            total_u_in += abs(
+                get_disp(
+                    Forces["fix"][i],
+                    Forces["fiy"][i],
+                    Forces["fiz"][i] if is_3d else 0,
+                    Forces["fidir"][i],
+                    col_idx,
                 )
             )
-            effectiveness += u[idx, j] - (Forces["finorm"][i] * 10)
-            j += 1
-        return bool(
-            effectiveness < 0.5 * nbForces
-        )  # The smaller effectiveness, the better
+
+        for col_idx, oi in enumerate(active_oforces_indices):
+            actual_col = col_idx if col_idx < nbInputForces else 0
+            u_out_val = get_disp(
+                Forces["fox"][oi],
+                Forces["foy"][oi],
+                Forces["foz"][oi] if is_3d else 0,
+                Forces["fodir"][oi],
+                actual_col,
+            )
+            # Only reward positive movement in the intended direction
+            if u_out_val > 0:
+                total_u_out += u_out_val
+
+        effectiveness = total_u_in / max(total_u_out, 1e-9)
+        return bool(effectiveness < 1 * nbOutputForces)
     else:
-        # Rigid mechanism: displacement at input location must be small small relative to the applied force
-        for i in active_iforces_indices:
-            idx = (
-                (Forces["fiz"][i] * nelx * nelz if is_3d else 0)
-                + Forces["fix"][i] * nely
-                + Forces["fiy"][i]
+        # Rigid mechanism: displacement at input location must remain small
+        for col_idx, i in enumerate(active_iforces_indices):
+            u_in = get_disp(
+                Forces["fix"][i],
+                Forces["fiy"][i],
+                Forces["fiz"][i] if is_3d else 0,
+                Forces["fidir"][i],
+                col_idx,
             )
-            idx = idx * (3 if is_3d else 2) + (
-                0
-                if Forces["fidir"][i] == "X:\u2192" or Forces["fidir"][i] == "X:\u2190"
-                else (
-                    1
-                    if Forces["fidir"][i] == "Y:\u2193"
-                    or Forces["fidir"][i] == "Y:\u2191"
-                    else 2
-                )
-            )
-            effectiveness += u[idx, j] / (Forces["finorm"][i] * 10)
-            j += 1
-        return bool(
-            effectiveness < 0.5 * nbForces
-        )  # The smaller effectiveness, the better
+            effectiveness += abs(u_in) / max(Forces["finorm"][i], 1e-9)
+
+        return bool(effectiveness < 500 * nbInputForces)
 
 
 def analyze(
@@ -130,8 +150,8 @@ def analyze(
 ) -> Tuple[bool, bool, bool, bool]:
     """Analyze the mechanism"""
     xPhys_copy = xPhys.copy()
-    if xPhys.ndim == 2 and xPhys.shape[0] == 2:
-        xPhys_copy = xPhys_copy.mean(axis=0, keepdims=True)
+    if xPhys.ndim == 2:
+        xPhys_copy = np.clip(xPhys_copy.sum(axis=0, keepdims=True), 0.0, 1.0)
     x = (
         xPhys_copy.reshape(
             Dimensions["nelxyz"][2], Dimensions["nelxyz"][0], Dimensions["nelxyz"][1]

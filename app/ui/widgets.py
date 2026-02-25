@@ -897,19 +897,6 @@ class AnalysisWidget(QWidget):
         self.button_stack_widget.setLayout(self.button_stack)
         layout.addWidget(self.button_stack_widget, 4, 0, 1, 2)
 
-        ## Analyze button
-        # self.run_analysis_button = QPushButton("🔍 Analyze")
-        # self.run_analysis_button.setToolTip("Start the analysis process")
-        # layout.addWidget(self.run_analysis_button)
-        ## Stop button
-        # self.stop_analysis_button = QPushButton(" Stop")
-        # self.stop_analysis_button.setObjectName("stop_analysis_button")
-        # self.stop_analysis_button.setIcon(icons.get("stop"))
-        # self.stop_analysis_button.setToolTip("Stop the analysis process")
-        # self.stop_analysis_button.setStyleSheet("background-color: #C0392B;")
-        # self.stop_analysis_button.hide()  # Hidden by default
-        # layout.addWidget(self.stop_analysis_button)
-
 
 class DisplacementWidget(QWidget):
     """Custom widget for displacement inputs."""

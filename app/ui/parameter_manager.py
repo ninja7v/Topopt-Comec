@@ -145,6 +145,10 @@ class ParameterManagerMixin:
             self.analysis_widget.watertight_result.setText("-")
             self.analysis_widget.threshold_result.setText("-")
             self.analysis_widget.efficiency_result.setText("-")
+            self.analysis_widget.checkerboard_result.setStyleSheet("")
+            self.analysis_widget.watertight_result.setStyleSheet("")
+            self.analysis_widget.threshold_result.setStyleSheet("")
+            self.analysis_widget.efficiency_result.setStyleSheet("")
 
             # Inform the user what happened
             self.status_bar.showMessage(
