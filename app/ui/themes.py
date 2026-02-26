@@ -24,6 +24,9 @@ LIGHT_THEME_STYLESHEET = """
     QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QLineEdit:focus {
         border: 1px solid #0078D7;
     }
+    QSpinBox::up-button, QDoubleSpinBox::up-button, QSpinBox::down-button, QDoubleSpinBox::down-button {
+        width: 20px;
+    }
 
     /* Buttons */
     QPushButton, QToolButton {
@@ -94,6 +97,9 @@ DARK_THEME_STYLESHEET = """
     }
     QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QLineEdit:focus {
         border: 1px solid #0078D7;
+    }
+    QSpinBox::up-button, QDoubleSpinBox::up-button, QSpinBox::down-button, QDoubleSpinBox::down-button {
+        width: 20px;
     }
 
     /* Buttons */
