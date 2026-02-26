@@ -1000,12 +1000,12 @@ class FooterWidget(QWidget):
 
         action_layout.addWidget(self.save_button)
 
-    def start_create_button_effect(self):
+    def start_create_button_effect(self, color_hex="#F97316"):
         # Shadow effect for glow
         create_button_effect = QGraphicsDropShadowEffect(self.create_button)
         create_button_effect.setBlurRadius(20)
         create_button_effect.setOffset(0)
-        create_button_effect.setColor(QColor("#F97316"))
+        create_button_effect.setColor(QColor(color_hex))
         self.create_button.setGraphicsEffect(create_button_effect)
         # Animation for the shadow
         anim = QPropertyAnimation(create_button_effect, b"blurRadius", self)

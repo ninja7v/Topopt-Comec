@@ -122,11 +122,108 @@ class ParameterManagerMixin:
 
         return params
 
+    def _get_time_estimation_indicators(self, params):
+        """Calculate the optimization time estimation and turn it into indicators"""
+        dims = self.last_params.get("Dimensions", {}).get("nelxyz", [1, 1, 1])
+        nelx, nely, nelz = dims[0], dims[1], dims[2]
+        is_3d = nelz > 0
+        dim = 3 if is_3d else 2
+
+        # Get sizeMatrix (get number of fixed dofs for it)
+        supports = self.last_params.get("Supports", {})
+        fixed_dofs = 0
+        if supports:
+            sx = supports.get("sx", [])
+            sy = supports.get("sy", [])
+            sz = supports.get("sz", [])
+            sr = supports.get("sr", [0] * len(sx))
+            sdim = supports.get("sdim", [])
+            active_sup = [i for i, val in enumerate(sdim) if val != "-"]
+
+            for i in active_sup:
+                fixed_dofs += 1
+
+                if i < len(sr) and sr[i] > 0:
+                    radius = sr[i]
+                    x_range = range(
+                        max(0, int(sx[i] - radius)),
+                        min(nelx + 1, int(sx[i] + radius + 1)),
+                    )
+                    y_range = range(
+                        max(0, int(sy[i] - radius)),
+                        min(nely + 1, int(sy[i] + radius + 1)),
+                    )
+                    z_range = (
+                        range(
+                            max(0, int(sz[i] - radius)),
+                            min(nelz + 1, int(sz[i] + radius + 1)),
+                        )
+                        if is_3d
+                        else range(1)
+                    )
+
+                    for z in z_range:
+                        for x in x_range:
+                            for y in y_range:
+                                dist_sq = (
+                                    (x - sx[i]) ** 2
+                                    + (y - sy[i]) ** 2
+                                    + ((z - sz[i]) ** 2 if is_3d else 0)
+                                )
+                                if dist_sq <= radius**2:
+                                    fixed_dofs += 1
+                coef = 0
+                if "X" in sdim[i]:
+                    coef += 1
+                if "Y" in sdim[i]:
+                    coef += 1
+                if is_3d and "Z" in sdim[i]:
+                    coef += 1
+                fixed_dofs *= coef
+
+        sizeMatrix = (nelx + 1) * (nely + 1) * (nelz + 1 if is_3d else 1) * dim
+        if sizeMatrix < 0:
+            sizeMatrix = 0
+
+        # Get nbIteration
+        forces = self.last_params.get("Forces", {})
+        nbIteration = len([d for d in forces.get("fidir", []) if d != "-"]) + len(
+            [d for d in forces.get("fodir", []) if d != "-"]
+        )
+
+        # Get nbSolves
+        nbSolves = self.last_params.get("Optimizer", {}).get("n_it", 50)
+
+        def time_estimated(nbIter, nbSolves, sMatrix) -> float:
+            # 1.1 to add 10% of the time to consider filtering, ...
+            # NbIteration is the number of force (both input and output)
+            # NbIteration+1 to consider preparation time (which is roughly as long as an iteration)
+            # SizeMatrix is the number of degree of freedom: (nelx+1)(nely+1)(nelz+1)*2 - fixed degree of freedom (see supports)
+            # SizeMatrix^1.5 is the solver time for sparse matrix
+            return 1.1 * (nbIter + 1) * nbSolves * (sMatrix**1.5)
+
+        est_time = time_estimated(nbIteration, nbSolves, sizeMatrix)
+
+        tooltip_text = "Start the optimization process\n\nEstimation:"
+        if est_time < 10000000:
+            color = "#00FF0D"
+            tooltip_text += " Very fast (a few seconds)"
+        elif est_time < 100000000:
+            color = "#91FF00"
+            tooltip_text += " Fast (less than a minute)"
+        elif est_time < 1000000000:
+            color = "#FBC02D"
+            tooltip_text += " Medium (a few minutes)"
+        elif est_time < 10000000000:
+            color = "#FF7300"
+            tooltip_text += " Slow (less than an hour)"
+        else:
+            color = "#FF0000"
+            tooltip_text += " Very slow (more than an hour)"
+        return color, tooltip_text
+
     def on_parameter_changed(self):
         """React when a parameter is changed."""
-        # Play the animation
-        self.footer.start_create_button_effect()
-
         # First, check if a valid result from a previous run exists.
         if self.xPhys is not None:
             self.xPhys = None
@@ -155,8 +252,14 @@ class ParameterManagerMixin:
                 "Parameters changed. Please run 'Create' for a new result.", 3000
             )
 
+        # Replot
         self.last_params = self.gather_parameters()
         self.replot()
+
+        # Play the animation and update tooltip
+        color, tooltip_text = self._get_time_estimation_indicators(self.last_params)
+        self.footer.start_create_button_effect(color_hex=color)
+        self.footer.create_button.setToolTip(tooltip_text)
 
         # Check if the current state matches the selected preset
         current_preset_name = self.preset.presets_combo.currentText()
