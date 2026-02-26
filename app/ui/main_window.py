@@ -560,9 +560,9 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         if is_3d:
             ax.clear()
             self.plot_material(ax, is_3d, frame_data)
-            self.redraw_non_material_layers(ax, is_3d=True)
 
         else:
+            # we don't use plot_material here because we use set_array instead of imshow
             if not ax.images:
                 return
             im = ax.images[0]
@@ -585,8 +585,15 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
                 im.set_array(final_image)
             else:
-                # Single-material fallback
                 im.set_array(frame_data.reshape((nelx, nely)).T)
+
+            # Remove old layers like previous forces, regions, and especially the undeformed displacement preview
+            # that were drawn prior to the animation starting.
+            for coll in list(ax.collections):
+                coll.remove()
+            for patch in list(ax.patches):
+                patch.remove()
+        self.redraw_non_material_layers(ax, is_3d)
 
         # Redraw the canvas to show the changes
         self.canvas.draw()
