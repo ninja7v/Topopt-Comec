@@ -779,6 +779,8 @@ class PlottingMixin:
             ).flatten()
             material_mask = (
                 self.xPhys[el_indices] > 0.5
+                if self.xPhys.ndim == 1
+                else np.any(self.xPhys[:, el_indices] > 0.5, axis=0)
             )  # Only show arrows in material regions
 
             # Get the coordinates and displacement vectors for the valid points
@@ -815,6 +817,8 @@ class PlottingMixin:
 
             material_mask = (
                 self.xPhys[el_indices] > 0.5
+                if self.xPhys.ndim == 1
+                else np.any(self.xPhys[:, el_indices] > 0.5, axis=0)
             )  # Only show arrows in material regions
 
             # Get the coordinates and displacement vectors for the valid points
