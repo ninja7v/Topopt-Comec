@@ -748,26 +748,35 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             return
 
         try:
+            colors = self.last_params.get("Materials", {}).get("color", [])
+
             if file_type == "png":
                 self.figure.savefig(filepath, dpi=300, bbox_inches="tight")
 
             elif file_type == "vti":
                 success, error_msg = exporters.save_as_vti(
-                    self.xPhys, self.last_params["Dimensions"]["nelxyz"], filepath
+                    self.xPhys,
+                    self.last_params["Dimensions"]["nelxyz"],
+                    filepath,
                 )
                 if not success:
                     raise Exception(error_msg)
 
             elif file_type == "stl":
                 success, error_msg = exporters.save_as_stl(
-                    self.xPhys, self.last_params["Dimensions"]["nelxyz"], filepath
+                    self.xPhys,
+                    self.last_params["Dimensions"]["nelxyz"],
+                    filepath,
                 )
                 if not success:
                     raise Exception(error_msg)
 
             elif file_type == "3mf":
                 success, error_msg = exporters.save_as_3mf(
-                    self.xPhys, self.last_params["Dimensions"]["nelxyz"], filepath
+                    self.xPhys,
+                    self.last_params["Dimensions"]["nelxyz"],
+                    filepath,
+                    colors,
                 )
                 if not success:
                     raise Exception(error_msg)
