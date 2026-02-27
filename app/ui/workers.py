@@ -6,6 +6,7 @@ import numpy as np
 from PySide6.QtCore import QThread, Signal
 from abc import abstractmethod
 from app.core import analyzers, displacements, optimizers
+import copy
 
 
 class Worker:
@@ -45,7 +46,7 @@ class OptimizerWorker(QThread, Worker):
     def run(self):
         """Executes the optimization based on the provided parameters."""
         try:
-            optimizer_params = self.params.copy()
+            optimizer_params = copy.deepcopy(self.params)
             # Remove unneeded parameters for the optimizer
             if "Displacement" in optimizer_params:
                 optimizer_params.pop("Displacement", None)

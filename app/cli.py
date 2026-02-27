@@ -64,9 +64,6 @@ def run_cli():
     optimizer_params = params.copy()
     if "Displacement" in optimizer_params:
         optimizer_params.pop("Displacement")
-    if "Material" in optimizer_params:
-        optimizer_params["Materials"].pop("percent", None)
-        optimizer_params["Materials"].pop("color", None)
 
     # Run optimization
     try:
