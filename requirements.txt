@@ -10,5 +10,4 @@ darkdetect
 pytest
 trimesh
 lib3mf
-ctypes
 lxml
