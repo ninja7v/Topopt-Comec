@@ -112,8 +112,11 @@ def optimize(
         xPhys = fem.apply_regions(xPhys, Regions)
         ui, uo = fem.solve(xPhys)
 
+        # Optional: Compute Objective Value for Console Output (can also be computed inside compute_sensitivities for efficiency)
+        obj_val = fem.compute_objective(xPhys, ui, uo)
+
         # Compute Sensitivities & Filter
-        obj_val, (dc, dv) = fem.compute_sensitivities(xPhys, ui, uo)
+        (dc, dv) = fem.compute_sensitivities(xPhys, ui, uo)
 
         # Update Design Variables
         x, g = oc(fem.nel, x, eta, max_change, dc, dv, g)
@@ -221,30 +224,22 @@ def optimize_multimaterial(
         # Apply Constraints & Analyze
         for i in range(n_mat):
             xPhys[i] = fem.apply_regions(xPhys[i], Regions)
-        E_eff = fem.compute_element_stiffness(xPhys, E_list)
-        ui, uo = fem.solve_with_E_eff(E_eff)
+        ui, uo = fem.solve(xPhys)
 
-        obj_val = 0.0
+        # Optional: Compute Objective Value for Console Output (can also be computed inside compute_sensitivities for efficiency)
+        obj_val = fem.compute_objective(xPhys[i], ui, uo)
 
         # Per-material sensitivity & OC update
         for i in range(n_mat):
             # Compute Sensitivities & Filter
-            obj_val_i, (dc_i, dv_i) = fem.compute_sensitivities(xPhys[i], ui, uo)
+            (dc_i, dv_i) = fem.compute_sensitivities(xPhys[i], ui, uo)
 
             # Chain-rule: Scale the sensitivity by the material's stiffness.
             dc_i *= E_list[i]
 
-            # Store the objective value (perfectly correct for compliant mechanisms)
-            obj_val = obj_val_i
-
             # Update Design Variables
             x[i], g[i] = oc(fem.nel, x[i], eta, max_change, dc_i, dv_i, g[i])
             xPhys[i] = fem.update_xPhys(x[i])
-
-        # For rigid mechanisms, compute_sensitivities computes obj_val using single-material E_max/E_min.
-        # To print the TRUE multi-material objective value to the console, we quickly recalculate it here:
-        if len(fem.fo_indices) == 0:
-            obj_val = (E_eff * fem.compute_ce(ui, uo)).sum()
 
         # Partition-of-unity constraint: ensure sum of densities <= 1 per element
         col_sums = xPhys.sum(axis=0)

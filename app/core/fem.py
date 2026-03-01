@@ -25,8 +25,10 @@ class FEM:
         )
 
         # Materials and Optimization Params
-        self.E_min, self.E_max = 1e-9, Materials.get("E", [1.0])[0]
-        self.nu = Materials.get("nu", [0.3])[0]
+        self.E_max = Materials.get("E", [1.0])
+        self.nb_mat = len(self.E_max)
+        self.E_min = np.full(self.nb_mat, 1e-9)
+        self.nu = Materials.get("nu", [0.3])
         self.penal = Optimizer.get("penal", 3.0)
         self.solver_type = Optimizer.get("solver", "default")
         self.filter_type = Optimizer.get("filter_type", 0)
@@ -171,9 +173,11 @@ class FEM:
     def solve(self, xPhys: np.ndarray) -> Tuple[np.ndarray, np.ndarray, float]:
         """Assembles K and solves for Input and Output forces."""
         # Assembly
-        sK = (self.KE.flatten()[np.newaxis]).T * (
-            self.E_min + xPhys**self.penal * (self.E_max - self.E_min)
+        E_eff = (
+            self.E_min[:, None] + xPhys**self.penal * (self.E_max - self.E_min)[:, None]
         )
+        E_eff = E_eff.sum(axis=0)
+        sK = (self.KE.flatten()[np.newaxis]).T * E_eff
         K = coo_matrix(
             (sK.flatten(order="F"), (self.iK, self.jK)), shape=(self.ndof, self.ndof)
         ).tocsc()
@@ -182,23 +186,6 @@ class FEM:
         self._add_artificial_springs(K, self.do_indices, self.fo_indices, self.fonorm)
 
         # Solving
-        K_free = K[np.ix_(self.free_dofs, self.free_dofs)]
-        ui = np.zeros((self.ndof, len(self.fi_indices)))
-        uo = np.zeros((self.ndof, len(self.fo_indices)))
-        self._solve_linear_system(K_free, self.forces_i, self.fi_indices, ui)
-        self._solve_linear_system(K_free, self.forces_o, self.fo_indices, uo)
-
-        return ui, uo
-
-    def solve_with_E_eff(self, E_eff: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """Assembles K using pre-computed effective element stiffness and solves."""
-        sK = (self.KE.flatten()[np.newaxis]).T * E_eff
-        K = coo_matrix(
-            (sK.flatten(order="F"), (self.iK, self.jK)), shape=(self.ndof, self.ndof)
-        ).tocsc()
-        self._add_artificial_springs(K, self.di_indices, self.fi_indices, self.finorm)
-        self._add_artificial_springs(K, self.do_indices, self.fo_indices, self.fonorm)
-
         K_free = K[np.ix_(self.free_dofs, self.free_dofs)]
         ui = np.zeros((self.ndof, len(self.fi_indices)))
         uo = np.zeros((self.ndof, len(self.fo_indices)))
@@ -242,29 +229,42 @@ class FEM:
 
     def compute_sensitivities(
         self, xPhys: np.ndarray, ui: np.ndarray, uo: np.ndarray
-    ) -> Tuple[float, np.ndarray, np.ndarray]:
-        """Calculates Objective value, Sensitivity (dc), and Volume Sensitivity (dv)."""
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Calculates Sensitivity (dc) and Volume Sensitivity (dv)."""
         nb_out = len(self.fo_indices)
         ce_total = self.compute_ce(ui, uo)
 
-        # 1. Compliance / Objective Calculation
-        obj_val = 0.0
+        # Compliance / Objective Calculation
         if nb_out == 0:  # Rigid Mechanism (Minimize Compliance)
-            obj_val = (
-                (self.E_min + xPhys**self.penal * (self.E_max - self.E_min)) * ce_total
-            ).sum()
             dc = -self.penal * (xPhys ** (self.penal - 1)) * ce_total
         else:  # Compliant Mechanism
             dc = self.penal * (xPhys ** (self.penal - 1)) * ce_total
+
+        # Volume Sensitivity (dv)
+        dv = np.ones(self.nel)
+
+        # Filtering
+        return self._apply_filter(xPhys, dc, dv)
+
+    def compute_objective(
+        self, xPhys: np.ndarray, ui: np.ndarray, uo: np.ndarray
+    ) -> float:
+        """Compute objective value based on current displacements."""
+        nb_out = len(self.fo_indices)
+        obj_val = 0.0
+
+        if nb_out == 0:  # Rigid Mechanism (Minimize Compliance)
+            E_eff = np.full(self.nel, self.E_min[0])
+            for i, E_i in enumerate(self.E_max):
+                E_eff += xPhys[i] ** self.penal * (E_i - self.E_min[i])
+            ce_total = self.compute_ce(ui, uo)
+            obj_val = (E_eff * ce_total).sum()
+        else:  # Compliant Mechanism
             # Sum of absolute output displacements
             for idx, dof_indices in enumerate(self.do_indices):
                 obj_val += sum(abs(uo[dof, idx]) for dof in [dof_indices]) / nb_out
 
-        # 2. Volume Sensitivity (dv)
-        dv = np.ones(self.nel)
-
-        # 3. Filtering
-        return obj_val, self._apply_filter(xPhys, dc, dv)
+        return obj_val
 
     # --- Internal Helper Methods ---
 
@@ -376,24 +376,9 @@ class FEM:
             return (self.H @ x).ravel() / np.asarray(self.Hs).ravel()
         return x
 
-    def compute_element_stiffness(self, rho: np.ndarray, E_list: list) -> np.ndarray:
-        """Compute effective per-element stiffness for multi-material SIMP.
-
-        Args:
-            rho: Material densities, shape (n_mat, nel).
-            E_list: Young's modulus for each material.
-
-        Returns:
-            Effective element stiffness array of shape (nel,).
-        """
-        E_eff = np.full(self.nel, self.E_min)
-        for i, E_i in enumerate(E_list):
-            E_eff += rho[i] ** self.penal * E_i
-        return E_eff
-
     def _get_lk_stiffness(self) -> np.ndarray:
         """Get element stiffness matrix."""
-        E, nu = 1.0, self.nu  # Normalized E for KE
+        E, nu = 1.0, self.nu[0]  # Normalized E for KE
         if self.is_3d:
             A = np.array(
                 [

@@ -85,7 +85,9 @@ def test_lk_properties_2d(base_config_2d):
 
     # 2. Equilibrium: Sum of rows/cols should be zero (rigid body motion results in 0 force)
     # Summing columns implies applying unit displacement to all DOFs -> Force should be 0
-    assert np.allclose(np.sum(KE, axis=1), 0, atol=1e-10)
+    assert np.allclose(
+        np.sum(KE, axis=1), 0, atol=1e-10
+    ), "The stiffness matrix should satisfy equilibrium (sum of rows = 0)"
 
 
 def test_boundary_conditions_parsing(base_config_2d):
@@ -116,8 +118,8 @@ def test_boundary_conditions_parsing(base_config_2d):
 
     fem.setup_boundary_conditions(Forces, Supports)
 
-    assert len(fem.fixed_dofs) == 2
-    assert len(fem.fi_indices) == 1
+    assert len(fem.fixed_dofs) == 2, "Should have 2 fixed DOFs for (0,0) in X and Y"
+    assert len(fem.fi_indices) == 1, "Should have 1 input force DOF for (2,1) in Y"
 
 
 def test_solver_mechanics(base_config_2d):
@@ -158,8 +160,9 @@ def test_solver_mechanics(base_config_2d):
     assert uo.shape == (fem.ndof, 0)
 
     # The node at force application (x=2, y=0) is Node index 4 -> DOF 8 (X)
-    # It should move positively in X
-    assert ui[8, 0] > 0.0
+    assert (
+        ui[8, 0] > 0.0
+    ), "The node under force should have positive displacement in X direction"
 
 
 def test_sensitivities_calculation(base_config_2d):
@@ -189,16 +192,17 @@ def test_sensitivities_calculation(base_config_2d):
     xPhys = np.full(fem.nel, 0.5)
     ui, uo = fem.solve(xPhys)
 
-    obj, (dc, dv) = fem.compute_sensitivities(xPhys, ui, uo)
+    (dc, dv) = fem.compute_sensitivities(xPhys, ui, uo)
+    assert np.all(
+        dc <= 0
+    ), "Sensitivities should be negative for compliance minimization"
+    assert dc.shape == (fem.nel,), "Sensitivity array should match number of elements"
+    assert dv.shape == (
+        fem.nel,
+    ), "Volume sensitivities should match number of elements"
 
-    # Compliance objective should be positive
-    assert obj > 0
-
-    # Sensitivities (dc) for compliance minimization should be negative
-    # (adding material reduces compliance/energy)
-    assert np.all(dc <= 0)
-    assert dc.shape == (fem.nel,)
-    assert dv.shape == (fem.nel,)
+    obj = fem.compute_objective(xPhys, ui, uo)
+    assert obj > 0, "Compliance objective should be positive"
 
 
 def test_regions_void(base_config_2d):
@@ -222,10 +226,8 @@ def test_regions_void(base_config_2d):
     x = np.ones(fem.nel)  # Start fully solid
     x_new = fem.apply_regions(x, Regions)
 
-    # Element 0 is at (0,0). It should be voided.
-    assert x_new[0] < 0.01
-    # Element 1 is at (0,1). Should remain solid (radius 0.1 doesn't reach).
-    assert x_new[1] == 1.0
+    assert x_new[0] < 0.01, "Element in Void region should have near-zero density"
+    assert x_new[1] == 1.0, "Element outside Void region should remain unchanged"
 
 
 def test_filter_construction(base_config_2d):
@@ -248,8 +250,8 @@ def test_filter_construction(base_config_2d):
 
     # Get the row for element 0
     row0 = fem.H.getrow(0).toarray().flatten()
-    assert row0[0] > 0  # Self connection
-    assert row0[1] > 0  # Neighbor connection
+    assert row0[0] > 0, "Element 0 should have a self-connection"
+    assert row0[1] > 0, "Element 0 should be connected to neighbor element 1"
 
 
 def test_boundary_conditions_radius(base_config_2d):
@@ -307,4 +309,6 @@ def test_boundary_conditions_radius(base_config_2d):
         fixed_nodes.add(dof // fem.dim_mul)
 
     expected_nodes = {0, 2, 3, 4}
-    assert fixed_nodes == expected_nodes
+    assert (
+        fixed_nodes == expected_nodes
+    ), f"Expected fixed nodes {expected_nodes}, got {fixed_nodes}"
