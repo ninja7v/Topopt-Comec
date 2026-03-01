@@ -189,8 +189,8 @@ def test_sensitivities_calculation(base_config_2d):
     xPhys = np.full(fem.nel, 0.5)
     ui, uo = fem.solve(xPhys)
 
-    obj, (dc, dv) = fem.compute_sensitivities(xPhys, ui, uo)
-
+    (dc, dv) = fem.compute_sensitivities(xPhys, ui, uo)
+    obj = fem.compute_objective(xPhys, ui, uo)
     # Compliance objective should be positive
     assert obj > 0
 
