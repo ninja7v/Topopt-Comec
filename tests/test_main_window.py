@@ -310,7 +310,7 @@ def test_are_parameters_equivalent(qt_app, p1, p2, expected):
     """Unit Test: Tests the intelligent parameter comparison function."""
     # We need a MainWindow instance to get access to the method
     window = MainWindow()
-    assert window.are_parameters_equivalent(p1, p2) == expected
+    assert window._are_parameters_equivalent(p1, p2) == expected
     window.close()
 
 
@@ -319,7 +319,7 @@ def test_gather_and_apply_parameters(qt_app):
     window = MainWindow()
 
     # 1. Get the initial parameters from the UI
-    initial_params = window.gather_parameters()
+    initial_params = window._gather_parameters()
 
     # 2. Modify a known value in the dictionary
     modified_params = initial_params.copy()
@@ -337,10 +337,10 @@ def test_gather_and_apply_parameters(qt_app):
     modified_params["Regions"]["rz"] = [0, 0]
 
     # 4. Apply these modified parameters back to the UI
-    window.apply_parameters(modified_params)
+    window._apply_parameters(modified_params)
 
     # 5. Gather the parameters from the UI again
-    new_params_from_ui = window.gather_parameters()
+    new_params_from_ui = window._gather_parameters()
 
     # 6. Assert that the UI state now matches the modified parameters
     assert new_params_from_ui["Dimensions"]["nelxyz"] == [100, 80, 10]
@@ -362,10 +362,10 @@ def test_save_result(qt_app):
 
     with patch("PySide6.QtWidgets.QFileDialog.getSaveFileName") as mock_dialog:
         mock_dialog.return_value = ("results/test.png", "PNG")
-        window.save_result_as("png")  # Should not raise
+        window._save_result_as("png")  # Should not raise
 
 
-def test_on_visibility_toggled(qt_app):
+def test__on_visibility_toggled(qt_app):
     """Test visibility toggled ."""
     window = MainWindow()
     vis_btn = window.sections["Dimensions"].visibility_button
@@ -377,7 +377,7 @@ def test_on_visibility_toggled(qt_app):
 
 
 def test_handle_optimization_results(qt_app):
-    """Test that handle_optimization_results sets xPhys and enables buttons."""
+    """Test that _handle_optimization_results sets xPhys and enables buttons."""
     import numpy as np
 
     window = MainWindow()
@@ -387,7 +387,7 @@ def test_handle_optimization_results(qt_app):
     mock_xPhys = np.ones(nel)
     mock_u = np.ones((ndof, 1))
 
-    window.handle_optimization_results((mock_xPhys, mock_u))
+    window._handle_optimization_results((mock_xPhys, mock_u))
 
     np.testing.assert_array_equal(window.xPhys, mock_xPhys)
     np.testing.assert_array_equal(window.u, mock_u)
@@ -400,11 +400,11 @@ def test_handle_optimization_results(qt_app):
 
 
 def test_handle_optimization_error(qt_app):
-    """Test that handle_optimization_error re-enables buttons and shows message."""
+    """Test that _handle_optimization_error re-enables buttons and shows message."""
     window = MainWindow()
 
     with patch("PySide6.QtWidgets.QMessageBox.critical") as mock_msg:
-        window.handle_optimization_error("Something went wrong")
+        window._handle_optimization_error("Something went wrong")
 
     mock_msg.assert_called_once()
     assert window.footer.create_button.isEnabled()
@@ -415,22 +415,22 @@ def test_toggle_theme(qt_app):
     """Test toggling the theme between dark and light."""
     window = MainWindow()
     initial_theme = window.current_theme
-    window.toggle_theme()
+    window._toggle_theme()
     assert window.current_theme != initial_theme
-    window.toggle_theme()
+    window._toggle_theme()
     assert window.current_theme == initial_theme
     window.close()
 
 
 def test_run_optimization_validation_error(qt_app):
-    """Test that run_optimization shows error when validation fails."""
+    """Test that _run_optimization shows error when validation fails."""
     window = MainWindow()
     # Force an invalid parameter: set all dimensions to zero
-    window.last_params = window.gather_parameters()
+    window.last_params = window._gather_parameters()
     window.last_params["Dimensions"]["nelxyz"] = [0, 0, 0]
 
     with patch("PySide6.QtWidgets.QMessageBox.critical") as mock_msg:
-        window.run_optimization()
+        window._run_optimization()
 
     mock_msg.assert_called_once()
     window.close()
@@ -441,7 +441,7 @@ def test_binarize(qt_app):
     window = MainWindow()
     # No xPhys exists
     window.xPhys = None
-    window.on_binarize_clicked()  # Should not raise
+    window._on_binarize_clicked()  # Should not raise
 
     # xPhys exists
     import numpy as np
@@ -449,43 +449,43 @@ def test_binarize(qt_app):
     nelx, nely = window.last_params["Dimensions"]["nelxyz"][:2]
     nel = nelx * nely
     window.xPhys = np.linspace(0.1, 0.9, nel)
-    window.on_binarize_clicked()
+    window._on_binarize_clicked()
     assert set(np.unique(window.xPhys)).issubset({0.0, 1.0})
     window.close()
 
 
 def test_stop_optimization_no_worker(qt_app):
-    """Test that stop_optimization does nothing when no worker exists."""
+    """Test that _stop_optimization does nothing when no worker exists."""
     window = MainWindow()
     window.worker = None
     # Should not raise
-    window.stop_optimization()
+    window._stop_optimization()
     window.close()
 
 
 def test_style_plot_default(qt_app):
     """Test that style_plot_default sets the plot background to white."""
     window = MainWindow()
-    window.style_plot_default()
+    window._style_plot_default()
     assert window.figure.get_facecolor() == (1.0, 1.0, 1.0, 1.0)
     window.close()
 
 
 def test_update_optimization_progress(qt_app):
-    """Test that update_optimization_progress sets progress bar value."""
+    """Test that _update_optimization_progress sets progress bar value."""
     window = MainWindow()
     window.progress_bar.setRange(0, 100)
     window.progress_bar.setVisible(True)
-    window.update_optimization_progress(42, 1.234, 0.001)
+    window._update_optimization_progress(42, 1.234, 0.001)
     assert window.progress_bar.value() == 42
     window.close()
 
 
 def test_handle_analysis_finished(qt_app):
-    """Test that handle_analysis_finished updates the analysis widget."""
+    """Test that _handle_analysis_finished updates the analysis widget."""
     window = MainWindow()
     results = (True, False, True, False)
-    window.handle_analysis_finished(results)
+    window._handle_analysis_finished(results)
     assert window.analysis_widget.checkerboard_result.text() == "yes"
     assert window.analysis_widget.watertight_result.text() == "no"
     assert window.analysis_widget.threshold_result.text() == "yes"
@@ -495,11 +495,11 @@ def test_handle_analysis_finished(qt_app):
 
 
 def test_handle_analysis_error(qt_app):
-    """Test that handle_analysis_error re-enables buttons."""
+    """Test that _handle_analysis_error re-enables buttons."""
     window = MainWindow()
 
     with patch("PySide6.QtWidgets.QMessageBox.critical") as mock_msg:
-        window.handle_analysis_error("Analysis failed badly")
+        window._handle_analysis_error("Analysis failed badly")
 
     mock_msg.assert_called_once()
     assert window.analysis_widget.run_analysis_button.isEnabled()
@@ -507,9 +507,9 @@ def test_handle_analysis_error(qt_app):
 
 
 def test_handle_displacement_finished(qt_app):
-    """Test handle_displacement_finished updates UI state."""
+    """Test _handle_displacement_finished updates UI state."""
     window = MainWindow()
-    window.handle_displacement_finished("Done")
+    window._handle_displacement_finished("Done")
     assert window.is_displaying_deformation is True
     assert window.footer.create_button.isEnabled()
     window.close()
@@ -520,7 +520,7 @@ def test_handle_displacement_error(qt_app):
     window = MainWindow()
 
     with patch("PySide6.QtWidgets.QMessageBox.critical") as mock_msg:
-        window.handle_displacement_error("Displacement crashed")
+        window._handle_displacement_error("Displacement crashed")
 
     mock_msg.assert_called_once()
     assert window.displacement_widget.run_disp_button.isEnabled()

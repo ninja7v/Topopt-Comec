@@ -21,8 +21,7 @@ def test_oc_update_rule():
     dv = np.array([1.0, 1.0, 1.0, 1.0])
     g = 0.0
 
-    # Run OC update
-    xnew, gt = optimizers.oc(nel, x, eta, max_change, dc, dv, g)
+    xnew, gt = optimizers._oc(nel, x, eta, max_change, dc, dv, g)
 
     # Check shape
     assert isinstance(xnew, np.ndarray), "oc should return a NumPy array"
@@ -42,7 +41,7 @@ def test_oc_update_rule():
 
 
 # Helper function to load the presets file for the test
-def load_presets():
+def _load_presets():
     """Finds and loads the presets.json file."""
     # Go up two directories from this test file to find the project root
     presets_path = Path(__file__).parent / "presets_test.json"
@@ -57,7 +56,7 @@ def _is_multimaterial(preset_params):
     return len(preset_params.get("Materials", {}).get("E", [1.0])) > 1
 
 
-@pytest.mark.parametrize("preset_name, preset_params", load_presets())
+@pytest.mark.parametrize("preset_name, preset_params", _load_presets())
 def test_optimizers_with_presets(preset_name, preset_params):
     """Unit Test: Runs the optimizer with a given preset."""
     is_3d = preset_params["Dimensions"]["nelxyz"][2] > 0

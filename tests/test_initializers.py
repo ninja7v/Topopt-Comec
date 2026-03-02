@@ -127,15 +127,15 @@ def test_initialize_materials_valid():
 
 
 def test_rescale_densities():
-    """Test rescale_densities."""
+    """Test _rescale_densities."""
     # Already at target
     d = np.full(100, 0.3)
-    result = initializers.rescale_densities(d, 0.3)
+    result = initializers._rescale_densities(d, 0.3)
     np.testing.assert_allclose(result, 0.3, atol=1e-3)
 
     # To be adjust
     d = np.random.rand(100)
-    result = initializers.rescale_densities(d, 0.4)
+    result = initializers._rescale_densities(d, 0.4)
     assert np.mean(result) == pytest.approx(0.4, abs=0.01)
     assert result.min() >= 0.0
     assert result.max() <= 1.0

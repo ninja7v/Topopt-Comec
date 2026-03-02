@@ -6,7 +6,7 @@ import numpy as np
 from scipy.spatial.distance import cdist
 
 
-def rescale_densities(d: np.ndarray, volfrac: float) -> np.ndarray:
+def _rescale_densities(d: np.ndarray, volfrac: float) -> np.ndarray:
     """
     Smoothly rescale densities so their mean equals volfrac,
     while keeping values in [0,1] and reducing movement near 0/1.
@@ -78,13 +78,13 @@ def initialize_material(
         distance_max = np.sqrt(nelx**2 + nely**2 + (nelz**2 if is_3d else 0))
         raw = (distance_max - min_dist) / distance_max
 
-        return rescale_densities(raw, volfrac)
+        return _rescale_densities(raw, volfrac)
 
     # 2. Random Distribution
     elif init_type == 2:
         np.random.seed(42)
         raw = np.random.rand(nel)
-        return rescale_densities(raw, volfrac)
+        return _rescale_densities(raw, volfrac)
 
     else:
         raise ValueError(f"Invalid init_type: {init_type}")
@@ -132,7 +132,7 @@ def initialize_materials(
 
     # Material 1 gets the complement
     if n_mat > 1:
-        rho[1] = rescale_densities(volfrac - base, materials_frac[1])
+        rho[1] = _rescale_densities(volfrac - base, materials_frac[1])
 
     # Normalize columns so sum = volfrac (partition of unity)
     col_sums = rho.sum(axis=0)
@@ -141,7 +141,7 @@ def initialize_materials(
 
     # Re-scale rows to hit target volume fractions
     for i in range(n_mat):
-        rho[i] = rescale_densities(rho[i], materials_frac[i])
+        rho[i] = _rescale_densities(rho[i], materials_frac[i])
 
     # Final normalization pass
     col_sums = rho.sum(axis=0)

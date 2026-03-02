@@ -60,12 +60,12 @@ class OptimizerWorker(QThread, Worker):
                 if not is_multimaterial:
                     optimizer_params["Materials"].pop("percent", None)
 
-            def progress_callback(iteration, objective, change, xPhys_frame):
+            def _progress_callback(iteration, objective, change, xPhys_frame):
                 self.progress.emit(iteration, objective, change)
                 self.frameReady.emit(xPhys_frame)
                 return self.stop_requested
 
-            optimizer_params["progress_callback"] = progress_callback
+            optimizer_params["progress_callback"] = _progress_callback
 
             if is_multimaterial:
                 print("Dispatching to multi-material optimizer...")
@@ -112,13 +112,13 @@ class DisplacementWorker(QThread, Worker):
         """Executes the analysis based on provided parameters."""
         try:
 
-            def progress_callback(iteration):
+            def _progress_callback(iteration):
                 self.progress.emit(iteration)
                 return self._stop_requested
 
             # The function is a generator, yielding each frame
             for frame_data in displacements.run_iterative_displacement(
-                self.params, self.xPhys, progress_callback
+                self.params, self.xPhys, _progress_callback
             ):
                 self.frameReady.emit(frame_data)
                 if self._stop_requested:
@@ -180,11 +180,11 @@ class AnalysisWorker(QThread, Worker):
             if "Regions" in analysis_params:
                 analysis_params.pop("Regions", None)
 
-            def progress_callback(iteration):
+            def _progress_callback(iteration):
                 self.progress.emit(iteration)
                 return self._stop_requested
 
-            analysis_params["progress_callback"] = progress_callback
+            analysis_params["progress_callback"] = _progress_callback
 
             # The function is a generator, yielding each frame
             checkerboard, watertight, thresholded, efficient = analyzers.analyze(

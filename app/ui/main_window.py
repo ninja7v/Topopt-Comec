@@ -66,7 +66,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.displacement_worker = None
         self.worker = None  # To hold the optimizer worker
 
-        self.set_theme(self.current_theme)
+        self._set_theme(self.current_theme)
 
         self.presets = {}
         self.presets_file = "presets.json"
@@ -88,7 +88,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.is_displaying_deformation = False
         self.last_displayed_frame_data = None
 
-        self.create_control_panel()
+        self._create_control_panel()
         self.splitter.addWidget(self.control_panel_frame)
         self.splitter.setSizes([800, 480])
 
@@ -97,34 +97,34 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
 
-        self.load_presets()
+        self._load_presets()
 
         default_preset_name = "ForceInverter_2Sup_2D"
         if default_preset_name in self.presets:
             self.preset.presets_combo.setCurrentText(default_preset_name)
-            self.on_preset_selected()  # This applies the preset and replots
+            self._on_preset_selected()  # This applies the preset and replots
         else:
             # Fallback in case the default preset isn't found
             print(f"Warning: Default preset '{default_preset_name}' not found.")
-            self.last_params = self.gather_parameters()
+            self.last_params = self._gather_parameters()
             self.replot()
 
     #################
     # CONTROL PANEL #
     #################
 
-    def create_control_panel(self):
+    def _create_control_panel(self):
         """Creates the right-hand side control panel with all settings."""
         self.control_panel_frame = QFrame()
         self.control_panel_frame.setFixedWidth(350)
         panel_layout = QVBoxLayout(self.control_panel_frame)
 
         # Header
-        self.header = self.create_header()
+        self.header = self._create_header()
         panel_layout.addWidget(self.header)
 
         # Preset
-        self.preset = self.create_preset_section()
+        self.preset = self._create_preset_section()
         panel_layout.addWidget(self.preset)
 
         # Parameters sections
@@ -138,77 +138,77 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         panel_layout.addWidget(scroll_area)
 
         self.sections = {}
-        self.sections["Dimensions"] = self.create_Dimensions_section()
-        self.sections["Regions"] = self.create_regions_section()
-        self.sections["Forces"] = self.create_forces_section()
-        self.sections["Supports"] = self.create_supports_section()
-        self.sections["Materials"] = self.create_materials_section()
-        self.sections["Optimizer"] = self.create_optimizer_section()
-        self.sections["Analysis"] = self.create_analysis_section()
-        self.sections["Displacement"] = self.create_displacement_section()
+        self.sections["Dimensions"] = self._create_Dimensions_section()
+        self.sections["Regions"] = self._create_regions_section()
+        self.sections["Forces"] = self._create_forces_section()
+        self.sections["Supports"] = self._create_supports_section()
+        self.sections["Materials"] = self._create_materials_section()
+        self.sections["Optimizer"] = self._create_optimizer_section()
+        self.sections["Analysis"] = self._create_analysis_section()
+        self.sections["Displacement"] = self._create_displacement_section()
 
         for section in self.sections.values():
             self.sections_layout.addWidget(section)
 
         # Footer
-        self.footer = self.create_footer()
+        self.footer = self._create_footer()
         panel_layout.addWidget(self.footer)
 
     ############
     # SECTIONS #
     ############
 
-    def create_header(self):
+    def _create_header(self):
         """Creates the header widget and connects its signals."""
         header_widget = HeaderWidget()
 
         # Connect the signals from the widget's public buttons to MainWindow's handlers
-        header_widget.info_button.clicked.connect(self.open_github_link)
-        header_widget.help_button.clicked.connect(self.open_wiki_link)
-        header_widget.theme_button.clicked.connect(self.toggle_theme)
+        header_widget.info_button.clicked.connect(self._open_github_link)
+        header_widget.help_button.clicked.connect(self._open_wiki_link)
+        header_widget.theme_button.clicked.connect(self._toggle_theme)
 
         return header_widget
 
-    def create_preset_section(self):
+    def _create_preset_section(self):
         """Creates the preset widget and connects its signals."""
         preset_widget = PresetWidget()
-        preset_widget.presets_combo.activated.connect(self.on_preset_selected)
-        preset_widget.save_preset_button.clicked.connect(self.save_new_preset)
-        preset_widget.delete_preset_button.clicked.connect(self.delete_selected_preset)
+        preset_widget.presets_combo.activated.connect(self._on_preset_selected)
+        preset_widget.save_preset_button.clicked.connect(self._save_new_preset)
+        preset_widget.delete_preset_button.clicked.connect(self._delete_selected_preset)
         return preset_widget
 
-    def create_Dimensions_section(self):
+    def _create_Dimensions_section(self):
         """Creates the first section for Dimensions and volume fraction."""
         self.dim_widget = DimensionsWidget()
         section = CollapsibleSection("🔲 Dimensions", self.dim_widget)
         section.set_visibility_toggle(True)
-        section.visibility_button.toggled.connect(self.on_visibility_toggled)
+        section.visibility_button.toggled.connect(self._on_visibility_toggled)
         self.dim_widget.nx.valueChanged.connect(self.on_parameter_changed)
         self.dim_widget.ny.valueChanged.connect(self.on_parameter_changed)
         self.dim_widget.nz.valueChanged.connect(self.on_parameter_changed)
         self.dim_widget.volfrac.valueChanged.connect(self.on_parameter_changed)
-        self.dim_widget.scale_button.clicked.connect(self.scale_parameters)
-        self.dim_widget.nx.valueChanged.connect(self.update_position_ranges)
-        self.dim_widget.ny.valueChanged.connect(self.update_position_ranges)
-        self.dim_widget.nz.valueChanged.connect(self.update_position_ranges)
+        self.dim_widget.scale_button.clicked.connect(self._scale_parameters)
+        self.dim_widget.nx.valueChanged.connect(self._update_position_ranges)
+        self.dim_widget.ny.valueChanged.connect(self._update_position_ranges)
+        self.dim_widget.nz.valueChanged.connect(self._update_position_ranges)
         return section
 
-    def create_regions_section(self):
+    def _create_regions_section(self):
         """Creates the second section for regions parameters."""
         self.regions_widget = RegionsWidget()
         section = CollapsibleSection("⚫ Regions", self.regions_widget)
         section.set_visibility_toggle(True)
-        section.visibility_button.toggled.connect(self.on_visibility_toggled)
-        self.regions_widget.add_btn.clicked.connect(self.connect_region_signals)
+        section.visibility_button.toggled.connect(self._on_visibility_toggled)
+        self.regions_widget.add_btn.clicked.connect(self._connect_region_signals)
         self.regions_widget.nbRegionsChanged.connect(self.on_parameter_changed)
         return section
 
-    def create_forces_section(self):
+    def _create_forces_section(self):
         """Creates the third section for forces parameters."""
         self.forces_widget = ForcesWidget()
         section = CollapsibleSection("💪 Forces", self.forces_widget)
         section.set_visibility_toggle(True)
-        section.visibility_button.toggled.connect(self.on_visibility_toggled)
+        section.visibility_button.toggled.connect(self._on_visibility_toggled)
 
         # 3. Connect the signals from the widgets INSIDE the ForcesWidget
         for force_group in self.forces_widget.inputs:
@@ -231,32 +231,32 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         return section
 
-    def create_supports_section(self):
+    def _create_supports_section(self):
         """Creates the fourth section for supports parameters."""
         self.supports_widget = SupportWidget()
         section = CollapsibleSection("🔺 Supports", self.supports_widget)
         section.set_visibility_toggle(True)
-        section.visibility_button.toggled.connect(self.on_visibility_toggled)
-        self.supports_widget.add_btn.clicked.connect(self.connect_support_signals)
-        self.supports_widget.add_btn.clicked.connect(self.update_position_ranges)
+        section.visibility_button.toggled.connect(self._on_visibility_toggled)
+        self.supports_widget.add_btn.clicked.connect(self._connect_support_signals)
+        self.supports_widget.add_btn.clicked.connect(self._update_position_ranges)
         self.supports_widget.nbSupportsChanged.connect(self.on_parameter_changed)
 
         return section
 
-    def create_materials_section(self):
+    def _create_materials_section(self):
         """Creates the fifth section for material properties."""
         self.materials_widget = MaterialsWidget()
         section = CollapsibleSection("🧱 Material", self.materials_widget)
         section.set_visibility_toggle(True)
-        section.visibility_button.toggled.connect(self.on_visibility_toggled)
-        self.materials_widget.add_btn.clicked.connect(self.connect_material_signals)
+        section.visibility_button.toggled.connect(self._on_visibility_toggled)
+        self.materials_widget.add_btn.clicked.connect(self._connect_material_signals)
         self.materials_widget.nbMaterialsChanged.connect(self.on_parameter_changed)
         self.materials_widget.mat_init_type.currentIndexChanged.connect(
             self.on_parameter_changed
         )
         return section
 
-    def connect_material_signals(self):
+    def _connect_material_signals(self):
         """(Re)connects on_parameter_changed signals to all current material widgets."""
         for mw in self.materials_widget.inputs:
             mw["color"].clicked.connect(self.replot)
@@ -264,7 +264,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             mw["nu"].valueChanged.connect(self.on_parameter_changed)
             mw["percent"].valueChanged.connect(self.on_parameter_changed)
 
-    def create_optimizer_section(self):
+    def _create_optimizer_section(self):
         """Creates the sixth section for optimization parameters."""
         self.optimizer_widget = OptimizerWidget()
         section = CollapsibleSection("💻 Optimizer", self.optimizer_widget)
@@ -280,25 +280,25 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.optimizer_widget.opt_n_it.valueChanged.connect(self.on_parameter_changed)
         return section
 
-    def create_analysis_section(self):
+    def _create_analysis_section(self):
         """Creates the seventh section for analysis parameters."""
         self.analysis_widget = AnalysisWidget()
         section = CollapsibleSection("🔍 Analysis", self.analysis_widget)
-        section.visibility_button.toggled.connect(self.on_visibility_toggled)
-        self.analysis_widget.stop_analysis_button.clicked.connect(self.stop_analysis)
+        section.visibility_button.toggled.connect(self._on_visibility_toggled)
+        self.analysis_widget.stop_analysis_button.clicked.connect(self._stop_analysis)
         self.analysis_widget.run_analysis_button.setEnabled(
             False
         )  # Disabled until a result is ready
-        self.analysis_widget.run_analysis_button.clicked.connect(self.run_analysis)
-        self.analysis_widget.stop_analysis_button.clicked.connect(self.stop_analysis)
+        self.analysis_widget.run_analysis_button.clicked.connect(self._run_analysis)
+        self.analysis_widget.stop_analysis_button.clicked.connect(self._stop_analysis)
         return section
 
-    def create_displacement_section(self):
+    def _create_displacement_section(self):
         """Creates the seventh section for displacement animation parameters."""
         self.displacement_widget = DisplacementWidget()
         section = CollapsibleSection("↔️ Displacement", self.displacement_widget)
         section.set_visibility_toggle(True)
-        section.visibility_button.toggled.connect(self.on_visibility_toggled)
+        section.visibility_button.toggled.connect(self._on_visibility_toggled)
         section.visibility_button.setEnabled(False)  # Disabled until a result is ready
         self.displacement_widget.run_disp_button.setEnabled(
             False
@@ -309,58 +309,58 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         section.visibility_button.setChecked(False)
 
         section.visibility_button.toggled.connect(self.replot)
-        self.displacement_widget.run_disp_button.clicked.connect(self.run_displacement)
+        self.displacement_widget.run_disp_button.clicked.connect(self._run_displacement)
         self.displacement_widget.stop_disp_button.clicked.connect(
-            self.stop_displacement
+            self._stop_displacement
         )
         self.displacement_widget.reset_disp_button.clicked.connect(
-            self.reset_displacement_view
+            self._reset_displacement_view
         )
         self.displacement_widget.mov_disp.valueChanged.connect(
-            self.on_displacement_preview_changed
+            self._on_displacement_preview_changed
         )
         return section
 
-    def on_visibility_toggled(self, checked):
+    def _on_visibility_toggled(self, checked):
         """Handles the toggling of any visibility button."""
         button = self.sender()  # method gives the specific button that was clicked.
         if not button:
             return
 
         if checked:
-            button.setIcon(icons.get("eye_open"))
+            button.setIcon(icons._get("eye_open"))
             button.setToolTip("Element is visible. Click to hide.")
         else:
-            button.setIcon(icons.get("eye_closed"))
+            button.setIcon(icons._get("eye_closed"))
             button.setToolTip("Element is hidden. Click to show.")
 
         self.replot()
 
-    def create_footer(self):
+    def _create_footer(self):
         """Creates the footer widget and connects its signals."""
         footer_widget = FooterWidget()
-        footer_widget.create_button.clicked.connect(self.run_optimization)
-        footer_widget.stop_button.clicked.connect(self.stop_optimization)
-        footer_widget.binarize_button.clicked.connect(self.on_binarize_clicked)
-        footer_widget.save_png_action.triggered.connect(self.save_as_png)
-        footer_widget.save_vti_action.triggered.connect(self.save_as_vti)
-        footer_widget.save_stl_action.triggered.connect(self.save_as_stl)
-        footer_widget.save_3mf_action.triggered.connect(self.save_as_3mf)
+        footer_widget.create_button.clicked.connect(self._run_optimization)
+        footer_widget.stop_button.clicked.connect(self._stop_optimization)
+        footer_widget.binarize_button.clicked.connect(self._on_binarize_clicked)
+        footer_widget.save_png_action.triggered.connect(self._save_as_png)
+        footer_widget.save_vti_action.triggered.connect(self._save_as_vti)
+        footer_widget.save_stl_action.triggered.connect(self._save_as_stl)
+        footer_widget.save_3mf_action.triggered.connect(self._save_as_3mf)
         return footer_widget
 
     ################
     # OPTIMIZATION #
     ################
 
-    def run_optimization(self):
+    def _run_optimization(self):
         """Starts the optimization process based on current parameters, and gives live updates."""
-        error = self.validate_parameters(self.last_params)
+        error = self._validate_parameters(self.last_params)
         if error:
             QMessageBox.critical(self, "Input Error", error)
             return
 
         if self.is_displaying_deformation:
-            self.reset_displacement_view()
+            self._reset_displacement_view()
 
         # Stop animation
         self.footer.stop_create_button_effect()
@@ -383,13 +383,13 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.progress_bar.setVisible(True)
 
         self.worker = OptimizerWorker(self.last_params)
-        self.worker.progress.connect(self.update_optimization_progress)
-        self.worker.frameReady.connect(self.update_optimization_plot)
-        self.worker.finished.connect(self.handle_optimization_results)
-        self.worker.error.connect(self.handle_optimization_error)
+        self.worker.progress.connect(self._update_optimization_progress)
+        self.worker.frameReady.connect(self._update_optimization_plot)
+        self.worker.finished.connect(self._handle_optimization_results)
+        self.worker.error.connect(self._handle_optimization_error)
         self.worker.start()
 
-    def stop_optimization(self):
+    def _stop_optimization(self):
         """Requests the running optimizer worker to stop."""
         if self.worker:
             self.status_bar.showMessage("Stopping optimization...")
@@ -397,14 +397,14 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             self.footer.stop_button.setEnabled(False)  # Prevent multiple clicks
             self.worker.request_stop()
 
-    def update_optimization_progress(self, iteration, objective, change):
+    def _update_optimization_progress(self, iteration, objective, change):
         """Updates the progress bar and status message during optimization."""
         self.progress_bar.setValue(iteration)
         self.status_bar.showMessage(
             f"It: {iteration}, Obj: {objective:.4f}, Change: {change:.4f}"
         )
 
-    def update_optimization_plot(self, xPhys_frame):
+    def _update_optimization_plot(self, xPhys_frame):
         """Updates the plot with an intermediate frame from the optimizer."""
         # Ensure a plot exist to update
         if not self.figure.get_axes():
@@ -423,8 +423,8 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         is_multi = xPhys_frame.ndim == 2
 
         if is_3d or is_multi:
-            self.plot_material(ax, is_3d=is_3d, xPhys_data=xPhys_frame)
-            self.redraw_non_material_layers(ax, is_3d=is_3d)
+            self._plot_material(ax, is_3d=is_3d, xPhys_data=xPhys_frame)
+            self._redraw_non_material_layers(ax, is_3d=is_3d)
         else:
             if not ax.images:
                 return
@@ -434,7 +434,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         self.canvas.draw()
 
-    def handle_optimization_results(self, result):
+    def _handle_optimization_results(self, result):
         """Handles the results after optimization finishes successfully."""
         self.xPhys, self.u = result
         self.status_bar.showMessage("Optimization finished successfully.", 5000)
@@ -450,7 +450,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.sections["Displacement"].visibility_button.setEnabled(True)
         self.replot()
 
-    def handle_optimization_error(self, error_msg):
+    def _handle_optimization_error(self, error_msg):
         """Handles any errors that occur during optimization."""
         self.status_bar.showMessage("Optimization failed.", 5000)
         self.preset.setEnabled(True)
@@ -466,7 +466,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
     # DISPLACEMENT #
     ################
 
-    def run_displacement(self):
+    def _run_displacement(self):
         """Starts the displacement animation based on the last optimization result, and gives live updates."""
         if self.xPhys is None or self.u is None:
             QMessageBox.warning(
@@ -485,7 +485,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         QApplication.processEvents()
 
-        self.last_params = self.gather_parameters()
+        self.last_params = self._gather_parameters()
         if self.last_params["Displacement"]["disp_iterations"] == 1:
             # Run single-frame logic directly
             self.status_bar.showMessage("Calculating single displacement frame...")
@@ -501,7 +501,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
                 self.last_params["Displacement"]["disp_factor"],
             )
             self.replot()
-            self.handle_displacement_finished("Single frame shown.")
+            self._handle_displacement_finished("Single frame shown.")
             self.status_bar.showMessage("Single displacement plot shown.", 3000)
         else:
             self.footer.create_button.setEnabled(False)
@@ -517,20 +517,24 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             self.displacement_worker = DisplacementWorker(
                 self.last_params, self.xPhys, self.u
             )
-            self.displacement_worker.progress.connect(self.update_displacement_progress)
-            self.displacement_worker.frameReady.connect(self.update_animation_frame)
-            self.displacement_worker.finished.connect(self.handle_displacement_finished)
-            self.displacement_worker.error.connect(self.handle_displacement_error)
+            self.displacement_worker.progress.connect(
+                self._update_displacement_progress
+            )
+            self.displacement_worker.frameReady.connect(self._update_animation_frame)
+            self.displacement_worker.finished.connect(
+                self._handle_displacement_finished
+            )
+            self.displacement_worker.error.connect(self._handle_displacement_error)
             self.displacement_worker.start()
 
-    def stop_displacement(self):
+    def _stop_displacement(self):
         """Requests the running displacement worker to stop."""
         if self.displacement_worker:
             self.displacement_widget.stop_disp_button.setText("Stopping...")
             self.displacement_widget.stop_disp_button.setEnabled(False)
             self.displacement_worker.request_stop()
 
-    def reset_displacement_view(self):
+    def _reset_displacement_view(self):
         """Resets the plot to the original, undeformed optimizer result."""
         self.is_displaying_deformation = False
         self.last_displayed_frame_data = None
@@ -541,14 +545,14 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             self.displacement_widget.run_disp_button
         )
 
-    def update_displacement_progress(self, iteration):
+    def _update_displacement_progress(self, iteration):
         """Updates the progress bar and status message during displacement computation."""
         self.progress_bar.setValue(iteration)
         self.status_bar.showMessage(
             f"Running non-linear displacement: step {iteration}..."
         )
 
-    def update_animation_frame(self, frame_data):
+    def _update_animation_frame(self, frame_data):
         """Updates the plot with a new frame from the displacement animation."""
         # Safety checks to ensure a plot exists and parameters are available
         if not self.figure.get_axes() or not self.last_params:
@@ -559,10 +563,10 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         if is_3d:
             ax.clear()
-            self.plot_material(ax, is_3d, frame_data)
+            self._plot_material(ax, is_3d, frame_data)
 
         else:
-            # we don't use plot_material here because we use set_array instead of imshow
+            # we don't use _plot_material here because we use set_array instead of imshow
             if not ax.images:
                 return
             im = ax.images[0]
@@ -593,17 +597,17 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
                 coll.remove()
             for patch in list(ax.patches):
                 patch.remove()
-        self.redraw_non_material_layers(ax, is_3d)
+        self._redraw_non_material_layers(ax, is_3d)
 
         # Redraw the canvas to show the changes
         self.canvas.draw()
 
-    def on_displacement_preview_changed(self):
+    def _on_displacement_preview_changed(self):
         """Triggers a replot if the preview is active when displacement factor changes."""
         if self.sections["Displacement"].visibility_button.isChecked():
             self.replot()
 
-    def handle_displacement_finished(self, message):
+    def _handle_displacement_finished(self, message):
         """Handles the results after displacement computation finishes successfully."""
         self.status_bar.showMessage(message, 5000)
         self.progress_bar.setVisible(False)
@@ -618,7 +622,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.displacement_widget.stop_disp_button.setEnabled(True)
         self.is_displaying_deformation = True
 
-    def handle_displacement_error(self, error_msg):
+    def _handle_displacement_error(self, error_msg):
         """Handles any errors that occur during displacement computation."""
         self.status_bar.showMessage("Displacements failed.", 5000)
         self.progress_bar.setVisible(False)
@@ -629,7 +633,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
     ############
     # Analysis #
     ############
-    def run_analysis(self):
+    def _run_analysis(self):
         """Starts the analysis evaluation based on the last optimization result"""
         if self.xPhys is None or self.u is None:
             QMessageBox.warning(
@@ -652,24 +656,24 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.footer.create_button.setEnabled(False)
 
         self.analysis_worker = AnalysisWorker(self.last_params, self.xPhys, self.u)
-        self.analysis_worker.progress.connect(self.update_analysis_progress)
-        self.analysis_worker.finished.connect(self.handle_analysis_finished)
-        self.analysis_worker.error.connect(self.handle_analysis_error)
+        self.analysis_worker.progress.connect(self._update_analysis_progress)
+        self.analysis_worker.finished.connect(self._handle_analysis_finished)
+        self.analysis_worker.error.connect(self._handle_analysis_error)
         self.analysis_worker.start()
 
-    def stop_analysis(self):
+    def _stop_analysis(self):
         """Requests the running analysis worker to stop."""
         if self.analysis_worker:
             self.analysis_widget.stop_analysis_button.setText(" Stopping...")
             self.analysis_widget.stop_analysis_button.setEnabled(False)
             self.analysis_worker.request_stop()
 
-    def update_analysis_progress(self, iteration):
+    def _update_analysis_progress(self, iteration):
         """Updates the progress bar and status message during analysis."""
         self.progress_bar.setValue(iteration)
         self.status_bar.showMessage(f"Running analysis: step {iteration}...")
 
-    def handle_analysis_finished(self, results):
+    def _handle_analysis_finished(self, results):
         """Handles the results after analysis finishes successfully."""
         aw = self.analysis_widget
         aw.checkerboard_result.setText("yes" if results[0] else "no")
@@ -698,7 +702,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.displacement_widget.run_disp_button.setEnabled(True)
         self.footer.create_button.setEnabled(True)
 
-    def handle_analysis_error(self, error_msg):
+    def _handle_analysis_error(self, error_msg):
         """Handles any errors that occur during analysis."""
         self.status_bar.showMessage("Analysis failed.", 5000)
         self.progress_bar.setVisible(False)
@@ -710,7 +714,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
     # Save #
     ########
 
-    def save_result_as(self, file_type):
+    def _save_result_as(self, file_type):
         """
         Save the current result as file_type in a result folder.
         The result folder is created if it does not exist.
@@ -786,45 +790,27 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Could not save the file:\n{e}")
 
-    def save_as_png(self):
+    def _save_as_png(self):
         """Function connected to the save as PNG button."""
-        self.save_result_as("png")
+        self._save_result_as("png")
 
-    def save_as_vti(self):
+    def _save_as_vti(self):
         """Function connected to the save as VTI button."""
-        self.save_result_as("vti")
+        self._save_result_as("vti")
 
-    def save_as_stl(self):
+    def _save_as_stl(self):
         """Function connected to the save as STL button."""
-        self.save_result_as("stl")
+        self._save_result_as("stl")
 
-    def save_as_3mf(self):
+    def _save_as_3mf(self):
         """Function connected to the save as 3MF button."""
-        self.save_result_as("3mf")
-
-    ########
-    # PLOT #
-    ########
-
-    def style_plot_default(self):
-        """Sets the plot to a fixed white theme. Called only once."""
-        self.figure.patch.set_facecolor("white")
-        if self.figure.get_axes():
-            ax = self.figure.get_axes()[0]
-            ax.set_facecolor("white")
-            ax.xaxis.label.set_color("black")
-            ax.yaxis.label.set_color("black")
-            ax.tick_params(axis="x", colors="black")
-            ax.tick_params(axis="y", colors="black")
-            for spine in ax.spines.values():
-                spine.set_edgecolor("black")
-        self.canvas.draw()
+        self._save_result_as("3mf")
 
     ###########
     # Presets #
     ###########
 
-    def load_presets(self):
+    def _load_presets(self):
         """Loads presets from the JSON file and populates the combo box."""
         try:
             with open(self.presets_file, "r") as f:
@@ -840,13 +826,13 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.preset.presets_combo.blockSignals(False)
         self.preset.delete_preset_button.setEnabled(False)
 
-    def save_presets(self):
+    def _save_presets(self):
         """Saves the current presets dictionary to the JSON file."""
         with open(self.presets_file, "w") as f:
             json.dump(self.presets, f, indent=4)
         self.status_bar.showMessage("Presets saved.", 3000)
 
-    def save_new_preset(self):
+    def _save_new_preset(self):
         """Prompts the user for a name and saves the current parameters."""
         preset_name, ok = QInputDialog.getText(
             self, "Save Preset", "Enter a name for this preset:"
@@ -865,12 +851,12 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
                     return  # User cancelled
 
             self.presets[preset_name] = self.gather_parameters()
-            self.save_presets()
-            self.load_presets()
+            self._save_presets()
+            self._load_presets()
             self.preset.presets_combo.setCurrentText(preset_name)
             self.preset.delete_preset_button.setEnabled(True)
 
-    def delete_selected_preset(self):
+    def _delete_selected_preset(self):
         """Deletes the currently selected preset after confirmation."""
         preset_name = self.preset.presets_combo.currentText()
         if preset_name not in self.presets:
@@ -886,22 +872,22 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         if reply == QMessageBox.StandardButton.Yes:
             del self.presets[preset_name]
-            self.save_presets()
-            self.load_presets()  # Reloads the list and disables the delete button
+            self._save_presets()
+            self._load_presets()  # Reloads the list and disables the delete button
             self.status_bar.showMessage(f"Preset '{preset_name}' deleted.", 3000)
 
-    def on_preset_selected(self):
+    def _on_preset_selected(self):
         """Applies the parameters when a preset is selected from the combo box."""
         preset_name = self.preset.presets_combo.currentText()
         if preset_name in self.presets:
-            self.apply_parameters(self.presets[preset_name])
+            self._apply_parameters(self.presets[preset_name])
             self.preset.delete_preset_button.setEnabled(True)
         else:
             self.preset.delete_preset_button.setEnabled(False)
 
-    def apply_parameters(self, params):
+    def _apply_parameters(self, params):
         """Sets all UI widgets to the values from a given parameter dictionary."""
-        self.block_all_parameter_signals(True)
+        self._block_all_parameter_signals(True)
 
         # --- Dimensions ---
         Dimensions = params.get("Dimensions", {})
@@ -909,7 +895,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.dim_widget.ny.setValue(Dimensions.get("nelxyz", [1, 1, 1])[1])
         self.dim_widget.nz.setValue(Dimensions.get("nelxyz", [1, 1, 1])[2])
         self.dim_widget.volfrac.setValue(Dimensions.get("volfrac", 0.3))
-        self.update_position_ranges()
+        self._update_position_ranges()
 
         # --- Regions (optional) ---
         pr = params.get("Regions", {})
@@ -933,7 +919,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             rw["rx"].setValue(pr["rx"][i])
             rw["ry"].setValue(pr["ry"][i])
             rw["rz"].setValue(pr["rz"][i])
-        self.connect_region_signals()
+        self._connect_region_signals()
 
         # --- Forces ---
         pf = params.get("Forces", {})
@@ -975,7 +961,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             sw["sz"].setValue(ps["sz"][i])
             sw["sdim"].setCurrentText(ps["sdim"][i])
             sw["sr"].setValue(ps["sr"][i])
-        self.connect_support_signals()
+        self._connect_support_signals()
 
         # --- Materials ---
         pm = params.get("Materials", {})
@@ -1004,7 +990,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             color = pm.get("color", ["#000000"] * num_material_in_preset)
             mw["color"].set_color(color[i])
         self.materials_widget.mat_init_type.setCurrentIndex(pm.get("init_type", 0))
-        self.connect_material_signals()
+        self._connect_material_signals()
 
         # --- Optimizer ---
         po = params.get("Optimizer", {})
@@ -1028,16 +1014,16 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         )
 
         # --- Unblock signals ---
-        self.block_all_parameter_signals(False)
+        self._block_all_parameter_signals(False)
 
         # Manually trigger a single update
-        self.update_position_ranges()
+        self._update_position_ranges()
         self.on_parameter_changed()
         self.status_bar.showMessage(
             f"Loaded preset: {self.preset.presets_combo.currentText()}", 3000
         )
 
-    def connect_support_signals(self):
+    def _connect_support_signals(self):
         """(Re)connects on_parameter_changed signals to all current support widgets."""
         for support_group in self.supports_widget.inputs:
             support_group["sx"].valueChanged.connect(self.on_parameter_changed)
@@ -1047,7 +1033,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             support_group["sr"].valueChanged.connect(self.on_parameter_changed)
             # there is a special "nbSupportsChanged" signal for the remove button
 
-    def connect_region_signals(self):
+    def _connect_region_signals(self):
         """(Re)connects on_parameter_changed signals to all current region widgets."""
         for region_group in self.regions_widget.inputs:
             region_group["rshape"].currentIndexChanged.connect(
@@ -1066,7 +1052,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
     # BINARIZE #
     ############
 
-    def on_binarize_clicked(self):
+    def _on_binarize_clicked(self):
         """Applies a 0-or-1 threshold to the displayed result."""
         if self.xPhys is None:
             return
@@ -1086,68 +1072,68 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
     # THEME #
     #########
 
-    def set_theme(self, theme_name, initial_setup=False):
+    def _set_theme(self, theme_name, initial_setup=False):
         """Applies a theme stylesheet to the application GUI only."""
         stylesheet = (
             LIGHT_THEME_STYLESHEET if theme_name == "light" else DARK_THEME_STYLESHEET
         )
         QApplication.instance().setStyleSheet(stylesheet)
         self.current_theme = theme_name
-        icons.set_theme(theme_name)
+        icons._set_theme(theme_name)
 
         # On the very first run, we need to style the plot once.
         # Afterwards, the plot theme is never touched again.
         if initial_setup:
-            self.style_plot_default()
+            self._style_plot_default()
 
-    def toggle_theme(self):
+    def _toggle_theme(self):
         """Switches between light and dark themes."""
         if self.current_theme == "light":
-            self.set_theme("dark")
+            self._set_theme("dark")
         else:
-            self.set_theme("light")
-        self.update_ui_icons()
+            self._set_theme("light")
+        self._update_ui_icons()
 
-    def update_ui_icons(self):
+    def _update_ui_icons(self):
         """
         Resets all icons in the UI to force them to be re-fetched from the
         now theme-aware IconProvider.
         """
         # Update the theme button itself
         if self.current_theme == "dark":
-            self.header.theme_button.setIcon(icons.get("sun"))
+            self.header.theme_button.setIcon(icons._get("sun"))
             self.header.theme_button.setToolTip("Switch to Light Theme")
         else:
-            self.header.theme_button.setIcon(icons.get("moon"))
+            self.header.theme_button.setIcon(icons._get("moon"))
             self.header.theme_button.setToolTip("Switch to Dark Theme")
 
         # Update header icons
-        self.header.info_button.setIcon(icons.get("info"))
-        self.header.info_button.setIcon(icons.get("help"))
+        self.header.info_button.setIcon(icons._get("info"))
+        self.header.info_button.setIcon(icons._get("help"))
         # Update presets icons
-        self.preset.save_preset_button.setIcon(icons.get("save"))
-        self.preset.delete_preset_button.setIcon(icons.get("delete"))
+        self.preset.save_preset_button.setIcon(icons._get("save"))
+        self.preset.delete_preset_button.setIcon(icons._get("delete"))
         # Update dimensions icons
-        self.dim_widget.scale_button.setIcon(icons.get("scale"))
+        self.dim_widget.scale_button.setIcon(icons._get("scale"))
         # Update displacement icons
-        self.displacement_widget.run_disp_button.setIcon(icons.get("move"))
-        self.displacement_widget.stop_disp_button.setIcon(icons.get("stop"))
-        self.displacement_widget.reset_disp_button.setIcon(icons.get("reset"))
+        self.displacement_widget.run_disp_button.setIcon(icons._get("move"))
+        self.displacement_widget.stop_disp_button.setIcon(icons._get("stop"))
+        self.displacement_widget.reset_disp_button.setIcon(icons._get("reset"))
         # Update footer icons
-        self.footer.create_button.setIcon(icons.get("create"))
-        self.footer.stop_button.setIcon(icons.get("Stop"))
-        self.footer.save_button.setIcon(icons.get("save"))
+        self.footer.create_button.setIcon(icons._get("create"))
+        self.footer.stop_button.setIcon(icons._get("Stop"))
+        self.footer.save_button.setIcon(icons._get("save"))
 
         # Update dynamic icons (like the visibility and collapsible arrows)
         for section in self.sections.values():
             section.update_all_icons()
 
-    def open_github_link(self):
+    def _open_github_link(self):
         """Opens the specified URL in the user's default web browser."""
         url = QUrl("https://github.com/ninja7v/Topopt-Comec")
         QDesktopServices.openUrl(url)
 
-    def open_wiki_link(self):
+    def _open_wiki_link(self):
         """Opens the specified URL in the user's default web browser."""
         url = QUrl("https://github.com/ninja7v/Topopt-Comec/wiki/Topopt-Comec-wiki")
         QDesktopServices.openUrl(url)

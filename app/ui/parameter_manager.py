@@ -10,7 +10,7 @@ from matplotlib.colors import to_hex
 class ParameterManagerMixin:
     """Mixin for MainWindow to handle parameter gathering, validation, and equivalency checks."""
 
-    def gather_parameters(self):
+    def _gather_parameters(self):
         """Collects all parameters from the UI controls into a nested dictionary."""
         params = {}
 
@@ -253,7 +253,7 @@ class ParameterManagerMixin:
             )
 
         # Replot
-        self.last_params = self.gather_parameters()
+        self.last_params = self._gather_parameters()
         self.replot()
 
         # Play the animation and update tooltip
@@ -264,7 +264,7 @@ class ParameterManagerMixin:
         # Check if the current state matches the selected preset
         current_preset_name = self.preset.presets_combo.currentText()
         if current_preset_name in self.presets:
-            if not self.are_parameters_equivalent(
+            if not self._are_parameters_equivalent(
                 self.presets[current_preset_name], self.last_params
             ):
                 # The parameters have changed, so deselect the preset
@@ -275,7 +275,7 @@ class ParameterManagerMixin:
                 self.preset.presets_combo.blockSignals(False)
                 self.preset.delete_preset_button.setEnabled(False)
 
-    def are_parameters_equivalent(self, params1, params2):
+    def _are_parameters_equivalent(self, params1, params2):
         """Compares two parameter dictionaries, ignoring irrelevant data."""
         # Create deep copies to avoid modifying the original dictionaries
         p1 = copy.deepcopy(params1)
@@ -393,7 +393,7 @@ class ParameterManagerMixin:
                 if "init_type" not in pm:
                     pm["init_type"] = 0
 
-    def validate_parameters(self, params):
+    def _validate_parameters(self, params):
         nelx, nely, nelz = params["Dimensions"]["nelxyz"]
         if nelx <= 0 or nely <= 0 or nelz < 0:
             return "Nx, Ny, Nz must be positive."
@@ -490,7 +490,7 @@ class ParameterManagerMixin:
         if len(pm["E"]) > 1 and sum(pm["percent"]) != 100:
             return "Material percentages don't sum up to 100%."
 
-    def update_position_ranges(self):
+    def _update_position_ranges(self):
         """Updates the maximum values for all position-related spin boxes."""
         nelx = self.dim_widget.nx.value()
         nely = self.dim_widget.ny.value()
@@ -531,7 +531,7 @@ class ParameterManagerMixin:
             max_dim = max(nelx, nely, nelz)
             rw["rradius"].setMaximum(max_dim)
 
-    def scale_parameters(self):
+    def _scale_parameters(self):
         """Scales all dimensional and positional parameters by a given factor."""
         scale = self.dim_widget.scale.value()
         if scale == 1.0:
@@ -609,13 +609,13 @@ class ParameterManagerMixin:
 
         # --- Perform Scaling ---
         # Temporarily block signals to prevent multiple replots
-        self.block_all_parameter_signals(True)
+        self._block_all_parameter_signals(True)
 
         for w in dims_to_scale:
             w.setValue(round(w.value() * scale))
 
         if scale > 1.0:
-            self.update_position_ranges()  # Update max ranges before scaling positions otherwise they might get clamped
+            self._update_position_ranges()  # Update max ranges before scaling positions otherwise they might get clamped
 
         for w, is_radius in pos_to_scale:
             new_val = round(w.value() * scale)
@@ -624,9 +624,9 @@ class ParameterManagerMixin:
             w.setValue(new_val)
 
         if scale < 1.0:
-            self.update_position_ranges()  # Update max ranges after scaling positions otherwise values might be clamped before scaling
+            self._update_position_ranges()  # Update max ranges after scaling positions otherwise values might be clamped before scaling
 
-        self.block_all_parameter_signals(False)
+        self._block_all_parameter_signals(False)
 
         # Manually trigger a single, final update
         self.on_parameter_changed()
@@ -634,7 +634,7 @@ class ParameterManagerMixin:
             f"All parameters scaled by a factor of {scale}.", 3000
         )
 
-    def block_all_parameter_signals(self, block: bool):
+    def _block_all_parameter_signals(self, block: bool):
         """Helper to block or unblock signals for all parameter widgets."""
         all_widgets = [
             self.dim_widget.nx,

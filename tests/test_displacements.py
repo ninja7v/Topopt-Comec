@@ -12,7 +12,7 @@ from app.core import displacements
 
 
 # Helper function to load the presets file for the test
-def load_presets():
+def _load_presets():
     """Finds and loads the presets.json file."""
     # Go up two directories from this test file to find the project root
     presets_path = Path(__file__).parent / "presets_test.json"
@@ -23,7 +23,7 @@ def load_presets():
     return presets_data.items()
 
 
-@pytest.mark.parametrize("preset_name, preset_params", load_presets())
+@pytest.mark.parametrize("preset_name, preset_params", _load_presets())
 def test_displacement_with_presets(preset_name, preset_params):
     """Unit Test: Runs the 2D/3D optimizer with a given preset."""
     # Prepare the parameters for the optimizer function
