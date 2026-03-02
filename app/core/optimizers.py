@@ -9,7 +9,7 @@ from app.core import initializers
 from app.core.fem import FEM
 
 
-def oc(
+def _oc(
     nel: int,
     x: np.ndarray,
     eta: float,
@@ -119,7 +119,7 @@ def optimize(
         (dc, dv) = fem.compute_sensitivities(xPhys, ui, uo)
 
         # Update Design Variables
-        x, g = oc(fem.nel, x, eta, max_change, dc, dv, g)
+        x, g = _oc(fem.nel, x, eta, max_change, dc, dv, g)
         xPhys = fem.update_xPhys(x)
 
         # Check Convergence
@@ -238,7 +238,7 @@ def optimize_multimaterial(
             dc_i *= E_list[i]
 
             # Update Design Variables
-            x[i], g[i] = oc(fem.nel, x[i], eta, max_change, dc_i, dv_i, g[i])
+            x[i], g[i] = _oc(fem.nel, x[i], eta, max_change, dc_i, dv_i, g[i])
             xPhys[i] = fem.update_xPhys(x[i])
 
         # Partition-of-unity constraint: ensure sum of densities <= 1 per element

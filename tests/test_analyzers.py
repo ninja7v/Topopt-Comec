@@ -12,7 +12,7 @@ from app.core import analyzers
 
 
 # Helper function to load the presets file for the test
-def load_presets():
+def _load_presets():
     """Finds and loads the presets.json file."""
     # Go up two directories from this test file to find the project root
     presets_path = Path(__file__).parent / "presets_test.json"
@@ -23,7 +23,7 @@ def load_presets():
     return presets_data.items()
 
 
-@pytest.mark.parametrize("preset_name, preset_params", load_presets())
+@pytest.mark.parametrize("preset_name, preset_params", _load_presets())
 def test_analysis_with_presets(preset_name, preset_params):
     """Unit Test: Runs the 2D/3D optimizer with a given preset."""
     # Prepare the parameters for the optimizer function
@@ -81,14 +81,14 @@ def test_checkerboard():
     x[2, 2] = 1
     x[3, 1] = 1
     x[3, 3] = 1
-    assert analyzers.checkerboard(x) is True, "Checkerboard should have been detected"
+    assert analyzers._checkerboard(x) is True, "Checkerboard should have been detected"
     x = np.ones((5, 5))
     assert (
-        analyzers.checkerboard(x) is False
+        analyzers._checkerboard(x) is False
     ), "Checkerboard shouldn't have been detected"
     x = np.ones((4, 4, 4))
     assert (
-        analyzers.checkerboard(x) is False
+        analyzers._checkerboard(x) is False
     ), "Checkerboard shouldn't have been detected"
 
 
@@ -96,19 +96,19 @@ def test_watertight():
     """Test watertight analysis."""
     x = np.zeros((5, 5))
     x[1:4, 1:4] = 1.0
-    assert analyzers.watertight(x) is True, "Watertighteness wrongly detected"
+    assert analyzers._watertight(x) is True, "Watertighteness wrongly detected"
     x = np.zeros((10, 10))
     x[0, 0] = 1.0
     x[9, 9] = 1.0
-    assert analyzers.watertight(x) is False, "Watertighteness wrongly detected"
+    assert analyzers._watertight(x) is False, "Watertighteness wrongly detected"
 
 
 def test_threholded():
     """Test thresholded returns True for a fully binarized field."""
     x = np.array([0.0, 0.0, 1.0, 1.0, 0.0, 1.0])
-    assert analyzers.threholded(x) is True
+    assert analyzers._threholded(x) is True
     x = np.full(100, 0.5)
-    assert analyzers.threholded(x) is False
+    assert analyzers._threholded(x) is False
 
 
 def test_efficient():
@@ -128,7 +128,7 @@ def test_efficient():
     # Small displacement at force location -> efficient
     idx = 5 * 11 + 5
     u[idx * 2, 0] = 0.001
-    result = analyzers.efficient(u, Dimensions, Forces)
+    result = analyzers._efficient(u, Dimensions, Forces)
     assert isinstance(result, bool)
 
     # Compliant mechanism
@@ -147,7 +147,7 @@ def test_efficient():
     }
     ndof = 2 * 11 * 11
     u = np.zeros((ndof, 1))
-    result = analyzers.efficient(u, Dimensions, Forces)
+    result = analyzers._efficient(u, Dimensions, Forces)
     assert isinstance(result, bool)
 
 

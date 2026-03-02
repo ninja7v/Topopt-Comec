@@ -15,11 +15,11 @@ class IconProvider:
         self.style = QApplication.style()
         self.theme = "light"
 
-    def set_theme(self, theme_name: str):
+    def _set_theme(self, theme_name: str):
         """Sets the current theme ('light' or 'dark'). Called by the MainWindow."""
         self.theme = theme_name
 
-    def get(self, icon_name: str) -> QIcon:
+    def _get(self, icon_name: str) -> QIcon:
         """
         Retrieves a QIcon by its name. Tries to load a custom icon from assets first,
         falls back to standard Qt icons if not found.
