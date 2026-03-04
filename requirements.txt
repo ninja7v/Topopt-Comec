@@ -4,7 +4,6 @@ scipy
 matplotlib
 vtk
 PyMCubes
-cvxopt
 numpy-stl
 darkdetect
 pytest
