@@ -267,6 +267,11 @@ def test_material_widget_initialization(qt_app):
         widget.inputs[1]["percent"], QSpinBox
     )
 
+    # Test material equilibrium
+    widget.inputs[0]["percent"].setValue(70)
+    qt_app.processEvents()
+    assert widget.inputs[1]["percent"].value() == 30, "Percent do not sum to 100%."
+
     # Test remove button
     new_support["remove_btn"].click()
     qt_app.processEvents()

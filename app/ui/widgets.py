@@ -840,6 +840,7 @@ class MaterialsWidget(QWidget):
         line1.addWidget(QLabel("%:"))
         mat_percent = _make_spin(0, 100, percent, 70, "Volume Fraction percentage")
         mat_percent.setSingleStep(5)
+        mat_percent.valueChanged.connect(self._on_percent_changed)
         line1.addWidget(mat_percent)
         line1.addStretch()
         layout.addLayout(line1)
@@ -902,9 +903,29 @@ class MaterialsWidget(QWidget):
         mat["container"].deleteLater()
         mat["container"].setParent(None)
 
+        self.inputs[0]["percent"].blockSignals(True)
+        self.inputs[0]["percent"].setValue(100)
+        self.inputs[0]["percent"].blockSignals(False)
+
         if emit_signal:
             self.nbMaterialsChanged.emit()
         self.update_ui_state()
+
+    def _on_percent_changed(self, value):
+        """When there are exactly 2 materials, auto-adjust the other to keep sum = 100."""
+        if len(self.inputs) == 1:
+            self.inputs[0]["percent"].setValue(100)
+        elif len(self.inputs) == 2:
+            sender = self.sender()
+            if sender is self.inputs[0]["percent"]:
+                other = self.inputs[1]["percent"]
+            elif sender is self.inputs[1]["percent"]:
+                other = self.inputs[0]["percent"]
+            else:
+                return
+            other.blockSignals(True)
+            other.setValue(100 - value)
+            other.blockSignals(False)
 
     def update_ui_state(self):
         # Update Add/Remove buttons state
