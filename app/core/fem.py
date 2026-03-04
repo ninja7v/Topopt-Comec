@@ -170,7 +170,7 @@ class FEM:
                         xPhys[idx] = val
         return xPhys
 
-    def solve(self, xPhys: np.ndarray) -> Tuple[np.ndarray, np.ndarray, float]:
+    def solve(self, xPhys: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Assembles K and solves for Input and Output forces."""
         # Assembly
         E_eff = (

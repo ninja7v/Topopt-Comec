@@ -1,6 +1,6 @@
 # app/core/initializers.py
 # MIT License - Copyright (c) 2025-2026 Luc Prevost
-# Material initializators.
+# Material initializers.
 
 import numpy as np
 from scipy.spatial.distance import cdist

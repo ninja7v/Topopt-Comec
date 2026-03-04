@@ -71,7 +71,7 @@ def optimize(
     Topology optimization
 
     Args:
-        all parameters splited per section.
+        All parameters split per section.
         progress_callback: A function to call with (iteration, objective, change) for UI updates.
 
     Returns:

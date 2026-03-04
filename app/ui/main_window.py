@@ -200,6 +200,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         section.set_visibility_toggle(True)
         section.visibility_button.toggled.connect(self._on_visibility_toggled)
         self.regions_widget.add_btn.clicked.connect(self._connect_region_signals)
+        self.regions_widget.add_btn.clicked.connect(self._update_position_ranges)
         self.regions_widget.nbRegionsChanged.connect(self.on_parameter_changed)
         return section
 
@@ -212,6 +213,8 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         self.forces_widget.add_if_btn.clicked.connect(self._connect_forces_signals)
         self.forces_widget.add_of_btn.clicked.connect(self._connect_forces_signals)
+        self.forces_widget.add_if_btn.clicked.connect(self._update_position_ranges)
+        self.forces_widget.add_of_btn.clicked.connect(self._update_position_ranges)
         self.forces_widget.nbForcesChanged.connect(self.on_parameter_changed)
         self._connect_forces_signals()
 
@@ -639,7 +642,6 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(True)
         self.displacement_widget.run_disp_button.setEnabled(False)
-        self.footer.create_button.setEnabled(False)
 
         self.analysis_worker = AnalysisWorker(self.last_params, self.xPhys, self.u)
         self.analysis_worker.progress.connect(self._update_analysis_progress)
@@ -836,7 +838,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
                 if reply == QMessageBox.StandardButton.No:
                     return  # User cancelled
 
-            self.presets[preset_name] = self.gather_parameters()
+            self.presets[preset_name] = self._gather_parameters()
             self._save_presets()
             self._load_presets()
             self.preset.presets_combo.setCurrentText(preset_name)
@@ -1158,7 +1160,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         # Update header icons
         self.header.info_button.setIcon(icons._get("info"))
-        self.header.info_button.setIcon(icons._get("help"))
+        self.header.help_button.setIcon(icons._get("help"))
         # Update presets icons
         self.preset.save_preset_button.setIcon(icons._get("save"))
         self.preset.delete_preset_button.setIcon(icons._get("delete"))
@@ -1170,7 +1172,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.displacement_widget.reset_disp_button.setIcon(icons._get("reset"))
         # Update footer icons
         self.footer.create_button.setIcon(icons._get("create"))
-        self.footer.stop_button.setIcon(icons._get("Stop"))
+        self.footer.stop_button.setIcon(icons._get("stop"))
         self.footer.save_button.setIcon(icons._get("save"))
 
         # Update dynamic icons (like the visibility and collapsible arrows)
