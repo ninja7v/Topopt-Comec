@@ -202,7 +202,7 @@ class PlottingMixin:
                 all_z,
             )
 
-        if "Regions" in self.last_params:
+        if self.xPhys is not None and "Regions" in self.last_params:
             self._apply_regions(nelx, nely, nelz, is_3d)
 
     def _apply_regions(self, nelx, nely, nelz, is_3d):
@@ -256,9 +256,12 @@ class PlottingMixin:
                         indices = jj + ii * nely
 
             if indices is not None:
-                self.xPhys[:, indices.flatten()] = (
-                    1e-6 if pr["rstate"][i] == "Void" else 1.0
-                )
+                value = 1e-6 if pr["rstate"][i] == "Void" else 1.0
+                flat_idx = indices.flatten()
+                if self.xPhys.ndim == 1:
+                    self.xPhys[flat_idx] = value
+                else:
+                    self.xPhys[:, flat_idx] = value
 
     def _show_initial_message(self, ax, is_3d):
         """Displays initial placeholder message onto canvas before optimization results exist."""
