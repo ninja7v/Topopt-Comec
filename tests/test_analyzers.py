@@ -103,12 +103,12 @@ def test_watertight():
     assert analyzers._watertight(x) is False, "Watertighteness wrongly detected"
 
 
-def test_threholded():
+def test_thresholded():
     """Test thresholded returns True for a fully binarized field."""
     x = np.array([0.0, 0.0, 1.0, 1.0, 0.0, 1.0])
-    assert analyzers._threholded(x) is True
+    assert analyzers._thresholded(x) is True
     x = np.full(100, 0.5)
-    assert analyzers._threholded(x) is False
+    assert analyzers._thresholded(x) is False
 
 
 def test_efficient():

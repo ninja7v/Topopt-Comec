@@ -522,15 +522,6 @@ class ParameterManagerMixin:
             sw["sy"].setMaximum(nely)
             sw["sz"].setMaximum(nelz)
 
-        # Update regions
-        for rw in self.regions_widget.inputs:
-            rw["rx"].setMaximum(nelx)
-            rw["ry"].setMaximum(nely)
-            rw["rz"].setMaximum(nelz)
-            # Radius limit?
-            max_dim = max(nelx, nely, nelz)
-            rw["rradius"].setMaximum(max_dim)
-
     def _scale_parameters(self):
         """Scales all dimensional and positional parameters by a given factor."""
         scale = self.dim_widget.scale.value()
@@ -555,7 +546,7 @@ class ParameterManagerMixin:
             pos_to_scale.append((widget, is_radius))
 
         # --- Gather parameters ---
-        # 1Gather Regions
+        # Gather Regions
         for rw in self.regions_widget.inputs:
             active = rw["rshape"].currentText() != "-"
             for ax in axes:
@@ -600,7 +591,7 @@ class ParameterManagerMixin:
             reply = QMessageBox.question(
                 self,
                 "Scaling Warning",
-                "Scaling would loss initial proportions due to rounding(s). Proceed?",
+                "Scaling would lose initial proportions due to rounding(s). Proceed?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )

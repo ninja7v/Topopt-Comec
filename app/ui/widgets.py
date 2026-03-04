@@ -27,7 +27,7 @@ from .icons import icons
 
 
 # Make spinbox functions to avoid code repetition
-def _make_spin(min_v, max_v, val, width=None, tip=""):
+def _make_spin(min_v, max_v, val, tip="", width=60):
     s = QSpinBox()
     s.setRange(min_v, max_v)
     s.setValue(val)
@@ -37,7 +37,7 @@ def _make_spin(min_v, max_v, val, width=None, tip=""):
     return s
 
 
-def _make_dspin(min_v, max_v, val, step=0.01, width=None, tip=""):
+def _make_dspin(min_v, max_v, val, step=0.01, tip="", width=60):
     s = QDoubleSpinBox()
     s.setRange(min_v, max_v)
     s.setValue(val)
@@ -262,31 +262,32 @@ class DimensionsWidget(QWidget):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout(self)
-        # Size
+        # Line 1: "Size:" [X] x [Y] x [Z]
         size_layout = QHBoxLayout()
         size_layout.addWidget(QLabel("Size:"))
-        self.nx = _make_spin(5, 1000, 60, 70, "X")
+        self.nx = _make_spin(5, 1000, 60, "X")
         size_layout.addWidget(self.nx)
         size_layout.addWidget(QLabel("x"))
-        self.ny = _make_spin(5, 1000, 40, 70, "Y")
+        self.ny = _make_spin(5, 1000, 40, "Y")
         size_layout.addWidget(self.ny)
         size_layout.addWidget(QLabel("x"))
-        self.nz = _make_spin(0, 1000, 0, 70, "Z → set to 0 for a 2D problem")
+        self.nz = _make_spin(0, 1000, 0, "Z → set to 0 for a 2D problem")
         size_layout.addWidget(self.nz)
         size_layout.addStretch()
         layout.addLayout(size_layout)
-        # Volume Fraction
+        # Line 2: "Vol. Frac:" [Spin]
         vol_layout = QHBoxLayout()
         vol_layout.addWidget(QLabel("Vol. Frac:"))
-        self.volfrac = _make_dspin(0.05, 0.8, 0.3, 0.05, None, "Volume Fraction")
+        self.volfrac = _make_dspin(0.05, 0.8, 0.3, 0.05, "Volume Fraction")
         vol_layout.addWidget(self.volfrac)
         vol_layout.addStretch()
         layout.addLayout(vol_layout)
-        # Scale
+        # Line 3: "Scale:" [Spin]   Scale Button
         scale_layout = QHBoxLayout()
         scale_layout.addWidget(QLabel("Scale:"))
+        scale_layout.addSpacing(15)  # Align with line above
         self.scale = _make_dspin(
-            0.5, 5, 1.0, 0.5, None, "Scale every component by this factor"
+            0.5, 5, 1.0, 0.5, "Scale every component by this factor"
         )
         scale_layout.addWidget(self.scale)
         self.scale_button = QPushButton("Scale")
@@ -356,7 +357,7 @@ class RegionsWidget(QWidget):
         line1_layout.addWidget(rstate)
         # Radius
         line1_layout.addWidget(QLabel("Radius:"))
-        rradius = _make_spin(1, 100, rradius, 60, "Radius")
+        rradius = _make_spin(1, 100, rradius, "Radius")
         line1_layout.addWidget(rradius)
         line1_layout.addStretch()
         container_layout.addLayout(line1_layout)
@@ -365,11 +366,11 @@ class RegionsWidget(QWidget):
         line2_layout = QHBoxLayout()
         line2_layout.addSpacing(40)  # Align with line above
         line2_layout.addWidget(QLabel("Center:"))
-        rx = _make_spin(0, 1000, pos[0], 60, "X")
+        rx = _make_spin(0, 1000, pos[0], "X")
         line2_layout.addWidget(rx)
-        ry = _make_spin(0, 1000, pos[1], 60, "Y")
+        ry = _make_spin(0, 1000, pos[1], "Y")
         line2_layout.addWidget(ry)
-        rz = _make_spin(0, 1000, pos[2], 60, "Z")
+        rz = _make_spin(0, 1000, pos[2], "Z")
         line2_layout.addWidget(rz)
         line2_layout.addStretch()
         container_layout.addLayout(line2_layout)
@@ -378,8 +379,7 @@ class RegionsWidget(QWidget):
         # self.main_layout has: grid (now empty/unused?), add_btn
         # We should insert the container into a specific layout for regions.
         # To avoid index mess, let's create a 'regions_layout' VBox
-        if not hasattr(self, "regions_layout"):
-            pass
+
         self.regions_layout.addWidget(container)
 
         self.inputs.append(
@@ -512,9 +512,9 @@ class ForcesWidget(QWidget):
         line1_layout.addWidget(remove_btn)
 
         line1_layout.addWidget(QLabel("Origin:"))
-        fx = _make_spin(0, 1000, pos[0], 70, "X")
-        fy = _make_spin(0, 1000, pos[1], 70, "Y")
-        fz = _make_spin(0, 1000, pos[2], 70, "Z")
+        fx = _make_spin(0, 1000, pos[0], "X")
+        fy = _make_spin(0, 1000, pos[1], "Y")
+        fz = _make_spin(0, 1000, pos[2], "Z")
         line1_layout.addWidget(fx)
         line1_layout.addWidget(fy)
         line1_layout.addWidget(fz)
@@ -529,7 +529,7 @@ class ForcesWidget(QWidget):
         line2_layout.addWidget(fdir)
         line2_layout.addSpacing(20)
         line2_layout.addWidget(QLabel("Force (N):"))
-        fnorm = _make_dspin(0, 10, norm, 0.01, None, "Force magnitude for input")
+        fnorm = _make_dspin(0, 10, norm, 0.01, "Force magnitude for input")
         line2_layout.addWidget(fnorm)
         line2_layout.addStretch()
         container_layout.addLayout(line2_layout)
@@ -573,9 +573,9 @@ class ForcesWidget(QWidget):
         line1_layout.addWidget(remove_btn)
 
         line1_layout.addWidget(QLabel("Origin:"))
-        fx = _make_spin(0, 1000, pos[0], 70, "X")
-        fy = _make_spin(0, 1000, pos[1], 70, "Y")
-        fz = _make_spin(0, 1000, pos[2], 70, "Z")
+        fx = _make_spin(0, 1000, pos[0], "X")
+        fy = _make_spin(0, 1000, pos[1], "Y")
+        fz = _make_spin(0, 1000, pos[2], "Z")
         line1_layout.addWidget(fx)
         line1_layout.addWidget(fy)
         line1_layout.addWidget(fz)
@@ -590,7 +590,7 @@ class ForcesWidget(QWidget):
         line2_layout.addWidget(fdir)
         line2_layout.addSpacing(20)
         line2_layout.addWidget(QLabel("Spring (N/m):"))
-        fnorm = _make_dspin(0, 10, norm, 0.01, None, "Spring stiffness for output")
+        fnorm = _make_dspin(0, 10, norm, 0.01, "Spring stiffness for output")
         line2_layout.addWidget(fnorm)
         line2_layout.addStretch()
         container_layout.addLayout(line2_layout)
@@ -693,10 +693,9 @@ class SupportWidget(QWidget):
         container_layout = QVBoxLayout(container)
         container_layout.setContentsMargins(0, 5, 0, 5)
 
-        # --- Line 1: "Center:" [X] [Y] [Z] ---
+        # Line 1: [Minus] "Center:" [X] [Y] [Z]
         line1_layout = QHBoxLayout()
 
-        # Remove button
         remove_btn = QPushButton("−")
         remove_btn.setFixedWidth(30)
         remove_btn.setToolTip("Remove this support")
@@ -704,24 +703,24 @@ class SupportWidget(QWidget):
         line1_layout.addWidget(remove_btn)
 
         line1_layout.addWidget(QLabel("Center:"))
-        sx = _make_spin(0, 1000, pos[0], 65, "X")
-        sy = _make_spin(0, 1000, pos[1], 65, "Y")
-        sz = _make_spin(0, 1000, pos[2], 65, "Z")
+        sx = _make_spin(0, 1000, pos[0], "X")
+        sy = _make_spin(0, 1000, pos[1], "Y")
+        sz = _make_spin(0, 1000, pos[2], "Z")
         line1_layout.addWidget(sx)
         line1_layout.addWidget(sy)
         line1_layout.addWidget(sz)
         line1_layout.addStretch()
         container_layout.addLayout(line1_layout)
 
-        # --- Line 2: "Fixed:" [Dim] "Radius:" [Radius] ---
+        # Line 2: "Fixed:" [Dim]   "Radius:" [Radius]
         line2_layout = QHBoxLayout()
         line2_layout.addSpacing(40)  # Align with line above
         line2_layout.addWidget(QLabel("Fixed:"))
         sdim = _make_combo(self.dims, self.dims.index(dim), "Fixed direction(s)")
         line2_layout.addWidget(sdim)
-
+        line2_layout.addSpacing(20)
         line2_layout.addWidget(QLabel("Radius:"))
-        sr = _make_spin(0, 10, radius, 60, "Support's radius (0 = single node)")
+        sr = _make_spin(0, 10, radius, "Support's radius (0 = single node)")
         line2_layout.addWidget(sr)
         line2_layout.addStretch()
         container_layout.addLayout(line2_layout)
@@ -835,10 +834,10 @@ class MaterialsWidget(QWidget):
             color = QColor(color)
         color_btn = ColorPickerButton(color)
         line1.addWidget(color_btn)
-        line1.addSpacing(30)
+        line1.addSpacing(20)
         # Percentage
         line1.addWidget(QLabel("%:"))
-        mat_percent = _make_spin(0, 100, percent, 70, "Volume Fraction percentage")
+        mat_percent = _make_spin(0, 100, percent, "Volume Fraction percentage")
         mat_percent.setSingleStep(5)
         mat_percent.valueChanged.connect(self._on_percent_changed)
         line1.addWidget(mat_percent)
@@ -851,7 +850,7 @@ class MaterialsWidget(QWidget):
         # Young's Modulus
         line2.addWidget(QLabel("E:"))
         mat_E = _make_dspin(
-            0.1, 100.0, E, 0.05, 70, "Young's Modulus, material’s stiffness"
+            0.1, 100.0, E, 0.05, "Young's Modulus, material’s stiffness"
         )
         line2.addWidget(mat_E)
         line2.addSpacing(20)
@@ -862,7 +861,6 @@ class MaterialsWidget(QWidget):
             0.49,
             nu,
             0.05,
-            70,
             "Poisson's Ratio, material’s lateral shrinkage relative to its elongation",
         )
         line2.addWidget(mat_nu)
@@ -955,7 +953,7 @@ class OptimizerWidget(QWidget):
         # Filter Radius
         layout.addWidget(QLabel("Filter Radius:"), 1, 0)
         self.opt_fr = _make_dspin(
-            0.1, 10.0, 1.3, 0.01, None, "Range of the filter coverage"
+            0.1, 10.0, 1.3, 0.01, "Range of the filter coverage", None
         )
         layout.addWidget(self.opt_fr, 1, 1)
         # Penalization
@@ -965,8 +963,8 @@ class OptimizerWidget(QWidget):
             10.0,
             3.0,
             0.01,
-            None,
             "Exponent in the SIMP method to penalize intermediate densities",
+            None,
         )
         layout.addWidget(self.opt_p, 2, 1)
         # Eta
@@ -976,8 +974,8 @@ class OptimizerWidget(QWidget):
             1.0,
             0.3,
             0.05,
-            None,
             "Damping factor in OC update rule to controls aggressiveness of density updates.\nLower eta: slower, more stable convergence; Higher eta: faster, but risk",
+            None,
         )
         layout.addWidget(self.opt_eta, 3, 1)
         # Max change
@@ -987,14 +985,14 @@ class OptimizerWidget(QWidget):
             0.5,
             0.05,
             0.05,
-            None,
             "Bound the density change between two iterations to a maximum value",
+            None,
         )
         layout.addWidget(self.opt_max_change, 4, 1)
         # Iterations
         layout.addWidget(QLabel("Iterations:"), 5, 0)
         self.opt_n_it = _make_spin(
-            1, 100, 30, None, "Number of optimization iterations"
+            1, 100, 30, "Number of optimization iterations", None
         )
         layout.addWidget(self.opt_n_it, 5, 1)
         # Solver
@@ -1010,7 +1008,7 @@ class OptimizerWidget(QWidget):
 
 
 class AnalysisWidget(QWidget):
-    """Custom widget for optimizer inputs."""
+    """Custom widget for analysis."""
 
     def __init__(self):
         super().__init__()
@@ -1019,7 +1017,7 @@ class AnalysisWidget(QWidget):
         layout.addWidget(QLabel("Checkerboard:"), 0, 0)
         self.checkerboard_result = QLabel("-")
         self.checkerboard_result.setToolTip(
-            "Check if the mechanism contains some checkerboard paterns"
+            "Check if the mechanism contains some checkerboard patterns"
         )
         layout.addWidget(self.checkerboard_result, 0, 1)
         # Watertight
@@ -1069,8 +1067,8 @@ class DisplacementWidget(QWidget):
             100.0,
             1.0,
             0.1,
-            None,
             "Total scaling factor for the displacement animation",
+            None,
         )
         layout.addWidget(self.mov_disp, 0, 1)
         # Iterations
@@ -1079,8 +1077,8 @@ class DisplacementWidget(QWidget):
             1,
             20,
             1,
-            None,
             "Number of frames in the displacement animation.\nIf more than 1 iteration is set, a more complex function is used since it requires an domain enlargement and interpolations.",
+            None,
         )
         layout.addWidget(self.mov_iter, 1, 1)
         self.button_stack = QStackedLayout()
@@ -1098,7 +1096,9 @@ class DisplacementWidget(QWidget):
         # Reset button
         self.reset_disp_button = QPushButton("Reset View")
         self.reset_disp_button.setIcon(icons._get("reset"))
-        self.reset_disp_button.setToolTip("Reset the mechasim to its original position")
+        self.reset_disp_button.setToolTip(
+            "Reset the mechanism to its original position"
+        )
         self.button_stack.addWidget(self.reset_disp_button)
         self.button_stack_widget = QWidget()
         self.button_stack_widget.setLayout(self.button_stack)

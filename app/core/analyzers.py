@@ -7,7 +7,7 @@ import numpy as np
 
 
 def _checkerboard(x: np.ndarray) -> bool:
-    """check if the mechanism contains a checkerboard pattern"""
+    """Check if the mechanism contains a checkerboard pattern."""
     # Apply a mask [[0, 1], [1, 0]] to the xPhys array with a tolerance to detect checkerboard patterns
     xbin = (x > 0.5).astype(int)
     if xbin.ndim == 2:
@@ -33,14 +33,14 @@ def _checkerboard(x: np.ndarray) -> bool:
         for i in range(h - 2):
             for j in range(w - 2):
                 for k in range(d - 2):
-                    block = xbin[i : i + 3, j : j + 3, k : d + 3]
+                    block = xbin[i : i + 3, j : j + 3, k : k + 3]
                     if np.array_equal(block, mask1) or np.array_equal(block, mask2):
                         return True
     return False
 
 
 def _watertight(x: np.ndarray) -> bool:
-    """check if the mechanism is watertight"""
+    """Check if the mechanism is watertight."""
     # Binarize xPhys with a threshold of 0.5 to get a binary image
     xbin = (x > 0.5).astype(int)
     from scipy.ndimage import label, generate_binary_structure
@@ -55,15 +55,15 @@ def _watertight(x: np.ndarray) -> bool:
     return n == 1  # If there is only one connected component (connex), it is watertight
 
 
-def _threholded(xPhys: np.ndarray) -> bool:
-    """check if the mechanism is threholded"""
+def _thresholded(xPhys: np.ndarray) -> bool:
+    """Check if the mechanism is thresholded."""
     # Check if np.mean(np.minimum(x, 1 - x)) is close to 0 (worst case is 0.5 where all elements are at 0.5)
     mean = np.mean(np.minimum(xPhys, 1 - xPhys))
     return bool(mean < 0.1)
 
 
 def _efficient(u: np.ndarray, Dimensions: Dict, Forces: Dict) -> bool:
-    """check if the mechanism is efficient"""
+    """Check if the mechanism is efficient."""
     nelx, nely, nelz = Dimensions["nelxyz"]
     is_3d = nelz > 0
     dim_mul = 3 if is_3d else 2
@@ -148,7 +148,7 @@ def analyze(
     Forces: Dict,
     progress_callback: Optional[Callable] = None,
 ) -> Tuple[bool, bool, bool, bool]:
-    """Analyze the mechanism"""
+    """Analyze the mechanism."""
     xPhys_copy = xPhys.copy()
     if xPhys.ndim == 2:
         xPhys_copy = np.clip(xPhys_copy.sum(axis=0, keepdims=True), 0.0, 1.0)
@@ -170,7 +170,7 @@ def analyze(
         print("Optimization stopped by user.")
         return contains_checkerboard, is_watertight, False, False
 
-    is_thresholded = _threholded(xPhys)
+    is_thresholded = _thresholded(xPhys)
     if progress_callback and progress_callback(3):
         print("Optimization stopped by user.")
         return contains_checkerboard, is_watertight, is_thresholded, False

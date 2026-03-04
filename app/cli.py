@@ -95,7 +95,7 @@ def run_cli():
     else:
         formats = [args.format]
     for fmt in formats:
-        filename = str(base_filename.with_suffix(f".{fmt if fmt != 'stl' else 'stl'}"))
+        filename = str(base_filename.with_suffix(f".{fmt}"))
         print(f"Saving {fmt.upper()} to {filename}...")
 
         success = False

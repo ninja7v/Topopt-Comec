@@ -160,7 +160,7 @@ class AnalysisWorker(QThread, Worker):
         self._stop_requested = True
 
     def run(self):
-        """Executes the displacement based on provided parameters."""
+        """Executes the analysis based on provided parameters."""
         try:
             analysis_params = self.params.copy()
             analysis_params["xPhys"] = self.xPhys
@@ -171,8 +171,7 @@ class AnalysisWorker(QThread, Worker):
                 analysis_params.pop("Displacement", None)
             if "Materials" in analysis_params:
                 analysis_params.pop("Materials", None)
-            if "Displacement" in analysis_params:
-                analysis_params.pop("Displacement", None)
+
             if "Optimizer" in analysis_params:
                 analysis_params.pop("Optimizer", None)
             if "Supports" in analysis_params:
