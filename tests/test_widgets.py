@@ -102,30 +102,91 @@ def test_regions_widget_initialization(qt_app):
 
 
 def test_forces_widget_initialization(qt_app):
-    """Unit Test: Verifies the ForcesWidget initializes with exactly 3 force rows."""
+    """Unit Test: Verifies the ForcesWidget initializes correctly and can add/remove forces."""
     widget = ForcesWidget()
 
+    # Should start with 1 input force and 1 output force by default
     assert (
-        len(widget.inputs) >= 2
-    ), "ForcesWidget should always create at least 2 force rows."
+        len(widget.input_forces) == 1
+    ), "ForcesWidget should start with exactly 1 input force."
+    assert (
+        len(widget.output_forces) == 1
+    ), "ForcesWidget should start with exactly 1 output force."
 
-    first_iforce = widget.inputs[0]
-    first_oforce = widget.inputs[2]
     # Check instances
+    first_iforce = widget.input_forces[0]
     assert "fix" in first_iforce and isinstance(first_iforce["fix"], QSpinBox)
     assert "fiy" in first_iforce and isinstance(first_iforce["fiy"], QSpinBox)
     assert "fidir" in first_iforce and isinstance(first_iforce["fidir"], QComboBox)
+    assert "remove_btn" in first_iforce and isinstance(
+        first_iforce["remove_btn"], QPushButton
+    )
+
+    first_oforce = widget.output_forces[0]
     assert "fox" in first_oforce and isinstance(first_oforce["fox"], QSpinBox)
     assert "foy" in first_oforce and isinstance(first_oforce["foy"], QSpinBox)
     assert "fodir" in first_oforce and isinstance(first_oforce["fodir"], QComboBox)
+    assert "remove_btn" in first_oforce and isinstance(
+        first_oforce["remove_btn"], QPushButton
+    )
 
-    # Check default values
-    assert first_iforce["fix"].value() == 30
-    assert first_iforce["fiy"].value() == 0
-    assert first_iforce["fidir"].currentText() == "Y:↑"
-    assert first_oforce["fox"].value() == 30
-    assert first_oforce["foy"].value() == 40
-    assert first_oforce["fodir"].currentText() == "Y:↓"
+    # Test add input force button
+    widget.add_if_btn.click()
+    qt_app.processEvents()
+    assert (
+        len(widget.input_forces) == 2
+    ), "Clicking on add input force should add an input force."
+
+    # Test add output force button
+    widget.add_of_btn.click()
+    qt_app.processEvents()
+    assert (
+        len(widget.output_forces) == 2
+    ), "Clicking on add output force should add an output force."
+
+    # Test remove input force button
+    new_iforce = widget.input_forces[-1]
+    new_iforce["remove_btn"].click()
+    qt_app.processEvents()
+    assert (
+        len(widget.input_forces) == 1
+    ), "Clicking on remove input force should delete an input force."
+
+    # Test remove output force button
+    new_oforce = widget.output_forces[-1]
+    new_oforce["remove_btn"].click()
+    qt_app.processEvents()
+    assert (
+        len(widget.output_forces) == 1
+    ), "Clicking on remove output force should delete an output force."
+
+    # Test min limits (1 for input, 0 for output)
+    # Remove all input forces
+    while len(widget.input_forces) > 1:
+        widget.input_forces[-1]["remove_btn"].click()
+        qt_app.processEvents()
+    assert (
+        len(widget.input_forces) == 1
+    ), "Should not allow removing the last input force."
+    # Check that remove button is disabled
+    assert not widget.input_forces[0][
+        "remove_btn"
+    ].isEnabled(), "Remove button for last input force should be disabled."
+
+    # Remove all output forces
+    while len(widget.output_forces) > 0:
+        widget.output_forces[-1]["remove_btn"].click()
+        qt_app.processEvents()
+    assert len(widget.output_forces) == 0, "Should allow removing all output forces."
+
+    # Test max limits
+    for _ in range(15):
+        widget.add_input_force()
+        widget.add_output_force()
+    assert len(widget.input_forces) == 10, "Should not allow more than 10 input forces."
+    assert (
+        len(widget.output_forces) == 10
+    ), "Should not allow more than 10 output forces."
 
 
 def test_support_widget_initialization(qt_app):

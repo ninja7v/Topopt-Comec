@@ -438,82 +438,216 @@ class RegionsWidget(QWidget):
 class ForcesWidget(QWidget):
     """Custom widget for defining the input and output forces."""
 
+    nbForcesChanged = Signal()
+
     def __init__(self):
         super().__init__()
-        self.inputs = (
-            []
-        )  # This list will hold the input widgets so the MainWindow can access them
+        self.input_forces = []
+        self.output_forces = []
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setSpacing(10)
 
-        arrows = ["-", "X:→", "X:←", "Y:↑", "Y:↓", "Z:<", "Z:>"]
-        iorigins, iarrows, inorms = [[30, 0, 0], [0, 0, 0]], [3, 0], [0.01, 0.0]
-        oorigins, oarrows, onorms = [[30, 40, 0], [0, 0, 0]], [4, 0], [0.01, 0.0]
+        self.arrows = ["-", "X:→", "X:←", "Y:↑", "Y:↓", "Z:<", "Z:>"]
 
-        self._add_section("Input", "red", 2, iorigins, arrows, iarrows, inorms, True)
-        self._add_section("Output", "blue", 2, oorigins, arrows, oarrows, onorms, False)
+        # Input forces section
+        input_label = QLabel("Input")
+        input_label.setStyleSheet("color: red;")
+        self.main_layout.addWidget(input_label)
 
-    def _add_section(
-        self, title, color, count, origins, arrows, arrow_indices, norms, is_input
-    ):
-        label = QLabel(title)
-        label.setStyleSheet(f"color: {color};")
-        self.main_layout.addWidget(label)
-        for i in range(count):
-            self._add_row(i, origins, arrows, arrow_indices, norms, is_input)
-            if i < count - 1:
-                self._add_separator()
+        self.input_layout = QVBoxLayout()
+        self.input_layout.setSpacing(10)
+        self.main_layout.addLayout(self.input_layout)
 
-    def _add_row(self, i, origins, arrows, arrow_indices, norms, is_input):
-        grid = QGridLayout()
-        grid.setColumnStretch(1, 1)
-        grid.addWidget(QLabel("Origin:"), 0, 0)
+        self.add_if_btn = QPushButton("+ Add Input Force")
+        self.add_if_btn.clicked.connect(lambda: self.add_input_force())
+        self.add_if_btn.setToolTip("Add an input force")
+        self.main_layout.addWidget(self.add_if_btn, alignment=Qt.AlignLeft)
 
-        pos_layout = QHBoxLayout()
-        key_prefix = "fi" if is_input else "fo"
-
-        fx = _make_spin(0, 1000, origins[i][0], 70, "X")
-        fy = _make_spin(0, 1000, origins[i][1], 70, "Y")
-        fz = _make_spin(0, 1000, origins[i][2], 70, "Z")
-        for w in [fx, fy, fz]:
-            pos_layout.addWidget(w)
-        grid.addLayout(pos_layout, 0, 1)
-
-        dir_layout = QHBoxLayout()
-        dir_layout.addWidget(QLabel("Dir:"))
-        fdir = _make_combo(arrows, arrow_indices[i], "Force direction")
-        dir_layout.addWidget(fdir)
-        dir_layout.addSpacing(20)
-        dir_layout.addWidget(QLabel("Spring (N/m):"))
-        fnorm = _make_dspin(
-            0,
-            10,
-            norms[i],
-            0.01,
-            None,
-            "Force magnitude for input, spring stiffness for output",
-        )
-        dir_layout.addWidget(fnorm)
-        dir_layout.addStretch()
-        grid.addLayout(dir_layout, 1, 0, 1, 2)
-
-        self.main_layout.addLayout(grid)
-        self.inputs.append(
-            {
-                f"{key_prefix}x": fx,
-                f"{key_prefix}y": fy,
-                f"{key_prefix}z": fz,
-                f"{key_prefix}dir": fdir,
-                f"{key_prefix}norm": fnorm,
-            }
-        )
-
-    def _add_separator(self):
+        # Separator
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
         self.main_layout.addWidget(line)
+
+        # Output forces section
+        output_label = QLabel("Output")
+        output_label.setStyleSheet("color: blue;")
+        self.main_layout.addWidget(output_label)
+
+        self.output_layout = QVBoxLayout()
+        self.output_layout.setSpacing(10)
+        self.main_layout.addLayout(self.output_layout)
+
+        self.add_of_btn = QPushButton("+ Add Output Force")
+        self.add_of_btn.clicked.connect(lambda: self.add_output_force())
+        self.add_of_btn.setToolTip("Add an output force")
+        self.main_layout.addWidget(self.add_of_btn, alignment=Qt.AlignLeft)
+
+        # Initialize default values
+        self.add_input_force([30, 0, 0], 3, 0.01, emit_signal=False)
+        self.add_output_force([30, 40, 0], 4, 0.01, emit_signal=False)
+
+    @property
+    def inputs(self):
+        return self.input_forces + self.output_forces
+
+    def add_input_force(self, pos=None, arrow_idx=0, norm=0.0, emit_signal=True):
+        if len(self.input_forces) >= 10:
+            return
+
+        if pos is None:
+            pos = [0, 0, 0]
+
+        container = QWidget()
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 5, 0, 5)
+
+        # Line 1
+        line1_layout = QHBoxLayout()
+        remove_btn = QPushButton("−")
+        remove_btn.setFixedWidth(30)
+        remove_btn.setToolTip("Remove this input force")
+        remove_btn.clicked.connect(lambda: self.remove_force_by_widget(container, True))
+        line1_layout.addWidget(remove_btn)
+
+        line1_layout.addWidget(QLabel("Origin:"))
+        fx = _make_spin(0, 1000, pos[0], 70, "X")
+        fy = _make_spin(0, 1000, pos[1], 70, "Y")
+        fz = _make_spin(0, 1000, pos[2], 70, "Z")
+        line1_layout.addWidget(fx)
+        line1_layout.addWidget(fy)
+        line1_layout.addWidget(fz)
+        line1_layout.addStretch()
+        container_layout.addLayout(line1_layout)
+
+        # Line 2
+        line2_layout = QHBoxLayout()
+        line2_layout.addSpacing(40)
+        line2_layout.addWidget(QLabel("Dir:"))
+        fdir = _make_combo(self.arrows, arrow_idx, "Force direction")
+        line2_layout.addWidget(fdir)
+        line2_layout.addSpacing(20)
+        line2_layout.addWidget(QLabel("Force (N):"))
+        fnorm = _make_dspin(0, 10, norm, 0.01, None, "Force magnitude for input")
+        line2_layout.addWidget(fnorm)
+        line2_layout.addStretch()
+        container_layout.addLayout(line2_layout)
+
+        self.input_layout.addWidget(container)
+        self.input_forces.append(
+            {
+                "fix": fx,
+                "fiy": fy,
+                "fiz": fz,
+                "fidir": fdir,
+                "finorm": fnorm,
+                "container": container,
+                "remove_btn": remove_btn,
+            }
+        )
+
+        if emit_signal:
+            self.nbForcesChanged.emit()
+        self.update_ui_state()
+
+    def add_output_force(self, pos=None, arrow_idx=0, norm=0.0, emit_signal=True):
+        if len(self.output_forces) >= 10:
+            return
+
+        if pos is None:
+            pos = [0, 0, 0]
+
+        container = QWidget()
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 5, 0, 5)
+
+        # Line 1
+        line1_layout = QHBoxLayout()
+        remove_btn = QPushButton("−")
+        remove_btn.setFixedWidth(30)
+        remove_btn.setToolTip("Remove this output force")
+        remove_btn.clicked.connect(
+            lambda: self.remove_force_by_widget(container, False)
+        )
+        line1_layout.addWidget(remove_btn)
+
+        line1_layout.addWidget(QLabel("Origin:"))
+        fx = _make_spin(0, 1000, pos[0], 70, "X")
+        fy = _make_spin(0, 1000, pos[1], 70, "Y")
+        fz = _make_spin(0, 1000, pos[2], 70, "Z")
+        line1_layout.addWidget(fx)
+        line1_layout.addWidget(fy)
+        line1_layout.addWidget(fz)
+        line1_layout.addStretch()
+        container_layout.addLayout(line1_layout)
+
+        # Line 2
+        line2_layout = QHBoxLayout()
+        line2_layout.addSpacing(40)
+        line2_layout.addWidget(QLabel("Dir:"))
+        fdir = _make_combo(self.arrows, arrow_idx, "Force direction")
+        line2_layout.addWidget(fdir)
+        line2_layout.addSpacing(20)
+        line2_layout.addWidget(QLabel("Spring (N/m):"))
+        fnorm = _make_dspin(0, 10, norm, 0.01, None, "Spring stiffness for output")
+        line2_layout.addWidget(fnorm)
+        line2_layout.addStretch()
+        container_layout.addLayout(line2_layout)
+
+        self.output_layout.addWidget(container)
+        self.output_forces.append(
+            {
+                "fox": fx,
+                "foy": fy,
+                "foz": fz,
+                "fodir": fdir,
+                "fonorm": fnorm,
+                "container": container,
+                "remove_btn": remove_btn,
+            }
+        )
+
+        if emit_signal:
+            self.nbForcesChanged.emit()
+        self.update_ui_state()
+
+    def remove_force_by_widget(self, container, is_input):
+        target_list = self.input_forces if is_input else self.output_forces
+        idx = -1
+        for i, force in enumerate(target_list):
+            if force["container"] == container:
+                idx = i
+                break
+
+        if idx != -1:
+            self.remove_force(idx, is_input)
+
+    def remove_force(self, row, is_input, emit_signal=True):
+        target_list = self.input_forces if is_input else self.output_forces
+        if row < 0 or row >= len(target_list):
+            return
+
+        force = target_list.pop(row)
+        force["container"].deleteLater()
+        force["container"].setParent(None)
+
+        if emit_signal:
+            self.nbForcesChanged.emit()
+        self.update_ui_state()
+
+    def update_ui_state(self):
+        can_add_input = len(self.input_forces) < 10
+        can_remove_input = len(self.input_forces) > 1
+        self.add_if_btn.setEnabled(can_add_input)
+        for force in self.input_forces:
+            force["remove_btn"].setEnabled(can_remove_input)
+
+        can_add_output = len(self.output_forces) < 10
+        can_remove_output = len(self.output_forces) > 0  # allow 0 output forces
+        self.add_of_btn.setEnabled(can_add_output)
+        for force in self.output_forces:
+            force["remove_btn"].setEnabled(can_remove_output)
 
 
 class SupportWidget(QWidget):

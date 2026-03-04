@@ -210,24 +210,10 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         section.set_visibility_toggle(True)
         section.visibility_button.toggled.connect(self._on_visibility_toggled)
 
-        # 3. Connect the signals from the widgets INSIDE the ForcesWidget
-        for force_group in self.forces_widget.inputs:
-            if "fix" in force_group:
-                force_group["fix"].valueChanged.connect(self.on_parameter_changed)
-                force_group["fiy"].valueChanged.connect(self.on_parameter_changed)
-                force_group["fiz"].valueChanged.connect(self.on_parameter_changed)
-                force_group["fidir"].currentIndexChanged.connect(
-                    self.on_parameter_changed
-                )
-                force_group["finorm"].valueChanged.connect(self.on_parameter_changed)
-            elif "fox" in force_group:
-                force_group["fox"].valueChanged.connect(self.on_parameter_changed)
-                force_group["foy"].valueChanged.connect(self.on_parameter_changed)
-                force_group["foz"].valueChanged.connect(self.on_parameter_changed)
-                force_group["fodir"].currentIndexChanged.connect(
-                    self.on_parameter_changed
-                )
-                force_group["fonorm"].valueChanged.connect(self.on_parameter_changed)
+        self.forces_widget.add_if_btn.clicked.connect(self._connect_forces_signals)
+        self.forces_widget.add_of_btn.clicked.connect(self._connect_forces_signals)
+        self.forces_widget.nbForcesChanged.connect(self.on_parameter_changed)
+        self._connect_forces_signals()
 
         return section
 
@@ -889,7 +875,26 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         """Sets all UI widgets to the values from a given parameter dictionary."""
         self._block_all_parameter_signals(True)
 
-        # --- Dimensions ---
+        self._apply_dimensions_param(params)
+        self._apply_regions_param(params)
+        self._apply_forces_param(params)
+        self._apply_supports_param(params)
+        self._apply_materials_param(params)
+        self._apply_optimizer_param(params)
+        self._apply_displacement_param(params)
+
+        # Unblock signals
+        self._block_all_parameter_signals(False)
+
+        # Manually trigger a single update
+        self._update_position_ranges()
+        self.on_parameter_changed()
+        self.status_bar.showMessage(
+            f"Loaded preset: {self.preset.presets_combo.currentText()}", 3000
+        )
+
+    def _apply_dimensions_param(self, params):
+        """Applies dimension parameters from a preset dictionary."""
         Dimensions = params.get("Dimensions", {})
         self.dim_widget.nx.setValue(Dimensions.get("nelxyz", [1, 1, 1])[0])
         self.dim_widget.ny.setValue(Dimensions.get("nelxyz", [1, 1, 1])[1])
@@ -897,7 +902,8 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.dim_widget.volfrac.setValue(Dimensions.get("volfrac", 0.3))
         self._update_position_ranges()
 
-        # --- Regions (optional) ---
+    def _apply_regions_param(self, params):
+        """Applies region parameters from a preset dictionary."""
         pr = params.get("Regions", {})
         num_regions_in_preset = len(pr.get("rshape", []))
         current_num_regions = len(self.regions_widget.inputs)
@@ -921,25 +927,60 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             rw["rz"].setValue(pr["rz"][i])
         self._connect_region_signals()
 
-        # --- Forces ---
+    def _apply_forces_param(self, params):
+        """Applies force parameters from a preset dictionary."""
         pf = params.get("Forces", {})
-        nb_input_forces = 0
-        for i, fw in enumerate(self.forces_widget.inputs):
-            if "fix" in fw:
-                fw["fix"].setValue(pf["fix"][i])
-                fw["fiy"].setValue(pf["fiy"][i])
-                fw["fiz"].setValue(pf["fiz"][i])
-                fw["fidir"].setCurrentText(pf["fidir"][i])
-                fw["finorm"].setValue(pf["finorm"][i])
-                nb_input_forces += 1
-            else:
-                fw["fox"].setValue(pf["fox"][i - nb_input_forces])
-                fw["foy"].setValue(pf["foy"][i - nb_input_forces])
-                fw["foz"].setValue(pf["foz"][i - nb_input_forces])
-                fw["fodir"].setCurrentText(pf["fodir"][i - nb_input_forces])
-                fw["fonorm"].setValue(pf["fonorm"][i - nb_input_forces])
 
-        # --- Supports (optional) ---
+        # Input forces
+        nb_input_forces = len(pf.get("fix", [])) if "fix" in pf else 0
+        current_input_num = len(self.forces_widget.input_forces)
+        while current_input_num > nb_input_forces:
+            last_btn = self.forces_widget.input_forces[-1]["remove_btn"]
+            try:
+                last_btn.clicked.disconnect(self.on_parameter_changed)
+            except TypeError:
+                pass
+            self.forces_widget.remove_force(current_input_num - 1, True, False)
+            current_input_num -= 1
+        while current_input_num < nb_input_forces:
+            self.forces_widget.add_input_force(emit_signal=False)
+            current_input_num += 1
+
+        for i in range(nb_input_forces):
+            fw = self.forces_widget.input_forces[i]
+            fw["fix"].setValue(pf["fix"][i])
+            fw["fiy"].setValue(pf["fiy"][i])
+            fw["fiz"].setValue(pf["fiz"][i])
+            fw["fidir"].setCurrentText(pf["fidir"][i])
+            fw["finorm"].setValue(pf["finorm"][i])
+
+        # Output forces
+        nb_output_forces = len(pf.get("fox", [])) if "fox" in pf else 0
+        current_output_num = len(self.forces_widget.output_forces)
+        while current_output_num > nb_output_forces:
+            last_btn = self.forces_widget.output_forces[-1]["remove_btn"]
+            try:
+                last_btn.clicked.disconnect(self.on_parameter_changed)
+            except TypeError:
+                pass
+            self.forces_widget.remove_force(current_output_num - 1, False, False)
+            current_output_num -= 1
+        while current_output_num < nb_output_forces:
+            self.forces_widget.add_output_force(emit_signal=False)
+            current_output_num += 1
+
+        for i in range(nb_output_forces):
+            fw = self.forces_widget.output_forces[i]
+            fw["fox"].setValue(pf["fox"][i])
+            fw["foy"].setValue(pf["foy"][i])
+            fw["foz"].setValue(pf["foz"][i])
+            fw["fodir"].setCurrentText(pf["fodir"][i])
+            fw["fonorm"].setValue(pf["fonorm"][i])
+
+        self._connect_forces_signals()
+
+    def _apply_supports_param(self, params):
+        """Applies support parameters from a preset dictionary."""
         ps = params.get("Supports", {})
         num_supports_in_preset = len(ps.get("sx", []))
         current_num = len(self.supports_widget.inputs)
@@ -963,7 +1004,8 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             sw["sr"].setValue(ps["sr"][i])
         self._connect_support_signals()
 
-        # --- Materials ---
+    def _apply_materials_param(self, params):
+        """Applies material parameters from a preset dictionary."""
         pm = params.get("Materials", {})
         num_material_in_preset = len(pm.get("E", []))
         current_num = len(self.materials_widget.inputs)
@@ -992,7 +1034,8 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.materials_widget.mat_init_type.setCurrentIndex(pm.get("init_type", 0))
         self._connect_material_signals()
 
-        # --- Optimizer ---
+    def _apply_optimizer_param(self, params):
+        """Applies optimizer parameters from a preset dictionary."""
         po = params.get("Optimizer", {})
         self.optimizer_widget.opt_ft.setCurrentIndex(
             0
@@ -1006,22 +1049,28 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.optimizer_widget.opt_n_it.setValue(po.get("n_it", 30))
         self.optimizer_widget.opt_solver.setCurrentText(po.get("solver", "Auto"))
 
-        # --- Displacement ---
+    def _apply_displacement_param(self, params):
+        """Applies displacement parameters from a preset dictionary."""
         Displacement = params.get("Displacement", {})
         self.displacement_widget.mov_disp.setValue(Displacement.get("disp_factor", 1.0))
         self.displacement_widget.mov_iter.setValue(
             Displacement.get("disp_iterations", 1)
         )
 
-        # --- Unblock signals ---
-        self._block_all_parameter_signals(False)
-
-        # Manually trigger a single update
-        self._update_position_ranges()
-        self.on_parameter_changed()
-        self.status_bar.showMessage(
-            f"Loaded preset: {self.preset.presets_combo.currentText()}", 3000
-        )
+    def _connect_forces_signals(self):
+        """(Re)connects on_parameter_changed signals to all current forces widgets."""
+        for force_group in self.forces_widget.input_forces:
+            force_group["fix"].valueChanged.connect(self.on_parameter_changed)
+            force_group["fiy"].valueChanged.connect(self.on_parameter_changed)
+            force_group["fiz"].valueChanged.connect(self.on_parameter_changed)
+            force_group["fidir"].currentIndexChanged.connect(self.on_parameter_changed)
+            force_group["finorm"].valueChanged.connect(self.on_parameter_changed)
+        for force_group in self.forces_widget.output_forces:
+            force_group["fox"].valueChanged.connect(self.on_parameter_changed)
+            force_group["foy"].valueChanged.connect(self.on_parameter_changed)
+            force_group["foz"].valueChanged.connect(self.on_parameter_changed)
+            force_group["fodir"].currentIndexChanged.connect(self.on_parameter_changed)
+            force_group["fonorm"].valueChanged.connect(self.on_parameter_changed)
 
     def _connect_support_signals(self):
         """(Re)connects on_parameter_changed signals to all current support widgets."""
