@@ -210,24 +210,10 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         section.set_visibility_toggle(True)
         section.visibility_button.toggled.connect(self._on_visibility_toggled)
 
-        # 3. Connect the signals from the widgets INSIDE the ForcesWidget
-        for force_group in self.forces_widget.inputs:
-            if "fix" in force_group:
-                force_group["fix"].valueChanged.connect(self.on_parameter_changed)
-                force_group["fiy"].valueChanged.connect(self.on_parameter_changed)
-                force_group["fiz"].valueChanged.connect(self.on_parameter_changed)
-                force_group["fidir"].currentIndexChanged.connect(
-                    self.on_parameter_changed
-                )
-                force_group["finorm"].valueChanged.connect(self.on_parameter_changed)
-            elif "fox" in force_group:
-                force_group["fox"].valueChanged.connect(self.on_parameter_changed)
-                force_group["foy"].valueChanged.connect(self.on_parameter_changed)
-                force_group["foz"].valueChanged.connect(self.on_parameter_changed)
-                force_group["fodir"].currentIndexChanged.connect(
-                    self.on_parameter_changed
-                )
-                force_group["fonorm"].valueChanged.connect(self.on_parameter_changed)
+        self.forces_widget.add_if_btn.clicked.connect(self._connect_forces_signals)
+        self.forces_widget.add_of_btn.clicked.connect(self._connect_forces_signals)
+        self.forces_widget.nbForcesChanged.connect(self.on_parameter_changed)
+        self._connect_forces_signals()
 
         return section
 
@@ -923,21 +909,54 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         # --- Forces ---
         pf = params.get("Forces", {})
-        nb_input_forces = 0
-        for i, fw in enumerate(self.forces_widget.inputs):
-            if "fix" in fw:
-                fw["fix"].setValue(pf["fix"][i])
-                fw["fiy"].setValue(pf["fiy"][i])
-                fw["fiz"].setValue(pf["fiz"][i])
-                fw["fidir"].setCurrentText(pf["fidir"][i])
-                fw["finorm"].setValue(pf["finorm"][i])
-                nb_input_forces += 1
-            else:
-                fw["fox"].setValue(pf["fox"][i - nb_input_forces])
-                fw["foy"].setValue(pf["foy"][i - nb_input_forces])
-                fw["foz"].setValue(pf["foz"][i - nb_input_forces])
-                fw["fodir"].setCurrentText(pf["fodir"][i - nb_input_forces])
-                fw["fonorm"].setValue(pf["fonorm"][i - nb_input_forces])
+
+        # Calculate number of input forces
+        nb_input_forces = len(pf.get("fix", [])) if "fix" in pf else 0
+        current_input_num = len(self.forces_widget.input_forces)
+        while current_input_num > nb_input_forces:
+            last_btn = self.forces_widget.input_forces[-1]["remove_btn"]
+            try:
+                last_btn.clicked.disconnect(self.on_parameter_changed)
+            except TypeError:
+                pass
+            self.forces_widget.remove_force(current_input_num - 1, True, False)
+            current_input_num -= 1
+        while current_input_num < nb_input_forces:
+            self.forces_widget.add_input_force(emit_signal=False)
+            current_input_num += 1
+
+        for i in range(nb_input_forces):
+            fw = self.forces_widget.input_forces[i]
+            fw["fix"].setValue(pf["fix"][i])
+            fw["fiy"].setValue(pf["fiy"][i])
+            fw["fiz"].setValue(pf["fiz"][i])
+            fw["fidir"].setCurrentText(pf["fidir"][i])
+            fw["finorm"].setValue(pf["finorm"][i])
+
+        # Calculate number of output forces
+        nb_output_forces = len(pf.get("fox", [])) if "fox" in pf else 0
+        current_output_num = len(self.forces_widget.output_forces)
+        while current_output_num > nb_output_forces:
+            last_btn = self.forces_widget.output_forces[-1]["remove_btn"]
+            try:
+                last_btn.clicked.disconnect(self.on_parameter_changed)
+            except TypeError:
+                pass
+            self.forces_widget.remove_force(current_output_num - 1, False, False)
+            current_output_num -= 1
+        while current_output_num < nb_output_forces:
+            self.forces_widget.add_output_force(emit_signal=False)
+            current_output_num += 1
+
+        for i in range(nb_output_forces):
+            fw = self.forces_widget.output_forces[i]
+            fw["fox"].setValue(pf["fox"][i])
+            fw["foy"].setValue(pf["foy"][i])
+            fw["foz"].setValue(pf["foz"][i])
+            fw["fodir"].setCurrentText(pf["fodir"][i])
+            fw["fonorm"].setValue(pf["fonorm"][i])
+
+        self._connect_forces_signals()
 
         # --- Supports (optional) ---
         ps = params.get("Supports", {})
@@ -1022,6 +1041,21 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.status_bar.showMessage(
             f"Loaded preset: {self.preset.presets_combo.currentText()}", 3000
         )
+
+    def _connect_forces_signals(self):
+        """(Re)connects on_parameter_changed signals to all current forces widgets."""
+        for force_group in self.forces_widget.input_forces:
+            force_group["fix"].valueChanged.connect(self.on_parameter_changed)
+            force_group["fiy"].valueChanged.connect(self.on_parameter_changed)
+            force_group["fiz"].valueChanged.connect(self.on_parameter_changed)
+            force_group["fidir"].currentIndexChanged.connect(self.on_parameter_changed)
+            force_group["finorm"].valueChanged.connect(self.on_parameter_changed)
+        for force_group in self.forces_widget.output_forces:
+            force_group["fox"].valueChanged.connect(self.on_parameter_changed)
+            force_group["foy"].valueChanged.connect(self.on_parameter_changed)
+            force_group["foz"].valueChanged.connect(self.on_parameter_changed)
+            force_group["fodir"].currentIndexChanged.connect(self.on_parameter_changed)
+            force_group["fonorm"].valueChanged.connect(self.on_parameter_changed)
 
     def _connect_support_signals(self):
         """(Re)connects on_parameter_changed signals to all current support widgets."""
