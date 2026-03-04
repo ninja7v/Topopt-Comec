@@ -55,4 +55,4 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest --cov=app --cov-report=term-missing --cov-fail-under=80
+          pytest -W error --cov=app --cov-report=term-missing --cov-fail-under=80
