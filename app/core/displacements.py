@@ -142,12 +142,7 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     # Iterative Loop
     for it in range(pd["disp_iterations"]):
         # Solve FEM to get the deformation
-        if is_multi:
-            E_list = sim_params["Materials"].get("E", [1.0] * n_mat)
-            E_eff = fem.compute_element_stiffness(xPhys, E_list)
-            ui, _ = fem.solve_with_E_eff(E_eff)
-        else:
-            ui, _ = fem.solve(xPhys[0])
+        ui, _ = fem.solve(xPhys)
 
         # Collapse multiple load cases to average if necessary (usually 1 input force in this context)
         u_curr = np.mean(ui, axis=1) if ui.shape[1] > 0 else np.zeros(fem.ndof)
