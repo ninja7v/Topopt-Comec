@@ -337,12 +337,22 @@ def test_header_widget_structure(qt_app):
     assert hasattr(widget, "info_button") and isinstance(
         widget.info_button, QPushButton
     )
+    assert hasattr(widget, "help_button") and isinstance(
+        widget.help_button, QPushButton
+    )
+    assert hasattr(widget, "issue_button") and isinstance(
+        widget.issue_button, QPushButton
+    )
     assert hasattr(widget, "theme_button") and isinstance(
         widget.theme_button, QPushButton
     )
 
-    # Test info button
+    # Test github buttons
     widget.info_button.click()
+    qt_app.processEvents()
+    widget.help_button.click()
+    qt_app.processEvents()
+    widget.issue_button.click()
     qt_app.processEvents()
 
     # Test change theme

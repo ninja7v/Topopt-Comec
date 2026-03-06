@@ -11,6 +11,10 @@ Everything happens on GitHub: https://github.com/ninja7v/topopt-comec
 
 ## How to Contribute
 
+### Bug report
+
+Create an [issues](https://github.com/ninja7v/Topopt-Comec/issues).
+
 ### Bug fixes & improvements
 
 1. Create a branch for a single, focused change.
