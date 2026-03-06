@@ -218,7 +218,12 @@ class HeaderWidget(QWidget):
         self.help_button.setToolTip("Open the wiki")
         self.help_button.setFlat(True)
         title_layout.addWidget(self.help_button)
-        title_layout.addStretch()
+        # Issue
+        self.issue_button = QPushButton("🪲")
+        self.issue_button.setFixedSize(24, 24)
+        self.issue_button.setToolTip("Report an issue")
+        self.issue_button.setFlat(True)
+        title_layout.addWidget(self.issue_button)
         # Theme Toggle
         self.theme_button = QPushButton()
         self.theme_button.setIcon(
