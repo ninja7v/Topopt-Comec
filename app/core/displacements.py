@@ -119,13 +119,12 @@ def _reposition_forces(fem, sim_params, u_curr, delta_disp, is_3d):
                 )
             forces_moved = True
     if forces_moved:
-        fem.setup_boundary_conditions(
-            sim_params["Forces"], sim_params.get("Supports")
-        )
+        fem.setup_boundary_conditions(sim_params["Forces"], sim_params.get("Supports"))
 
 
-def _warp_density(xPhys, n_mat, volfrac, points, points_interp, is_multi, fem, k,
-                  nominator, c_val):
+def _warp_density(
+    xPhys, n_mat, volfrac, points, points_interp, is_multi, fem, k, nominator, c_val
+):
     """Interpolate density onto the warped grid and renormalize."""
     for i in range(n_mat):
         # Interpolate density from old points to new (warped) points
@@ -249,8 +248,16 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         moved = not np.allclose(points, points_interp, atol=1e-14)
         if moved:
             _warp_density(
-                xPhys, n_mat, volfrac, points, points_interp, is_multi, fem,
-                k, nominator, c_val
+                xPhys,
+                n_mat,
+                volfrac,
+                points,
+                points_interp,
+                is_multi,
+                fem,
+                k,
+                nominator,
+                c_val,
             )
 
         # Crop and Yield
