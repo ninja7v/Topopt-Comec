@@ -37,7 +37,7 @@ py main.py
 ```
 CLI:
 ```cmd
-py main.py -preset ForceInverter_2Sup_2D
+py main.py -p ForceInverter_2Sup_2D
 ```
 ### Create
 Tweak the parameters or choose a preset and hit "Create"!
