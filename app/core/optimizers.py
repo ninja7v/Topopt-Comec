@@ -66,6 +66,7 @@ def optimize(
     Supports: Optional[Dict] = None,
     Regions: Optional[Dict] = None,
     progress_callback: Optional[Callable] = None,
+    verbose: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Topology optimization
@@ -78,7 +79,8 @@ def optimize(
         xPhys: Final physical densities after optimization.
         ui: Associated displacement vector.
     """
-    print("Optimizer starting...")
+    if verbose:
+        print("Optimizer starting...")
     Supports, Regions = Supports or {}, Regions or {}
 
     # Initialize FEM Environment
@@ -102,7 +104,8 @@ def optimize(
     eta, max_change = Optimizer.get("eta", 1.0), Optimizer.get("max_change", 0.1)
     n_it = Optimizer.get("n_it", 30)
 
-    print("   Preparation done -> Optimization loop starting...")
+    if verbose:
+        print("   Preparation done -> Optimization loop starting...")
     loop, change = 0, 1.0
     while change > 0.01 and loop < n_it:
         loop += 1
@@ -124,18 +127,21 @@ def optimize(
 
         # Check Convergence
         change = np.linalg.norm(x - xold, np.inf)
-        print(
-            f"It.: {loop:3d}, Obj.: {obj_val:.4f}, Vol.: {xPhys.mean():.3f}, Ch.: {change:.3f}"
-        )
+        if verbose:
+            print(
+                f"It.: {loop:3d}, Obj.: {obj_val:.4f}, Vol.: {xPhys.mean():.3f}, Ch.: {change:.3f}"
+            )
 
         if progress_callback and progress_callback(loop, obj_val, change, xPhys):
-            print("Optimization stopped by user.")
+            if verbose:
+                print("Optimization stopped by user.")
             break
 
     # Apply regions after the last iteration
     xPhys = fem.apply_regions(xPhys, Regions)
 
-    print("Optimizer finished.")
+    if verbose:
+        print("Optimizer finished.")
     return xPhys, ui
 
 
@@ -170,6 +176,7 @@ def optimize_multimaterial(
     Supports: Optional[Dict] = None,
     Regions: Optional[Dict] = None,
     progress_callback: Optional[Callable] = None,
+    verbose: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Multi-material topology optimization (max 2 materials).
 
@@ -185,7 +192,8 @@ def optimize_multimaterial(
         xPhys_multi: Final densities, shape (n_mat, nel).
         ui: Displacement vector from the final solve.
     """
-    print("Multi-material optimizer starting...")
+    if verbose:
+        print("Multi-material optimizer starting...")
     Supports, Regions = Supports or {}, Regions or {}
 
     # Initialize FEM Environment
@@ -215,7 +223,8 @@ def optimize_multimaterial(
     eta, max_change = Optimizer.get("eta", 1.0), Optimizer.get("max_change", 0.1)
     n_it = Optimizer.get("n_it", 30)
 
-    print("   Preparation done -> Optimization loop starting...")
+    if verbose:
+        print("   Preparation done -> Optimization loop starting...")
     loop, change = 0, 1.0
     while change > 0.01 and loop < n_it:
         loop += 1
@@ -249,19 +258,22 @@ def optimize_multimaterial(
 
         # Check Convergence
         change = float(np.max(np.abs(x - xold)))
-        print(
-            f"It.: {loop:3d}, Obj.: {obj_val:.4f}, "
-            + ", ".join(f"V{i}: {xPhys[i].mean():.3f}" for i in range(n_mat))
-            + f", Ch.: {change:.3f}"
-        )
+        if verbose:
+            print(
+                f"It.: {loop:3d}, Obj.: {obj_val:.4f}, "
+                + ", ".join(f"V{i}: {xPhys[i].mean():.3f}" for i in range(n_mat))
+                + f", Ch.: {change:.3f}"
+            )
 
         if progress_callback and progress_callback(loop, obj_val, change, xPhys):
-            print("Optimization stopped by user.")
+            if verbose:
+                print("Optimization stopped by user.")
             break
 
     # Apply regions after the last iteration
     for i in range(n_mat):
         xPhys[i] = fem.apply_regions(xPhys[i], Regions)
 
-    print("Multi-material optimizer finished.")
+    if verbose:
+        print("Multi-material optimizer finished.")
     return xPhys, ui

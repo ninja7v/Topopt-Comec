@@ -55,9 +55,7 @@ def test_run_cli_valid_png(
 
     # Run (on a real preset, not a test one since the function looks for presets.json)
     preset_name = "ForceInverter_2Sup_2D"
-    with patch.object(
-        sys, "argv", ["main.py", "-preset", preset_name, "-format", "png"]
-    ):
+    with patch.object(sys, "argv", ["main.py", "-p", preset_name, "-f", "png"]):
         run_cli()
 
     # Verify optimize called with correct parameters
@@ -96,7 +94,7 @@ def test_run_cli_all_formats(
     mock_exporters.save_as_3mf.return_value = (True, None)
 
     preset_name = "ForceInverter_2Sup_2D"
-    with patch.object(sys, "argv", ["main.py", "-preset", preset_name]):
+    with patch.object(sys, "argv", ["main.py", "-p", preset_name]):
         run_cli()
 
     mock_exporters.save_as_png.assert_called_once()
@@ -129,9 +127,7 @@ def test_run_cli_threshold(
     mock_exporters.save_as_png.return_value = (True, None)
 
     preset_name = "ForceInverter_2Sup_2D"
-    with patch.object(
-        sys, "argv", ["main.py", "-preset", preset_name, "-format", "png", "-threshold"]
-    ):
+    with patch.object(sys, "argv", ["main.py", "-p", preset_name, "-f", "png", "-t"]):
         run_cli()
 
     # Verify the exporter received binary values: 0.0 and 1.0
@@ -151,7 +147,7 @@ def test_run_cli_invalid_preset(
     mock_exists.return_value = True
     mock_json_load.return_value = mock_presets_data
 
-    with patch.object(sys, "argv", ["main.py", "-preset", "NonExistentPreset"]):
+    with patch.object(sys, "argv", ["main.py", "-p", "NonExistentPreset"]):
         with pytest.raises(SystemExit) as cm:
             run_cli()
         assert cm.value.code == 1
@@ -162,7 +158,7 @@ def test_run_cli_presets_file_not_found(mock_exists):
     """Test behavior when presets.json is missing."""
     mock_exists.return_value = False
 
-    with patch.object(sys, "argv", ["main.py", "-preset", "TestPreset"]):
+    with patch.object(sys, "argv", ["main.py", "-p", "TestPreset"]):
         with pytest.raises(SystemExit) as cm:
             run_cli()
         assert cm.value.code == 1
@@ -177,7 +173,7 @@ def test_run_cli_json_decode_error(mock_exists, mock_open):
     mock_open.return_value.__exit__ = lambda s, *a: None
 
     with patch("json.load", side_effect=json.JSONDecodeError("err", "doc", 0)):
-        with patch.object(sys, "argv", ["main.py", "-preset", "TestPreset"]):
+        with patch.object(sys, "argv", ["main.py", "-p", "TestPreset"]):
             with pytest.raises(SystemExit) as cm:
                 run_cli()
             assert cm.value.code == 1
@@ -196,9 +192,7 @@ def test_run_cli_optimization_failure(
     mock_optimize.side_effect = RuntimeError("Solver diverged")
 
     preset_name = "ForceInverter_2Sup_2D"
-    with patch.object(
-        sys, "argv", ["main.py", "-preset", preset_name, "-format", "png"]
-    ):
+    with patch.object(sys, "argv", ["main.py", "-p", preset_name, "-f", "png"]):
         with pytest.raises(SystemExit) as cm:
             run_cli()
         assert cm.value.code == 1
@@ -224,10 +218,81 @@ def test_run_cli_export_failure(
     mock_exporters.save_as_png.return_value = (False, "Disk full")
 
     preset_name = "ForceInverter_2Sup_2D"
-    with patch.object(
-        sys, "argv", ["main.py", "-preset", preset_name, "-format", "png"]
-    ):
+    with patch.object(sys, "argv", ["main.py", "-p", preset_name, "-f", "png"]):
         # Should not raise, just print error message
         run_cli()
 
     mock_exporters.save_as_png.assert_called_once()
+
+
+class MockFuture:
+    def __init__(self, result):
+        self._result = result
+
+    def result(self):
+        return self._result
+
+
+class MockExecutor:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def submit(self, fn, *args, **kwargs):
+        return MockFuture(fn(*args, **kwargs))
+
+
+@patch("app.cli.ProcessPoolExecutor", MockExecutor)
+@patch("app.cli.optimizers.optimize")
+@patch("app.cli.exporters")
+@patch("builtins.open")
+@patch("json.load")
+@patch.object(Path, "exists")
+def test_run_cli_multiple_presets(
+    mock_exists,
+    mock_json_load,
+    mock_open,
+    mock_exporters,
+    mock_optimize,
+    mock_presets_data,
+):
+    """Test running CLI with multiple comma-separated presets."""
+    mock_exists.return_value = True
+    mock_json_load.return_value = mock_presets_data
+    mock_optimize.return_value = (np.zeros(150), None)
+    mock_exporters.save_as_png.return_value = (True, None)
+
+    with patch.object(
+        sys,
+        "argv",
+        ["main.py", "-p", "ForceInverter_2Sup_2D,Gripper_2D", "-f", "png"],
+    ):
+        run_cli()
+
+    assert mock_optimize.call_count == 2
+    assert mock_exporters.save_as_png.call_count == 2
+
+
+@patch("builtins.open")
+@patch("json.load")
+@patch.object(Path, "exists")
+def test_run_cli_multiple_presets_one_invalid(
+    mock_exists, mock_json_load, mock_open, mock_presets_data
+):
+    """Test that an invalid preset in a comma list exits before any optimization."""
+    mock_exists.return_value = True
+    mock_json_load.return_value = mock_presets_data
+
+    with patch.object(
+        sys,
+        "argv",
+        ["main.py", "-p", "ForceInverter_2Sup_2D,NonExistent"],
+    ):
+        with pytest.raises(SystemExit) as cm:
+            run_cli()
+        assert cm.value.code == 1
