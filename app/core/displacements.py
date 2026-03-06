@@ -62,6 +62,108 @@ def single_linear_displacement(
         return X, Y
 
 
+def _embed_material(xPhys_initial, is_multi, is_3d, nelx, nely, nelz, mx, my, mz, fem):
+    """Embed initial density into the expanded domain."""
+    _x_init = xPhys_initial if is_multi else xPhys_initial[np.newaxis, :]
+    n_mat = _x_init.shape[0]
+
+    full_shape = (fem.nelx, fem.nely, fem.nelz) if is_3d else (fem.nelx, fem.nely)
+    xPhys_large = np.zeros((n_mat, *full_shape))
+
+    for i in range(n_mat):
+        if is_3d:
+            xPhys_large[i, mx : mx + nelx, my : my + nely, mz : mz + nelz] = _x_init[
+                i
+            ].reshape((nelx, nely, nelz), order="C")
+        else:
+            xPhys_large[i, mx : mx + nelx, my : my + nely] = _x_init[i].reshape(
+                (nelx, nely), order="C"
+            )
+
+    xPhys = xPhys_large.reshape(n_mat, -1, order="C")
+    volfrac = np.mean(xPhys, axis=1)
+    return xPhys, n_mat, volfrac
+
+
+def _reposition_forces(fem, sim_params, u_curr, delta_disp, is_3d):
+    """Move force application points following the full nodal displacement."""
+    snelx, snely, snelz = sim_params["Dimensions"]["nelxyz"]
+    forces_moved = False
+    for i, f_idx in enumerate(fem.fi_indices):
+        dof = fem.di_indices[i]
+        fdir = sim_params["Forces"]["fidir"][f_idx]
+        if "X" in fdir:
+            dx = round(u_curr[dof] * delta_disp)
+            dy = -round(u_curr[dof + 1] * delta_disp)
+            dz = round(u_curr[dof + 2] * delta_disp) if is_3d else 0
+        elif "Y" in fdir:
+            dx = round(u_curr[dof - 1] * delta_disp)
+            dy = -round(u_curr[dof] * delta_disp)
+            dz = round(u_curr[dof + 1] * delta_disp) if is_3d else 0
+        elif "Z" in fdir:
+            dx = round(u_curr[dof - 2] * delta_disp)
+            dy = -round(u_curr[dof - 1] * delta_disp)
+            dz = round(u_curr[dof] * delta_disp)
+        else:
+            continue
+        if dx != 0 or dy != 0 or dz != 0:
+            sim_params["Forces"]["fix"][f_idx] = max(
+                0, min(snelx, sim_params["Forces"]["fix"][f_idx] + dx)
+            )
+            sim_params["Forces"]["fiy"][f_idx] = max(
+                0, min(snely, sim_params["Forces"]["fiy"][f_idx] + dy)
+            )
+            if is_3d:
+                sim_params["Forces"]["fiz"][f_idx] = max(
+                    0, min(snelz, sim_params["Forces"]["fiz"][f_idx] + dz)
+                )
+            forces_moved = True
+    if forces_moved:
+        fem.setup_boundary_conditions(
+            sim_params["Forces"], sim_params.get("Supports")
+        )
+
+
+def _warp_density(xPhys, n_mat, volfrac, points, points_interp, is_multi, fem, k,
+                  nominator, c_val):
+    """Interpolate density onto the warped grid and renormalize."""
+    for i in range(n_mat):
+        # Interpolate density from old points to new (warped) points
+        xPhys[i] = np.nan_to_num(
+            griddata(points, xPhys[i], points_interp, method="linear"), nan=0.0
+        )
+
+        # Threshold & Normalize to prevent material spread (Sigmoid filter)
+        xPhys[i] = nominator / (1 + np.exp(-k * (xPhys[i] - 0.5))) + c_val
+        curr_sum = np.sum(xPhys[i])
+        if curr_sum > 0:
+            xPhys[i] = volfrac[i] * xPhys[i] / (curr_sum / fem.nel)
+        xPhys[i] = np.clip(xPhys[i], 0.0, 1.0)
+
+    # Partition-of-unity constraint for multi-material
+    if is_multi:
+        col_sums = xPhys.sum(axis=0)
+        excess = col_sums > 1.0
+        if np.any(excess):
+            xPhys[:, excess] /= col_sums[excess]
+
+
+def _crop_density(xPhys, n_mat, is_3d, fem, nelx, nely, nelz, mx, my, mz):
+    """Crop the expanded density field back to the original domain size."""
+    cropped = np.zeros((n_mat, nelx * nely * (nelz if is_3d else 1)))
+    for i in range(n_mat):
+        if is_3d:
+            c = xPhys[i].reshape((fem.nelx, fem.nely, fem.nelz), order="C")[
+                mx : mx + nelx, my : my + nely, mz : mz + nelz
+            ]
+        else:
+            c = xPhys[i].reshape((fem.nelx, fem.nely), order="C")[
+                mx : mx + nelx, my : my + nely
+            ]
+        cropped[i] = c.flatten(order="C")
+    return cropped
+
+
 def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     """
     Performs iterative FE analysis to simulate displacement.
@@ -94,31 +196,15 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
     fem.setup_boundary_conditions(sim_params["Forces"], sim_params.get("Supports"))
 
     # Embed Material into Expanded Domain
-    _x_init = xPhys_initial if is_multi else xPhys_initial[np.newaxis, :]
-    n_mat = _x_init.shape[0]
-
-    full_shape = (fem.nelx, fem.nely, fem.nelz) if is_3d else (fem.nelx, fem.nely)
-    xPhys_large = np.zeros((n_mat, *full_shape))
-
-    for i in range(n_mat):
-        if is_3d:
-            xPhys_large[i, mx : mx + nelx, my : my + nely, mz : mz + nelz] = _x_init[
-                i
-            ].reshape((nelx, nely, nelz), order="C")
-        else:
-            xPhys_large[i, mx : mx + nelx, my : my + nely] = _x_init[i].reshape(
-                (nelx, nely), order="C"
-            )
-
-    xPhys = xPhys_large.reshape(n_mat, -1, order="C")
-    volfrac = np.mean(xPhys, axis=1)  # Keep track to normalize later per-material
+    xPhys, n_mat, volfrac = _embed_material(
+        xPhys_initial, is_multi, is_3d, nelx, nely, nelz, mx, my, mz, fem
+    )
 
     # Simulation Parameters
     pd = params["Displacement"]
     delta_disp = pd["disp_factor"] / max(1, pd["disp_iterations"])
 
     # Points for interpolation (Eulerian grid)
-    # Pre-calculate original centers
     shape = (fem.nelz, fem.nelx, fem.nely) if is_3d else (fem.nelx, fem.nely)
     unrvld = np.unravel_index(np.arange(fem.nel), shape)
     points_interp = (
@@ -144,16 +230,11 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
         # Solve FEM to get the deformation
         ui, _ = fem.solve(xPhys)
 
-        # Collapse multiple load cases to average if necessary (usually 1 input force in this context)
+        # Collapse multiple load cases to average if necessary
         u_curr = np.mean(ui, axis=1) if ui.shape[1] > 0 else np.zeros(fem.ndof)
 
         # Replace the Forces
-        for i, f_idx in enumerate(fem.fi_indices):
-            if (
-                int(u_curr[fem.di_indices[i]]) != 0
-                and "X" in sim_params["Forces"]["fidir"][f_idx]
-            ):
-                sim_params["Forces"]["fix"][f_idx] += 0
+        _reposition_forces(fem, sim_params, u_curr, delta_disp, is_3d)
 
         # Get nodal displacements for every element
         u_elem = u_curr[fem.edofMat].reshape(fem.nel, len(node_ids), fem.elemndof)
@@ -167,38 +248,13 @@ def run_iterative_displacement(params, xPhys_initial, progress_callback=None):
             points[:, 2] += u_avg[:, 2] * delta_disp
         moved = not np.allclose(points, points_interp, atol=1e-14)
         if moved:
-            for i in range(n_mat):
-                # Interpolate density from old points to new (warped) points
-                xPhys[i] = np.nan_to_num(
-                    griddata(points, xPhys[i], points_interp, method="linear"), nan=0.0
-                )
-
-                # Threshold & Normalize to prevent material spread (Sigmoid filter)
-                xPhys[i] = nominator / (1 + np.exp(-k * (xPhys[i] - 0.5))) + c_val
-                curr_sum = np.sum(xPhys[i])
-                if curr_sum > 0:
-                    xPhys[i] = volfrac[i] * xPhys[i] / (curr_sum / fem.nel)
-                xPhys[i] = np.clip(xPhys[i], 0.0, 1.0)
-
-            # Partition-of-unity constraint for multi-material
-            if is_multi:
-                col_sums = xPhys.sum(axis=0)
-                excess = col_sums > 1.0
-                if np.any(excess):
-                    xPhys[:, excess] /= col_sums[excess]
+            _warp_density(
+                xPhys, n_mat, volfrac, points, points_interp, is_multi, fem,
+                k, nominator, c_val
+            )
 
         # Crop and Yield
-        cropped = np.zeros((n_mat, nelx * nely * (nelz if is_3d else 1)))
-        for i in range(n_mat):
-            if is_3d:
-                c = xPhys[i].reshape((fem.nelx, fem.nely, fem.nelz), order="C")[
-                    mx : mx + nelx, my : my + nely, mz : mz + nelz
-                ]
-            else:
-                c = xPhys[i].reshape((fem.nelx, fem.nely), order="C")[
-                    mx : mx + nelx, my : my + nely
-                ]
-            cropped[i] = c.flatten(order="C")
+        cropped = _crop_density(xPhys, n_mat, is_3d, fem, nelx, nely, nelz, mx, my, mz)
 
         # Strip the extra dimension off if it was just a single material
         yield cropped if is_multi else cropped[0]
