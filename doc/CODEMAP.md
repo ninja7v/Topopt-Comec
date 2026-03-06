@@ -1,0 +1,63 @@
+# Codebase Map
+
+Quick map of the repository.
+
+## Root
+
+- `main.py`: application entry point
+- `presets.json`: built-in preset definitions
+- `requirements.txt`: dependencies
+- `README.md`: user-facing overview
+- `CONTRIBUTING.md`: contribution guide
+- `LICENSE.txt`: license
+
+## Source
+
+### `app/cli.py`
+- CLI execution, preset loading, parallel runs, export dispatch
+
+### `app/core/`
+- `fem.py`: FEM model and solves
+- `optimizers.py`: optimization loops
+- `initializers.py`: density initialization
+- `displacements.py`: displacement simulation
+- `analyzers.py`: result checks
+
+### `app/ui/`
+- `main_window.py`: main window and action flow
+- `parameter_manager.py`: parameter gathering and validation
+- `widgets.py`: GUI widgets
+- `plotting.py`: plotting and visualization
+- `workers.py`: background workers
+- `exporters.py`: PNG, STL, VTI, 3MF export
+- `themes.py`: stylesheets
+- `icons.py`: icon handling
+
+## Tests
+
+- `tests/test_cli.py`: CLI behavior
+- `tests/test_fem.py`: FEM behavior
+- `tests/test_optimizers.py`: optimizer behavior
+- `tests/test_initializers.py`: initializer behavior
+- `tests/test_displacements.py`: displacement behavior
+- `tests/test_analyzers.py`: analyzer behavior
+- `tests/test_exporters.py`: exporter behavior
+- `tests/test_parameter_validation.py`: GUI parameter validation
+- `tests/test_main_window.py`: main window behavior
+- `tests/test_widgets.py`: widget behavior
+- `tests/test_workers.py`: worker behavior
+- `tests/conftest.py`: shared fixtures
+- `tests/presets_test.json`: preset fixture data
+
+## Documentation
+
+- `doc/ARCHITECTURE.md`: high-level system design
+- `doc/CODEMAP.md`: this file
+- `doc/GLOSSARY.md`: terminology
+- `doc/EXAMPLE.md`: usage examples
+- `doc/SKILL.md`: agent-oriented repo guide
+
+## Assets and Output
+
+- `icons/`: GUI SVG assets
+- `results/`: generated output files
