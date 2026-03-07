@@ -2,10 +2,9 @@
 # MIT License - Copyright (c) 2025-2026 Luc Prevost
 # Icon management.
 
-from pathlib import Path
-
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QStyle
+from .resource_path_finder import resource_path
 
 
 class IconProvider:
@@ -26,7 +25,7 @@ class IconProvider:
         """
         # 1. Try to find a themed icon file
         extensions = ["svg", "png", "jpg"]  # Try .svg first, then .png, then .jpg
-        icon_dir = Path("icons")
+        icon_dir = resource_path("icons")
         for ext in extensions:
             themed_path = icon_dir / f"{icon_name}_{self.theme}.{ext}"
             if themed_path.is_file():
