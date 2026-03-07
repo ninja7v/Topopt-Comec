@@ -1,6 +1,6 @@
 # app/ui/widgets.py
 # MIT License - Copyright (c) 2025-2026 Luc Prevost
-# Custom PySide6 widgets for the TopOpt-Comec UI.
+# Custom PySide6 widgets for the TopoptComec UI.
 
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, Signal
 from PySide6.QtGui import QAction, QColor, QFont
@@ -198,8 +198,8 @@ class HeaderWidget(QWidget):
         title_layout.setContentsMargins(0, 0, 0, 0)
         title_layout.addStretch()
         # Title
-        title = QLabel("Topopt Comec")
-        title_font = QFont("Arial", 20, QFont.Bold)
+        title = QLabel("TopoptComec")
+        title_font = QFont("JetBrains Mono", 20, QFont.Bold)
         title.setFont(title_font)
         title.setToolTip("Topology Optimization for Compliant Mechanisms")
         title.setAlignment(Qt.AlignCenter)
@@ -226,10 +226,12 @@ class HeaderWidget(QWidget):
         title_layout.addWidget(self.issue_button)
         # Theme Toggle
         self.theme_button = QPushButton()
-        self.theme_button.setIcon(
-            icons._get("sun" if icons.theme == "dark" else "moon")
-        )
-        self.theme_button.setToolTip("Switch Theme")
+        if icons.theme == "dark":
+            self.theme_button.setIcon(icons._get("sun"))
+            self.theme_button.setToolTip("Switch to light theme")
+        else:
+            self.theme_button.setIcon(icons._get("moon"))
+            self.theme_button.setToolTip("Switch to dark theme")
         self.theme_button.setFixedSize(31, 31)
         self.theme_button.setCheckable(True)
         title_layout.addWidget(self.theme_button)
@@ -797,7 +799,7 @@ class MaterialsWidget(QWidget):
         self.mat_init_type = _make_combo(
             ["Uniform", "Around activity points", "Random"],
             0,
-            "Material distribution initialization type",
+            "Materials distribution initialization type",
         )
         init_layout.addWidget(self.mat_init_type)
         self.main_layout.addLayout(init_layout)
@@ -1120,14 +1122,14 @@ class FooterWidget(QWidget):
         self.create_button = QPushButton(" Create")
         self.create_button.setIcon(icons._get("create"))
         self.create_button.setToolTip("Start the optimization process")
-        self.create_button.setFont(QFont("Arial", 14, QFont.Bold))
+        self.create_button.setFont(QFont("JetBrains Mono", 14, QFont.Bold))
         self.start_create_button_effect()
         action_layout.addWidget(self.create_button)
         # Stop button
         self.stop_button = QPushButton(" Stop")
         self.stop_button.setIcon(icons._get("stop"))
         self.stop_button.setToolTip("Stop the optimization process")
-        self.stop_button.setFont(QFont("Arial", 14, QFont.Bold))
+        self.stop_button.setFont(QFont("JetBrains Mono", 14, QFont.Bold))
         self.stop_button.setStyleSheet("background-color: #C0392B;")
         self.stop_button.hide()  # Hidden by default
         action_layout.addWidget(self.stop_button)

@@ -1,6 +1,6 @@
 # app/cli.py
 # MIT License - Copyright (c) 2025-2026 Luc Prevost
-# CLI entry point of Topopt-Comec.
+# CLI entry point of TopoptComec.
 
 import argparse
 import json
@@ -81,7 +81,7 @@ def _export(xPhys, nelxyz, filename, fmt):
 def run_cli():
     """Parses arguments and runs the optimization from the CLI."""
     parser = argparse.ArgumentParser(
-        description="TopOpt-Comec CLI - Topology Optimization for Compliant Mechanisms"
+        description="TopoptComec CLI - Topology Optimization for Compliant Mechanisms"
     )
     parser.add_argument(
         "-p",

@@ -8,7 +8,7 @@ LIGHT_THEME_STYLESHEET = """
     QWidget {
         background-color: #F0F0F0;
         color: #000000;
-        font-family: Arial;
+        font-family: "JetBrains Mono";
     }
     QMainWindow {
         background-color: #F0F0F0;
@@ -81,7 +81,7 @@ DARK_THEME_STYLESHEET = """
     QWidget {
         background-color: #121212;
         color: #E0E0E0;
-        font-family: Arial;
+        font-family: "JetBrains Mono";
     }
     QMainWindow {
         background-color: #0D0D0D;

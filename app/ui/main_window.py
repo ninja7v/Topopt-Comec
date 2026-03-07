@@ -1,6 +1,6 @@
 # app/ui/main_window.py
 # MIT License - Copyright (c) 2025-2026 Luc Prevost
-# Main window for the Topopt Comec application using PySide6.
+# Main window for the TopoptComec application using PySide6.
 
 import json
 import os
@@ -54,7 +54,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(
-            "Topopt Comec - Topology Optimization for Compliant Mechanisms"
+            "TopoptComec - Topology Optimization for Compliant Mechanisms"
         )
         self.setGeometry(100, 100, 1280, 720)
 
@@ -236,7 +236,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
     def _create_materials_section(self):
         """Creates the fifth section for material properties."""
         self.materials_widget = MaterialsWidget()
-        section = CollapsibleSection("🧱 Material", self.materials_widget)
+        section = CollapsibleSection("🧱 Materials", self.materials_widget)
         section.set_visibility_toggle(True)
         section.visibility_button.toggled.connect(self._on_visibility_toggled)
         self.materials_widget.add_btn.clicked.connect(self._connect_material_signals)
@@ -1155,10 +1155,10 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         # Update the theme button itself
         if self.current_theme == "dark":
             self.header.theme_button.setIcon(icons._get("sun"))
-            self.header.theme_button.setToolTip("Switch to Light Theme")
+            self.header.theme_button.setToolTip("Switch to light theme")
         else:
             self.header.theme_button.setIcon(icons._get("moon"))
-            self.header.theme_button.setToolTip("Switch to Dark Theme")
+            self.header.theme_button.setToolTip("Switch to dark theme")
 
         # Update header icons
         self.header.info_button.setIcon(icons._get("info"))
@@ -1184,17 +1184,17 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
     def _open_github_link(self):
         """Opens the specified URL in the user's default web browser."""
-        url = QUrl("https://github.com/ninja7v/Topopt-Comec")
+        url = QUrl("https://github.com/ninja7v/TopoptComec")
         QDesktopServices.openUrl(url)
 
     def _open_wiki_link(self):
         """Opens the specified URL in the user's default web browser."""
-        url = QUrl("https://github.com/ninja7v/Topopt-Comec/wiki/Topopt-Comec-wiki")
+        url = QUrl("https://github.com/ninja7v/TopoptComec/wiki/TopoptComec-wiki")
         QDesktopServices.openUrl(url)
 
     def _open_issue_link(self):
         """Opens the specified URL in the user's default web browser."""
-        url = QUrl("https://github.com/ninja7v/Topopt-Comec/issues")
+        url = QUrl("https://github.com/ninja7v/TopoptComec/issues")
         QDesktopServices.openUrl(url)
 
     def closeEvent(self, event):

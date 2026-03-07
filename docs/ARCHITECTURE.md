@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Topopt-Comec has two front doors built on the same core engine:
+TopoptComec has two front doors built on the same core engine:
 
 - GUI mode for interactive design, optimization, visualization, and export
 - CLI mode for preset-based batch runs

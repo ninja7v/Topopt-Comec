@@ -1,6 +1,6 @@
 # Glossary
 
-This glossary defines the main topology-optimization, FEM, and project-specific terms used in Topopt-Comec.
+This glossary defines the main topology-optimization, FEM, and project-specific terms used in TopoptComec.
 
 ## Optimization Terms
 
