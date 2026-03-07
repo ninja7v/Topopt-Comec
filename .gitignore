@@ -8,3 +8,7 @@ __pycache__/
 # Test outputs
 /Tests/test_output*
 .coverage
+
+# Build (when an executable is created)
+/dist/
+/build/

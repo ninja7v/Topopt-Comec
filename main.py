@@ -3,14 +3,12 @@
 # Entry point of TopoptComec.
 
 import sys
-from pathlib import Path
-
-import darkdetect
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QStyle
 from PySide6.QtSvg import (  # noqa: F401
     QSvgRenderer,
 )  # make sure SVG support is available
+from app.ui.resource_path_finder import resource_path
 
 
 def main():
@@ -24,9 +22,7 @@ def main():
         # GUI mode
         app = QApplication(sys.argv)
 
-        theme = "dark" if darkdetect.isDark() else "light"
-        file_name = f"window_icon_{theme}.svg"
-        icon_path = Path(__file__).parent / "icons" / file_name
+        icon_path = resource_path("icons") / f"window_icon.svg"
         if icon_path.exists():
             app_icon = QIcon(str(icon_path))
             if not app_icon.isNull():
