@@ -1,8 +1,8 @@
-# Contributing to Topopt Comec
+# Contributing to TopoptComec
 
-Thank you for helping improve Topopt Comec!
+Thank you for helping improve TopoptComec!
 
-Everything happens on GitHub: https://github.com/ninja7v/topopt-comec
+Everything happens on GitHub: https://github.com/ninja7v/topoptcomec
 
 ## Maintainers
 
@@ -13,7 +13,7 @@ Everything happens on GitHub: https://github.com/ninja7v/topopt-comec
 
 ### Bug report
 
-Create an [issues](https://github.com/ninja7v/Topopt-Comec/issues).
+Create an [issues](https://github.com/ninja7v/topoptcomec/issues).
 
 ### Bug fixes & improvements
 
@@ -26,7 +26,7 @@ Vibe coders are welcome, just make sure to read and understand every line!
 
 ### Questions / Suggestions
 
-Use [GitHub Discussions](https://github.com/ninja7v/Topopt-Comec/discussions).
+Use [GitHub Discussions](https://github.com/ninja7v/topoptcomec/discussions).
 
 ## Current Project Focus
 

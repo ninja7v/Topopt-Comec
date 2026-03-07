@@ -1,6 +1,6 @@
 # main.py
 # MIT License - Copyright (c) 2025-2026 Luc Prevost
-# Entry point of Topopt-Comec.
+# Entry point of TopoptComec.
 
 import sys
 from pathlib import Path

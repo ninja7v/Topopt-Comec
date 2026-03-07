@@ -1,6 +1,6 @@
-# Topopt-Comec Agent Skill
+# TopoptComec Agent Skill
 
-Topopt-Comec is a Python topology optimization app with a GUI (`py main.py`) and a CLI (`py main.py -p <preset>`).
+TopoptComec is a Python topology optimization app with a GUI (`py main.py`) and a CLI (`py main.py -p <preset>`).
 
 ## Edit Map
 
