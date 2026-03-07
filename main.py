@@ -22,7 +22,7 @@ def main():
         # GUI mode
         app = QApplication(sys.argv)
 
-        icon_path = resource_path("icons") / f"window_icon.svg"
+        icon_path = resource_path("icons") / "window_icon.svg"
         if icon_path.exists():
             app_icon = QIcon(str(icon_path))
             if not app_icon.isNull():
