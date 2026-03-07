@@ -229,6 +229,7 @@ class ParameterManagerMixin:
             self.xPhys = None
             self.u = None
             self.is_displaying_deformation = False
+            self.last_displayed_frame_data = None
 
             # Disable buttons that require a valid result
             self.footer.binarize_button.setEnabled(False)

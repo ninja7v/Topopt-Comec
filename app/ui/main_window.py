@@ -349,7 +349,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
             QMessageBox.critical(self, "Input Error", error)
             return
 
-        if self.is_displaying_deformation:
+        if self.is_displaying_deformation or self.last_displayed_frame_data is not None:
             self._reset_displacement_view()
 
         # Stop animation
@@ -427,6 +427,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
     def _handle_optimization_results(self, result):
         """Handles the results after optimization finishes successfully."""
         self.xPhys, self.u = result
+        self.last_displayed_frame_data = None
         self.status_bar.showMessage("Optimization finished successfully.", 5000)
         self.preset.setEnabled(True)
         self.footer.stop_button.hide()
@@ -528,7 +529,6 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         """Resets the plot to the original, undeformed optimizer result."""
         self.is_displaying_deformation = False
         self.last_displayed_frame_data = None
-        self.xPhys_display = self.xPhys.copy()
         self.replot()  # Redraw the original view
         self.displacement_widget.run_disp_button.setEnabled(True)
         self.displacement_widget.button_stack.setCurrentWidget(
@@ -550,6 +550,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         ax = self.figure.get_axes()[0]
         nelx, nely, nelz = self.last_params["Dimensions"]["nelxyz"]
         is_3d = nelz > 0
+        self.last_displayed_frame_data = np.array(frame_data, copy=True)
 
         if is_3d:
             ax.clear()
