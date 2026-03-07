@@ -135,6 +135,13 @@ class PlottingMixin:
                         cmap=color_cmap,
                         shading="auto",
                     )
+        else:
+            if self.sections["Materials"].visibility_button.isChecked():
+                self._plot_material(
+                    ax,
+                    is_3d=is_3d,
+                    xPhys_data=self.last_displayed_frame_data,
+                )
         # Multi-iteration displacement handled in _update_animation_frame
 
     def _initialize_xphys(self, nelx, nely, nelz, is_3d):
