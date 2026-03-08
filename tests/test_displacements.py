@@ -45,6 +45,7 @@ def test_displacement_with_presets(preset_name, preset_params):
     )  # f(x) = (x/volfrac)^p -> integral(f(x)) from 0 to nel = volfrac * nel
     x = np.linspace(0, 1, nel)
     densities = x**p
+    np.random.seed(42)
     np.random.shuffle(densities)
     result = densities
     u_vec = np.random.rand(

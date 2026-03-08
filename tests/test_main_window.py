@@ -376,7 +376,9 @@ def test__on_visibility_toggled(qt_app):
     window.close()
 
 
-def test_handle_optimization_results(qt_app):
+@patch("app.ui.main_window.np.savez_compressed")
+@patch("app.ui.main_window.os.makedirs")
+def test_handle_optimization_results(mock_makedirs, mock_savez, qt_app):
     """Test that _handle_optimization_results sets xPhys and enables buttons."""
     import numpy as np
 

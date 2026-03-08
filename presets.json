@@ -154,10 +154,10 @@
       "fidir": ["Y:\u2191"],
       "finorm": [0.01],
       "fox": [40],
-      "foy": [59],
+      "foy": [60],
       "foz": [0],
       "fodir": ["Y:\u2193"],
-      "fonorm": [0.0]
+      "fonorm": [0.01]
     },
     "Supports": {
       "sx": [40],
@@ -179,7 +179,7 @@
       "penal": 3.0,
       "eta": 0.3,
       "max_change": 0.05,
-      "n_it": 50,
+      "n_it": 35,
       "solver": "Auto"
     },
     "Displacement": {

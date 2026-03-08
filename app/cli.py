@@ -15,24 +15,114 @@ from app.core import optimizers
 from app.ui import exporters
 
 
-def _run_single_preset(preset_name, params, fmt, threshold, verbose=False):
+def _run_single_preset(
+    preset_name,
+    params,
+    fmt,
+    threshold,
+    verbose=False,
+    run_disp=False,
+    save_frames=False,
+):
     """Run optimization and export for a single preset. Returns (preset_name, error)."""
     if verbose:
         print(f"Running optimization for preset: {preset_name}")
 
-    # Clean params for optimizer
-    optimizer_params = params.copy()
-    if "Displacement" in optimizer_params:
-        optimizer_params.pop("Displacement")
+    xPhys = None
+    u = None
+    cache_file = Path("results") / preset_name / f"{preset_name}_density_field.npz"
+    if cache_file.exists():
+        if verbose:
+            print(f"[{preset_name}] Loading cached density field...")
+        try:
+            data = np.load(cache_file)
+            xPhys, u = data["xPhys"], data["u"]
+        except Exception as e:
+            if verbose:
+                print(f"[{preset_name}] Failed to load cache: {e}")
 
-    # Run optimization
-    try:
-        xPhys, _ = optimizers.optimize(**optimizer_params, verbose=verbose)
-    except Exception as e:
-        import traceback
+    if xPhys is None:
+        # Clean params for optimizer
+        optimizer_params = params.copy()
+        if "Displacement" in optimizer_params:
+            optimizer_params.pop("Displacement")
 
-        traceback.print_exc()
-        return preset_name, f"Optimization failed: {e}"
+        is_multimaterial = (
+            len(optimizer_params.get("Materials", {}).get("E", [1.0])) > 1
+        )
+        if "Materials" in optimizer_params:
+            optimizer_params["Materials"].pop("color", None)
+            if not is_multimaterial:
+                optimizer_params["Materials"].pop("percent", None)
+
+        if save_frames:
+
+            def progress_callback(iteration, objective, change, xPhys_frame):
+                folder = Path("results") / preset_name / f"{preset_name}_creation"
+                folder.mkdir(parents=True, exist_ok=True)
+                filename = folder / f"{preset_name}_creation_{iteration}.png"
+                colors = params.get("Materials", {}).get("color", None)
+                exporters.save_as_png(
+                    xPhys_frame, params["Dimensions"]["nelxyz"], str(filename), colors
+                )
+                return False
+
+            optimizer_params["progress_callback"] = progress_callback
+
+        # Run optimization
+        try:
+            if is_multimaterial:
+                xPhys, u = optimizers.optimize_multimaterial(
+                    **optimizer_params, verbose=verbose
+                )
+            else:
+                xPhys, u = optimizers.optimize(**optimizer_params, verbose=verbose)
+
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            np.savez_compressed(cache_file, xPhys=xPhys, u=u)
+            if verbose:
+                print(f"[{preset_name}] Cached density field.")
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            return preset_name, f"Optimization failed: {e}"
+
+    if run_disp and u is not None:
+        if verbose:
+            print(f"[{preset_name}] Running displacement...")
+        from app.core import displacements
+
+        disp_params = params.copy()
+        try:
+            disp_iter = 0
+
+            def disp_callback(iteration):
+                nonlocal disp_iter
+                disp_iter = iteration
+                return False
+
+            for frame_data in displacements.run_iterative_displacement(
+                disp_params, xPhys, disp_callback
+            ):
+                if save_frames:
+                    folder = (
+                        Path("results") / preset_name / f"{preset_name}_displacement"
+                    )
+                    folder.mkdir(parents=True, exist_ok=True)
+                    filename = folder / f"{preset_name}_displacement_{disp_iter}.png"
+                    colors = params.get("Materials", {}).get("color", None)
+                    exporters.save_as_png(
+                        frame_data,
+                        params["Dimensions"]["nelxyz"],
+                        str(filename),
+                        colors,
+                    )
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            return preset_name, f"Displacement failed: {e}"
 
     # Apply threshold if requested
     if threshold:
@@ -105,6 +195,18 @@ def run_cli():
         help="Binarize the result (black and white)",
     )
     parser.add_argument(
+        "-d",
+        "--displacement",
+        action="store_true",
+        help="Run displacement automatically after optimization",
+    )
+    parser.add_argument(
+        "-i",
+        "--intermediate",
+        action="store_true",
+        help="Save intermediate frames for both optimization and displacement",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -142,6 +244,8 @@ def run_cli():
             args.format,
             args.threshold,
             args.verbose,
+            args.displacement,
+            args.intermediate,
         )
         if error:
             print(error)
@@ -160,6 +264,8 @@ def run_cli():
                     args.format,
                     args.threshold,
                     args.verbose,
+                    args.displacement,
+                    args.intermediate,
                 ): name
                 for name in preset_names
             }
