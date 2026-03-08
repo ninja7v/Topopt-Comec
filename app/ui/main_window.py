@@ -424,6 +424,17 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         self.canvas.draw()
 
+        if self.optimizer_widget.save_frames_cb.isChecked():
+            preset_name = self.preset.presets_combo.currentText()
+            if preset_name and preset_name != "Select a preset...":
+                folder = os.path.join("results", preset_name, f"{preset_name}_creation")
+                os.makedirs(folder, exist_ok=True)
+                iteration = self.progress_bar.value()
+                filename = os.path.join(
+                    folder, f"{preset_name}_creation_{iteration}.png"
+                )
+                self.figure.savefig(filename, dpi=300, bbox_inches="tight")
+
     def _handle_optimization_results(self, result):
         """Handles the results after optimization finishes successfully."""
         self.xPhys, self.u = result
@@ -439,6 +450,19 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.analysis_widget.run_analysis_button.setEnabled(True)
         self.displacement_widget.run_disp_button.setEnabled(True)
         self.sections["Displacement"].visibility_button.setEnabled(True)
+        self.footer.stop_create_button_effect()
+
+        preset_name = self.preset.presets_combo.currentText()
+        if preset_name in self.presets:
+            os.makedirs(os.path.join("results", preset_name), exist_ok=True)
+            cache_file = os.path.join(
+                "results", preset_name, f"{preset_name}_density_field.npz"
+            )
+            try:
+                np.savez_compressed(cache_file, xPhys=self.xPhys, u=self.u)
+            except Exception as e:
+                print(f"Failed to save cache: {e}")
+
         self.replot()
 
     def _handle_optimization_error(self, error_msg):
@@ -592,6 +616,19 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
 
         # Redraw the canvas to show the changes
         self.canvas.draw()
+
+        if self.last_params.get("Displacement", {}).get("save_frames", False):
+            preset_name = self.preset.presets_combo.currentText()
+            if preset_name and preset_name != "Select a preset...":
+                folder = os.path.join(
+                    "results", preset_name, f"{preset_name}_displacement"
+                )
+                os.makedirs(folder, exist_ok=True)
+                iteration = self.progress_bar.value()
+                filename = os.path.join(
+                    folder, f"{preset_name}_displacement_{iteration}.png"
+                )
+                self.figure.savefig(filename, dpi=300, bbox_inches="tight")
 
     def _on_displacement_preview_changed(self):
         """Triggers a replot if the preview is active when displacement factor changes."""
@@ -870,8 +907,22 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         """Applies the parameters when a preset is selected from the combo box."""
         preset_name = self.preset.presets_combo.currentText()
         if preset_name in self.presets:
+            self.footer.start_create_button_effect()
             self._apply_parameters(self.presets[preset_name])
             self.preset.delete_preset_button.setEnabled(True)
+            cache_file = os.path.join(
+                "results", preset_name, f"{preset_name}_density_field.npz"
+            )
+            if os.path.exists(cache_file):
+                try:
+                    data = np.load(cache_file)
+                    self._handle_optimization_results((data["xPhys"], data["u"]))
+                    self.status_bar.showMessage(
+                        f"Loaded cached result for {preset_name}.", 5000
+                    )
+                except Exception as e:
+                    print(f"Failed to load cache: {e}")
+
         else:
             self.preset.delete_preset_button.setEnabled(False)
 
@@ -1016,8 +1067,8 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         while current_num > num_material_in_preset:
             last_btn = self.materials_widget.inputs[-1]["remove_btn"]
             try:
-                last_btn.clicked.disconnect(self.on_parameter_changed)
-            except TypeError:
+                last_btn.clicked.disconnect()
+            except (TypeError, RuntimeError):
                 pass
             self.materials_widget.remove_material(current_num - 1, False)
             current_num -= 1
@@ -1052,6 +1103,7 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.optimizer_widget.opt_max_change.setValue(po.get("max_change", 0.05))
         self.optimizer_widget.opt_n_it.setValue(po.get("n_it", 30))
         self.optimizer_widget.opt_solver.setCurrentText(po.get("solver", "Auto"))
+        self.optimizer_widget.save_frames_cb.setChecked(po.get("save_frames", False))
 
     def _apply_displacement_param(self, params):
         """Applies displacement parameters from a preset dictionary."""
@@ -1059,6 +1111,9 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         self.displacement_widget.mov_disp.setValue(Displacement.get("disp_factor", 1.0))
         self.displacement_widget.mov_iter.setValue(
             Displacement.get("disp_iterations", 1)
+        )
+        self.displacement_widget.save_frames_cb.setChecked(
+            Displacement.get("save_frames", False)
         )
 
     def _connect_forces_signals(self):
@@ -1163,7 +1218,6 @@ class MainWindow(QMainWindow, PlottingMixin, ParameterManagerMixin):
         # Update header icons
         self.header.info_button.setIcon(icons._get("info"))
         self.header.help_button.setIcon(icons._get("help"))
-        self.header.issue_button.setIcon(icons._get("issue"))
         # Update presets icons
         self.preset.save_preset_button.setIcon(icons._get("save"))
         self.preset.delete_preset_button.setIcon(icons._get("delete"))

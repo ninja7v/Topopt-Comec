@@ -42,6 +42,25 @@ LIGHT_THEME_STYLESHEET = """
         background-color: #C8C8C8;
     }
 
+    /* CheckBox */
+    QCheckBox {
+        spacing: 5px;
+    }
+    QCheckBox::indicator {
+        width: 14px;
+        height: 14px;
+        border: 1px solid #C0C0C0;
+        border-radius: 3px;
+        background-color: #FFFFFF;
+    }
+    QCheckBox::indicator:hover {
+        border: 1px solid #0078D7;
+    }
+    QCheckBox::indicator:checked {
+        background-color: #0078D7;
+        border: 1px solid #0078D7;
+    }
+
     /* Collapsible Section */
     #collapsibleTitleBar {
         background-color: #E0E0E0;
@@ -114,6 +133,25 @@ DARK_THEME_STYLESHEET = """
     }
     QPushButton:pressed, QToolButton:pressed {
         background-color: #4A4A4A;
+    }
+
+    /* CheckBox */
+    QCheckBox {
+        spacing: 5px;
+    }
+    QCheckBox::indicator {
+        width: 14px;
+        height: 14px;
+        border: 1px solid #5A5A5A;
+        border-radius: 3px;
+        background-color: #3C3C3C;
+    }
+    QCheckBox::indicator:hover {
+        border: 1px solid #0078D7;
+    }
+    QCheckBox::indicator:checked {
+        background-color: #0078D7;
+        border: 1px solid #0078D7;
     }
 
     /* Collapsible Section */

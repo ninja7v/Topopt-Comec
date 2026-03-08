@@ -110,6 +110,7 @@ class ParameterManagerMixin:
             "max_change": self.optimizer_widget.opt_max_change.value(),
             "n_it": self.optimizer_widget.opt_n_it.value(),
             "solver": self.optimizer_widget.opt_solver.currentText(),
+            "save_frames": self.optimizer_widget.save_frames_cb.isChecked(),
         }
         params["Optimizer"] = Optimizer
 
@@ -117,6 +118,7 @@ class ParameterManagerMixin:
         Displacement = {
             "disp_factor": self.displacement_widget.mov_disp.value(),
             "disp_iterations": self.displacement_widget.mov_iter.value(),
+            "save_frames": self.displacement_widget.save_frames_cb.isChecked(),
         }
         params["Displacement"] = Displacement
 
@@ -378,7 +380,7 @@ class ParameterManagerMixin:
                         pf[k] = list(unzipped[i])
                 else:
                     for k in keys:
-                        pf[k] = []
+                        pf.pop(k, None)
 
                 if is_2d and f"{prefix}z" in pf:
                     pf.pop(f"{prefix}z")

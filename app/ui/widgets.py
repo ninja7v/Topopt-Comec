@@ -5,6 +5,7 @@
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, Signal
 from PySide6.QtGui import QAction, QColor, QFont
 from PySide6.QtWidgets import (
+    QCheckBox,
     QColorDialog,
     QComboBox,
     QDoubleSpinBox,
@@ -1013,6 +1014,11 @@ class OptimizerWidget(QWidget):
         self.opt_solver = _make_combo(["Auto", "Direct", "Iterative"], 0, tip)
         layout.addWidget(self.opt_solver, 6, 1)
 
+        # Save frames
+        self.save_frames_cb = QCheckBox("Save frames")
+        self.save_frames_cb.setToolTip("Save intermediate optimization frames as PNG")
+        layout.addWidget(self.save_frames_cb, 7, 0, 1, 2)
+
 
 class AnalysisWidget(QWidget):
     """Custom widget for analysis."""
@@ -1088,6 +1094,11 @@ class DisplacementWidget(QWidget):
             None,
         )
         layout.addWidget(self.mov_iter, 1, 1)
+        # Bottom row with Checkbox and Button Stack
+        row2_layout = QHBoxLayout()
+        self.save_frames_cb = QCheckBox("Save frames")
+        self.save_frames_cb.setToolTip("Save intermediate displacement frames as PNG")
+        row2_layout.addWidget(self.save_frames_cb, 1)
         self.button_stack = QStackedLayout()
         # Move button
         self.run_disp_button = QPushButton("Move")
@@ -1109,7 +1120,9 @@ class DisplacementWidget(QWidget):
         self.button_stack.addWidget(self.reset_disp_button)
         self.button_stack_widget = QWidget()
         self.button_stack_widget.setLayout(self.button_stack)
-        layout.addWidget(self.button_stack_widget, 2, 0, 1, 2)
+        row2_layout.addWidget(self.button_stack_widget, 1)
+
+        layout.addLayout(row2_layout, 2, 0, 1, 2)
 
 
 class FooterWidget(QWidget):

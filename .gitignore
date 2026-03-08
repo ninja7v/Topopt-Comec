@@ -3,7 +3,12 @@ __pycache__/
 *.py[cod]
 
 # Saved results
-/results/
+results/*/*.png
+results/*/*.stl
+results/*/*.vti
+results/*/*.3mf
+results/*/*_creation/
+results/*/*_displacement/
 
 # Test outputs
 /Tests/test_output*

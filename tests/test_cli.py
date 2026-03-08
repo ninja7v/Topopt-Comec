@@ -27,6 +27,8 @@ def test_cli_help():
         assert cm.value.code == 0
 
 
+@patch("app.cli.np.savez_compressed")
+@patch("app.cli.Path.mkdir")
 @patch("app.cli.optimizers.optimize")
 @patch("app.cli.exporters")
 @patch("builtins.open")
@@ -38,6 +40,8 @@ def test_run_cli_valid_png(
     mock_open,
     mock_exporters,
     mock_optimize,
+    mock_mkdir,
+    mock_savez,
     mock_presets_data,
 ):
     """Test running CLI with a valid preset and png output."""
@@ -71,6 +75,8 @@ def test_run_cli_valid_png(
     assert str(args[2]).endswith(f"{preset_name}.png")
 
 
+@patch("app.cli.np.savez_compressed")
+@patch("app.cli.Path.mkdir")
 @patch("app.cli.optimizers.optimize")
 @patch("app.cli.exporters")
 @patch("builtins.open")
@@ -82,6 +88,8 @@ def test_run_cli_all_formats(
     mock_open,
     mock_exporters,
     mock_optimize,
+    mock_mkdir,
+    mock_savez,
     mock_presets_data,
 ):
     """Test running CLI with default format (all)."""
@@ -103,6 +111,8 @@ def test_run_cli_all_formats(
     mock_exporters.save_as_3mf.assert_called_once()
 
 
+@patch("app.cli.np.savez_compressed")
+@patch("app.cli.Path.mkdir")
 @patch("app.cli.optimizers.optimize")
 @patch("app.cli.exporters")
 @patch("builtins.open")
@@ -114,6 +124,8 @@ def test_run_cli_threshold(
     mock_open,
     mock_exporters,
     mock_optimize,
+    mock_mkdir,
+    mock_savez,
     mock_presets_data,
 ):
     """Test running CLI with threshold option."""
@@ -198,6 +210,8 @@ def test_run_cli_optimization_failure(
         assert cm.value.code == 1
 
 
+@patch("app.cli.np.savez_compressed")
+@patch("app.cli.Path.mkdir")
 @patch("app.cli.optimizers.optimize")
 @patch("app.cli.exporters")
 @patch("builtins.open")
@@ -209,6 +223,8 @@ def test_run_cli_export_failure(
     mock_open,
     mock_exporters,
     mock_optimize,
+    mock_mkdir,
+    mock_savez,
     mock_presets_data,
 ):
     """Test behavior when an exporter returns failure."""
@@ -247,6 +263,8 @@ class MockExecutor:
         return MockFuture(fn(*args, **kwargs))
 
 
+@patch("app.cli.np.savez_compressed")
+@patch("app.cli.Path.mkdir")
 @patch("app.cli.ProcessPoolExecutor", MockExecutor)
 @patch("app.cli.optimizers.optimize")
 @patch("app.cli.exporters")
@@ -259,6 +277,8 @@ def test_run_cli_multiple_presets(
     mock_open,
     mock_exporters,
     mock_optimize,
+    mock_mkdir,
+    mock_savez,
     mock_presets_data,
 ):
     """Test running CLI with multiple comma-separated presets."""
@@ -296,3 +316,101 @@ def test_run_cli_multiple_presets_one_invalid(
         with pytest.raises(SystemExit) as cm:
             run_cli()
         assert cm.value.code == 1
+
+
+@patch("app.cli.np.load")
+@patch("app.cli.optimizers.optimize")
+@patch("app.cli.exporters")
+@patch("builtins.open")
+@patch("json.load")
+@patch("app.cli.Path.exists")
+def test_run_cli_cache_hit(
+    mock_exists,
+    mock_json_load,
+    mock_open,
+    mock_exporters,
+    mock_optimize,
+    mock_np_load,
+    mock_presets_data,
+):
+    """Test that optimize is not called when cache is found."""
+    # First call: preset.json exists. Second call: cache exists
+    mock_exists.side_effect = [True, True]
+    mock_json_load.return_value = mock_presets_data
+
+    mock_np_load.return_value = {"xPhys": np.zeros(150), "u": np.zeros(300)}
+    mock_exporters.save_as_png.return_value = (True, None)
+
+    with patch.object(
+        sys, "argv", ["main.py", "-p", "ForceInverter_2Sup_2D", "-f", "png"]
+    ):
+        run_cli()
+
+    mock_optimize.assert_not_called()
+    mock_np_load.assert_called_once()
+    mock_exporters.save_as_png.assert_called_once()
+
+
+@patch("app.cli.np.savez_compressed")
+@patch("app.cli.optimizers.optimize")
+@patch("app.cli.exporters")
+@patch("builtins.open")
+@patch("json.load")
+@patch("app.cli.Path.exists")
+def test_run_cli_saving_cache(
+    mock_exists,
+    mock_json_load,
+    mock_open,
+    mock_exporters,
+    mock_optimize,
+    mock_savez,
+    mock_presets_data,
+):
+    """Test that cache is saved after a successful optimization."""
+    # First call: preset.json exists. Second call: cache does not exist
+    mock_exists.side_effect = [True, False]
+    mock_json_load.return_value = mock_presets_data
+
+    mock_optimize.return_value = (np.zeros(150), np.zeros(300))
+    mock_exporters.save_as_png.return_value = (True, None)
+
+    with patch.object(
+        sys, "argv", ["main.py", "-p", "ForceInverter_2Sup_2D", "-f", "png"]
+    ):
+        run_cli()
+
+    mock_optimize.assert_called_once()
+    mock_savez.assert_called_once()
+    mock_exporters.save_as_png.assert_called_once()
+
+
+@patch("app.core.displacements.run_iterative_displacement")
+@patch("app.cli.np.load")
+@patch("app.cli.optimizers.optimize")
+@patch("app.cli.exporters")
+@patch("builtins.open")
+@patch("json.load")
+@patch("app.cli.Path.exists")
+def test_run_cli_displacement_flag(
+    mock_exists,
+    mock_json_load,
+    mock_open,
+    mock_exporters,
+    mock_optimize,
+    mock_np_load,
+    mock_disp,
+    mock_presets_data,
+):
+    """Test that displacement runs when -d is passed."""
+    mock_exists.side_effect = [True, True]
+    mock_json_load.return_value = mock_presets_data
+    mock_np_load.return_value = {"xPhys": np.zeros(150), "u": np.zeros(300)}
+    mock_disp.return_value = [np.zeros((3, 150))]
+    mock_exporters.save_as_png.return_value = (True, None)
+
+    with patch.object(
+        sys, "argv", ["main.py", "-p", "ForceInverter_2Sup_2D", "-f", "png", "-d"]
+    ):
+        run_cli()
+
+    mock_disp.assert_called_once()
