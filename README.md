@@ -1,9 +1,8 @@
-TopoptComec
+<img width="30" height="30" alt="TopoptComec_logo" src="https://github.com/user-attachments/assets/deb508da-dc0c-430f-b2df-7aac0905c20b" /> TopoptComec
 ============
-
 **Interactive topology optimization for compliant mechanisms — unleash your creativity!**
 
-![topoptcomec_demo](https://github.com/user-attachments/assets/61474237-eb3a-48af-ae03-371615038686)
+![TopoptComec_demo](https://github.com/user-attachments/assets/ffec24fc-a139-4f22-b2c1-ff4f5273ca61)
 
 ## What is TopoptComec?
 TopoptComec helps you design compliant mechanisms — flexible structures that achieve motion through material deformation rather than joints.
@@ -33,11 +32,11 @@ pip install -r requirements.txt
 ### Run
 GUI:
 ```cmd
-py main.py
+python main.py
 ```
 CLI:
 ```cmd
-py main.py -p ForceInverter_2Sup_2D
+python main.py -p ForceInverter_2Sup_2D
 ```
 ### Create
 Tweak the parameters or choose a preset and hit "Create"!
@@ -48,7 +47,7 @@ Once you’re happy with your mechanism, export it for visualization in ParaView
 ## 📖Wiki
 The interface should feel intuitive, but you’ll find detailed visual explanations in the [Wiki](https://github.com/ninja7v/TopoptComec/wiki).
 
-![topoptcomec_intro](https://github.com/user-attachments/assets/a8dab27a-19f7-45c7-850d-23df27416b33)
+![TopoptComec_intro](https://github.com/user-attachments/assets/b36106a4-f642-4f50-9926-128de2fab463)
 
 ## ✍️Contribute
 Ideas, bug reports, or pull requests — all are welcome. Let’s build something awesome together!
