@@ -238,6 +238,9 @@ class ParameterManagerMixin:
             self.footer.save_button.setEnabled(False)
             self.analysis_widget.run_analysis_button.setEnabled(False)
             self.displacement_widget.run_disp_button.setEnabled(False)
+            self.displacement_widget.button_stack.setCurrentWidget(
+                self.displacement_widget.run_disp_button
+            )
             self.sections["Displacement"].visibility_button.setEnabled(False)
 
             # Reset the analysis
