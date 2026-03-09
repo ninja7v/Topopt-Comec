@@ -107,6 +107,11 @@ def optimize(
     if verbose:
         print("   Preparation done -> Optimization loop starting...")
     loop, change = 0, 1.0
+
+    # Emit frame 0 (initial density)
+    if progress_callback and progress_callback(0, 0.0, 1.0, xPhys.copy()):
+        pass
+
     while change > 0.01 and loop < n_it:
         loop += 1
         xold = x.copy()
@@ -226,6 +231,11 @@ def optimize_multimaterial(
     if verbose:
         print("   Preparation done -> Optimization loop starting...")
     loop, change = 0, 1.0
+
+    # Emit frame 0 (initial density)
+    if progress_callback and progress_callback(0, 0.0, 1.0, xPhys.copy()):
+        pass
+
     while change > 0.01 and loop < n_it:
         loop += 1
         xold = x.copy()
