@@ -1,8 +1,7 @@
-<img width="30" height="30" alt="TopoptComec_logo" src="https://github.com/user-attachments/assets/deb508da-dc0c-430f-b2df-7aac0905c20b" /> TopoptComec
+<img width="30" height="30" alt="TopoptComec_logo" src="https://github.com/user-attachments/assets/b93640d7-cda4-4a47-9a7a-783906d2c19c" /> TopoptComec
 ============
 **Interactive topology optimization for compliant mechanisms — unleash your creativity!**
-
-![TopoptComec_demo](https://github.com/user-attachments/assets/ffec24fc-a139-4f22-b2c1-ff4f5273ca61)
+![TopoptComec_demo](https://github.com/user-attachments/assets/24a2853e-c53b-44d8-89d0-d7df75364ca9)
 
 ## What is TopoptComec?
 TopoptComec helps you design compliant mechanisms — flexible structures that achieve motion through material deformation rather than joints.
