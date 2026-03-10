@@ -500,7 +500,7 @@ class ForcesWidget(QWidget):
     def inputs(self):
         return self.input_forces + self.output_forces
 
-    def add_input_force(self, pos=None, arrow_idx=0, norm=0.0, emit_signal=True):
+    def add_input_force(self, pos=None, arrow_idx=1, norm=0.01, emit_signal=True):
         if len(self.input_forces) >= 10:
             return
 
@@ -559,7 +559,7 @@ class ForcesWidget(QWidget):
             self.nbForcesChanged.emit()
         self.update_ui_state()
 
-    def add_output_force(self, pos=None, arrow_idx=0, norm=0.0, emit_signal=True):
+    def add_output_force(self, pos=None, arrow_idx=1, norm=0.01, emit_signal=True):
         if len(self.output_forces) >= 10:
             return
 
