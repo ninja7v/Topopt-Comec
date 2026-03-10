@@ -97,6 +97,7 @@ def optimize(
         # Helper to get active coordinate arrays for initialization
         *_get_active_coords(Supports, Forces, fem.is_3d),
     )
+    x = fem.apply_regions(x, Regions)
     xPhys = x.copy()
     g = 0.0
 
@@ -116,8 +117,7 @@ def optimize(
         loop += 1
         xold = x.copy()
 
-        # Apply Constraints & Analyze
-        xPhys = fem.apply_regions(xPhys, Regions)
+        # Finite element analysis
         ui, uo = fem.solve(xPhys)
 
         # Optional: Compute Objective Value for Console Output (can also be computed inside compute_sensitivities for efficiency)
@@ -130,6 +130,9 @@ def optimize(
         x, g = _oc(fem.nel, x, eta, max_change, dc, dv, g)
         xPhys = fem.update_xPhys(x)
 
+        # Apply regions
+        xPhys = fem.apply_regions(xPhys, Regions)
+
         # Check Convergence
         change = np.linalg.norm(x - xold, np.inf)
         if verbose:
@@ -141,9 +144,6 @@ def optimize(
             if verbose:
                 print("Optimization stopped by user.")
             break
-
-    # Apply regions after the last iteration
-    xPhys = fem.apply_regions(xPhys, Regions)
 
     if verbose:
         print("Optimizer finished.")
@@ -221,6 +221,8 @@ def optimize_multimaterial(
         fem.nelz,
         *_get_active_coords(Supports, Forces, fem.is_3d),
     )
+    for i in range(n_mat):
+        x[i] = fem.apply_regions(x[i], Regions)
     xPhys = x.copy()
     g = np.zeros(n_mat)
 
@@ -240,9 +242,7 @@ def optimize_multimaterial(
         loop += 1
         xold = x.copy()
 
-        # Apply Constraints & Analyze
-        for i in range(n_mat):
-            xPhys[i] = fem.apply_regions(xPhys[i], Regions)
+        # Finite element analysis
         ui, uo = fem.solve(xPhys)
 
         # Optional: Compute Objective Value for Console Output (can also be computed inside compute_sensitivities for efficiency)
@@ -259,6 +259,10 @@ def optimize_multimaterial(
             # Update Design Variables
             x[i], g[i] = _oc(fem.nel, x[i], eta, max_change, dc_i, dv_i, g[i])
             xPhys[i] = fem.update_xPhys(x[i])
+
+        # Apply regions
+        for i in range(n_mat):
+            xPhys[i] = fem.apply_regions(xPhys[i], Regions)
 
         # Partition-of-unity constraint: ensure sum of densities <= 1 per element
         col_sums = xPhys.sum(axis=0)
@@ -279,10 +283,6 @@ def optimize_multimaterial(
             if verbose:
                 print("Optimization stopped by user.")
             break
-
-    # Apply regions after the last iteration
-    for i in range(n_mat):
-        xPhys[i] = fem.apply_regions(xPhys[i], Regions)
 
     if verbose:
         print("Multi-material optimizer finished.")
