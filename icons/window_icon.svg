@@ -8,7 +8,7 @@
    version="1.1"
    id="svg1"
    inkscape:version="1.3.2 (091e20e, 2023-11-25, custom)"
-   sodipodi:docname="logo.svg"
+   sodipodi:docname="TopoptComec_logo2.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -26,7 +26,7 @@
      showgrid="true"
      inkscape:zoom="1"
      inkscape:cx="261.5"
-     inkscape:cy="167.5"
+     inkscape:cy="166.5"
      inkscape:window-width="1920"
      inkscape:window-height="1009"
      inkscape:window-x="-8"
@@ -61,8 +61,8 @@
        style="fill:#808080;fill-opacity:1;fill-rule:evenodd;stroke:#74aa76;stroke-width:0"
        d="m 0,0 v 30.000236 h 30.000236 v 49.999532 h 9.999906 V 90.000191 H 90.000191 V 59.999955 H 59.999955 V 30.000236 H 90.000191 V 0 Z" />
     <path
-       id="rect2-3"
-       style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#74aa76;stroke-width:0"
-       d="M 9.9999064,9.9999064 V 19.999813 H 40.000142 v 50.000049 h 9.999907 V 19.999813 H 79.999768 V 9.9999064 Z M 50.000049,69.999862 v 9.999906 h 29.999719 v -9.999906 z" />
+       id="rect1"
+       style="fill:#000000;fill-rule:evenodd;stroke:#74aa76;stroke-width:0"
+       d="M 9.9999064 9.9999064 L 9.9999064 19.999813 L 40.000142 19.999813 L 40.000142 9.9999064 L 9.9999064 9.9999064 z M 40.000142 19.999813 L 40.000142 69.999862 L 50.000049 69.999862 L 50.000049 19.999813 L 40.000142 19.999813 z M 50.000049 19.999813 L 79.999768 19.999813 L 79.999768 9.9999064 L 50.000049 9.9999064 L 50.000049 19.999813 z M 50.000049 69.999862 L 50.000049 79.999768 L 79.999768 79.999768 L 79.999768 69.999862 L 50.000049 69.999862 z " />
   </g>
 </svg>
