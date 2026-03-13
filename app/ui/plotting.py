@@ -551,9 +551,9 @@ class PlottingMixin:
                 dy[i] = length
             elif c == "↓":
                 dy[i] = -length
-            elif is_3d and c == ">":
-                dz[i] = length
             elif is_3d and c == "<":
+                dz[i] = length
+            elif is_3d and c == ">":
                 dz[i] = -length
 
         return dx, dy, dz
